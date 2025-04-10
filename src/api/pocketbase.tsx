@@ -1,7 +1,5 @@
 import PocketBase from "pocketbase";
-
-const url = "https://outgoing-caribou-completely.ngrok-free.app";
-// const url = "https://lifemac.local";
+const url = import.meta.env.VITE_POCKETBASE_URL;
 
 const Pb = new PocketBase(url)
 

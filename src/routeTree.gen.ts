@@ -12,6 +12,7 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as ServiceImport } from './routes/service'
+import { Route as ProfileImport } from './routes/profile'
 import { Route as LineAppImport } from './routes/line-app'
 import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
@@ -23,6 +24,12 @@ import { Route as PostsPostIdImport } from './routes/posts/$postId'
 const ServiceRoute = ServiceImport.update({
   id: '/service',
   path: '/service',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const ProfileRoute = ProfileImport.update({
+  id: '/profile',
+  path: '/profile',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -81,6 +88,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LineAppImport
       parentRoute: typeof rootRoute
     }
+    '/profile': {
+      id: '/profile'
+      path: '/profile'
+      fullPath: '/profile'
+      preLoaderRoute: typeof ProfileImport
+      parentRoute: typeof rootRoute
+    }
     '/service': {
       id: '/service'
       path: '/service'
@@ -111,6 +125,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/line-app': typeof LineAppRoute
+  '/profile': typeof ProfileRoute
   '/service': typeof ServiceRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/posts': typeof PostsIndexRoute
@@ -120,6 +135,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/line-app': typeof LineAppRoute
+  '/profile': typeof ProfileRoute
   '/service': typeof ServiceRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/posts': typeof PostsIndexRoute
@@ -130,6 +146,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/line-app': typeof LineAppRoute
+  '/profile': typeof ProfileRoute
   '/service': typeof ServiceRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/posts/': typeof PostsIndexRoute
@@ -141,16 +158,25 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/line-app'
+    | '/profile'
     | '/service'
     | '/posts/$postId'
     | '/posts'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/line-app' | '/service' | '/posts/$postId' | '/posts'
+  to:
+    | '/'
+    | '/about'
+    | '/line-app'
+    | '/profile'
+    | '/service'
+    | '/posts/$postId'
+    | '/posts'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/line-app'
+    | '/profile'
     | '/service'
     | '/posts/$postId'
     | '/posts/'
@@ -161,6 +187,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   LineAppRoute: typeof LineAppRoute
+  ProfileRoute: typeof ProfileRoute
   ServiceRoute: typeof ServiceRoute
   PostsPostIdRoute: typeof PostsPostIdRoute
   PostsIndexRoute: typeof PostsIndexRoute
@@ -170,6 +197,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   LineAppRoute: LineAppRoute,
+  ProfileRoute: ProfileRoute,
   ServiceRoute: ServiceRoute,
   PostsPostIdRoute: PostsPostIdRoute,
   PostsIndexRoute: PostsIndexRoute,
@@ -188,6 +216,7 @@ export const routeTree = rootRoute
         "/",
         "/about",
         "/line-app",
+        "/profile",
         "/service",
         "/posts/$postId",
         "/posts/"
@@ -201,6 +230,9 @@ export const routeTree = rootRoute
     },
     "/line-app": {
       "filePath": "line-app.tsx"
+    },
+    "/profile": {
+      "filePath": "profile.tsx"
     },
     "/service": {
       "filePath": "service.tsx"

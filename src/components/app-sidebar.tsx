@@ -10,7 +10,6 @@ import {
   LucideUserRound, LucideHome, GlassesIcon
 } from "lucide-react"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
-
 const data = {
   teams: [
     {
@@ -33,7 +32,7 @@ const data = {
     },
     {
       title: "เจ้าหน้าที่",
-      url: "#",
+      url: "/line-app",
       icon: GlassesIcon,
       isActive: true,
     },
@@ -54,7 +53,7 @@ const data = {
       items: [
         {
           title: "ลูกบ้าน & เจ้าหน้าที่",
-          url: "#",
+          url: "/line-app",
         },
         {
           title: "บุคคลภายนอก",
@@ -100,7 +99,6 @@ const data = {
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const authRecord = Pb.authStore.record!;
   const { first_name, last_name, email } = authRecord;
-  console.log(Pb.files.getURL(authRecord, authRecord.avatar));
   const user = {
     name: first_name + " " + last_name,
     email: email,
