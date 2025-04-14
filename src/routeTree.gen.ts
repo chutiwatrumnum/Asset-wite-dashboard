@@ -12,8 +12,11 @@
 
 import { Route as rootRoute } from './routes/__root'
 import { Route as ServiceImport } from './routes/service'
+import { Route as SaffImport } from './routes/saff'
 import { Route as ProfileImport } from './routes/profile'
+import { Route as LoginImport } from './routes/login'
 import { Route as LineAppImport } from './routes/line-app'
+import { Route as DashboardImport } from './routes/dashboard'
 import { Route as AboutImport } from './routes/about'
 import { Route as IndexImport } from './routes/index'
 import { Route as PostsIndexImport } from './routes/posts/index'
@@ -27,15 +30,33 @@ const ServiceRoute = ServiceImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
+const SaffRoute = SaffImport.update({
+  id: '/saff',
+  path: '/saff',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const ProfileRoute = ProfileImport.update({
   id: '/profile',
   path: '/profile',
   getParentRoute: () => rootRoute,
 } as any)
 
+const LoginRoute = LoginImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => rootRoute,
+} as any)
+
 const LineAppRoute = LineAppImport.update({
   id: '/line-app',
   path: '/line-app',
+  getParentRoute: () => rootRoute,
+} as any)
+
+const DashboardRoute = DashboardImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -81,6 +102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AboutImport
       parentRoute: typeof rootRoute
     }
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardImport
+      parentRoute: typeof rootRoute
+    }
     '/line-app': {
       id: '/line-app'
       path: '/line-app'
@@ -88,11 +116,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LineAppImport
       parentRoute: typeof rootRoute
     }
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginImport
+      parentRoute: typeof rootRoute
+    }
     '/profile': {
       id: '/profile'
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileImport
+      parentRoute: typeof rootRoute
+    }
+    '/saff': {
+      id: '/saff'
+      path: '/saff'
+      fullPath: '/saff'
+      preLoaderRoute: typeof SaffImport
       parentRoute: typeof rootRoute
     }
     '/service': {
@@ -124,8 +166,11 @@ declare module '@tanstack/react-router' {
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/dashboard': typeof DashboardRoute
   '/line-app': typeof LineAppRoute
+  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/saff': typeof SaffRoute
   '/service': typeof ServiceRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/posts': typeof PostsIndexRoute
@@ -134,8 +179,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/dashboard': typeof DashboardRoute
   '/line-app': typeof LineAppRoute
+  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/saff': typeof SaffRoute
   '/service': typeof ServiceRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/posts': typeof PostsIndexRoute
@@ -145,8 +193,11 @@ export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/dashboard': typeof DashboardRoute
   '/line-app': typeof LineAppRoute
+  '/login': typeof LoginRoute
   '/profile': typeof ProfileRoute
+  '/saff': typeof SaffRoute
   '/service': typeof ServiceRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/posts/': typeof PostsIndexRoute
@@ -157,8 +208,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/about'
+    | '/dashboard'
     | '/line-app'
+    | '/login'
     | '/profile'
+    | '/saff'
     | '/service'
     | '/posts/$postId'
     | '/posts'
@@ -166,8 +220,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/dashboard'
     | '/line-app'
+    | '/login'
     | '/profile'
+    | '/saff'
     | '/service'
     | '/posts/$postId'
     | '/posts'
@@ -175,8 +232,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/about'
+    | '/dashboard'
     | '/line-app'
+    | '/login'
     | '/profile'
+    | '/saff'
     | '/service'
     | '/posts/$postId'
     | '/posts/'
@@ -186,8 +246,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
+  DashboardRoute: typeof DashboardRoute
   LineAppRoute: typeof LineAppRoute
+  LoginRoute: typeof LoginRoute
   ProfileRoute: typeof ProfileRoute
+  SaffRoute: typeof SaffRoute
   ServiceRoute: typeof ServiceRoute
   PostsPostIdRoute: typeof PostsPostIdRoute
   PostsIndexRoute: typeof PostsIndexRoute
@@ -196,8 +259,11 @@ export interface RootRouteChildren {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
+  DashboardRoute: DashboardRoute,
   LineAppRoute: LineAppRoute,
+  LoginRoute: LoginRoute,
   ProfileRoute: ProfileRoute,
+  SaffRoute: SaffRoute,
   ServiceRoute: ServiceRoute,
   PostsPostIdRoute: PostsPostIdRoute,
   PostsIndexRoute: PostsIndexRoute,
@@ -215,8 +281,11 @@ export const routeTree = rootRoute
       "children": [
         "/",
         "/about",
+        "/dashboard",
         "/line-app",
+        "/login",
         "/profile",
+        "/saff",
         "/service",
         "/posts/$postId",
         "/posts/"
@@ -228,11 +297,20 @@ export const routeTree = rootRoute
     "/about": {
       "filePath": "about.tsx"
     },
+    "/dashboard": {
+      "filePath": "dashboard.tsx"
+    },
     "/line-app": {
       "filePath": "line-app.tsx"
     },
+    "/login": {
+      "filePath": "login.tsx"
+    },
     "/profile": {
       "filePath": "profile.tsx"
+    },
+    "/saff": {
+      "filePath": "saff.tsx"
     },
     "/service": {
       "filePath": "service.tsx"
