@@ -1,6 +1,5 @@
-import { createFileRoute } from '@tanstack/react-router'
-import LoginPage from "@/pages/login/LoginPage.tsx";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 
-export const Route = createFileRoute('/')({
-  component: LoginPage,
-})
+export const Route = createFileRoute("/")({
+    component: () => <Navigate to="/dashboard" />,
+});

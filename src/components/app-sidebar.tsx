@@ -10,6 +10,7 @@ import {
   LucideUserRound, LucideHome, GlassesIcon
 } from "lucide-react"
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+import { encryptStorage } from "@/utils/encryptStorage";
 const data = {
   teams: [
     {
@@ -26,29 +27,29 @@ const data = {
   navMain: [
     {
       title: "แดชบอร์ด",
-      url: "#",
+      url: "/dashboard",
       icon: LucideHome,
       isActive: true,
     },
     {
       title: "เจ้าหน้าที่",
-      url: "/line-app",
+      url: "/saff",
       icon: GlassesIcon,
       isActive: true,
     },
     {
       title: "ลูกบ้าน",
-      url: "#",
+      url: "/residents",
       icon: LucideUserRound,
     },
     {
       title: "นัดหมาย",
-      url: "#",
+      url: "/appointments",
       icon: LucideCalendar,
     },
     {
       title: "ยานพาหนะ",
-      url: "#",
+      url: "",
       icon: LucideCar,
       items: [
         {
@@ -57,22 +58,22 @@ const data = {
         },
         {
           title: "บุคคลภายนอก",
-          url: "#",
+          url: "/visitor",
         },
       ],
     },
     {
       title: "ประวัติการเข้าออก",
-      url: "#",
+      url: "/history-in-out",
       icon: LucideFileClock,
       items: [
         {
           title: "การนัดหมาย",
-          url: "#",
+          url: "/appointments",
         },
         {
           title: "ยานพาหนะ",
-          url: "#",
+          url: "/vehicles",
         },
       ],
     },
@@ -80,24 +81,27 @@ const data = {
   projects: [
     {
       name: "Design Engineering",
-      url: "#",
+      url: "/design-engineering",
       icon: Frame,
     },
     {
       name: "Sales & Marketing",
-      url: "#",
+      url: "/sales-marketing",
       icon: PieChart,
     },
     {
       name: "Travel",
-      url: "#",
+      url: "/travel",
       icon: Map,
     },
   ],
 }
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const authRecord = Pb.authStore.record!;
+  const authRecord = encryptStorage.getItem("user");
+  if (!authRecord) {
+   return 
+  }
   const { first_name, last_name, email } = authRecord;
   const user = {
     name: first_name + " " + last_name,

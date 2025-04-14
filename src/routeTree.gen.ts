@@ -11,36 +11,15 @@
 // Import Routes
 
 import { Route as rootRoute } from './routes/__root'
-import { Route as ServiceImport } from './routes/service'
-import { Route as SaffImport } from './routes/saff'
-import { Route as ProfileImport } from './routes/profile'
 import { Route as LoginImport } from './routes/login'
 import { Route as LineAppImport } from './routes/line-app'
-import { Route as DashboardImport } from './routes/dashboard'
-import { Route as AboutImport } from './routes/about'
+import { Route as AuthenticatedImport } from './routes/_authenticated'
+import { Route as ForbiddenImport } f./routes/Forbiddens/Forbidden'
 import { Route as IndexImport } from './routes/index'
-import { Route as PostsIndexImport } from './routes/posts/index'
-import { Route as PostsPostIdImport } from './routes/posts/$postId'
+import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
+import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
 
 // Create/Update Routes
-
-const ServiceRoute = ServiceImport.update({
-  id: '/service',
-  path: '/service',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const SaffRoute = SaffImport.update({
-  id: '/saff',
-  path: '/saff',
-  getParentRoute: () => rootRoute,
-} as any)
-
-const ProfileRoute = ProfileImport.update({
-  id: '/profile',
-  path: '/profile',
-  getParentRoute: () => rootRoute,
-} as any)
 
 const LoginRoute = LoginImport.update({
   id: '/login',
@@ -54,15 +33,14 @@ const LineAppRoute = LineAppImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const DashboardRoute = DashboardImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedRoute = AuthenticatedImport.update({
+  id: '/_authenticated',
   getParentRoute: () => rootRoute,
 } as any)
 
-const AboutRoute = AboutImport.update({
-  id: '/about',
-  path: '/about',
+const ForbiddenRoute = ForbiddenImport.update({
+  id: '/Forbidden',
+  path: '/Forbidden',
   getParentRoute: () => rootRoute,
 } as any)
 
@@ -72,16 +50,16 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const PostsIndexRoute = PostsIndexImport.update({
-  id: '/posts/',
-  path: '/posts/',
-  getParentRoute: () => rootRoute,
+const AuthenticatedSaffRoute = AuthenticatedSaffImport.update({
+  id: '/saff',
+  path: '/saff',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 
-const PostsPostIdRoute = PostsPostIdImport.update({
-  id: '/posts/$postId',
-  path: '/posts/$postId',
-  getParentRoute: () => rootRoute,
+const AuthenticatedDashboardRoute = AuthenticatedDashboardImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRoute,
 } as any)
 
 // Populate the FileRoutesByPath interface
@@ -95,18 +73,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexImport
       parentRoute: typeof rootRoute
     }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutImport
+    '/Forbidden': {
+      id: '/Forbidden'
+      path: '/Forbidden'
+      fullPath: '/Forbidden'
+      preLoaderRoute: typeof ForbiddenImport
       parentRoute: typeof rootRoute
     }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardImport
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthenticatedImport
       parentRoute: typeof rootRoute
     }
     '/line-app': {
@@ -123,150 +101,108 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginImport
       parentRoute: typeof rootRoute
     }
-    '/profile': {
-      id: '/profile'
-      path: '/profile'
-      fullPath: '/profile'
-      preLoaderRoute: typeof ProfileImport
-      parentRoute: typeof rootRoute
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardImport
+      parentRoute: typeof AuthenticatedImport
     }
-    '/saff': {
-      id: '/saff'
+    '/_authenticated/saff': {
+      id: '/_authenticated/saff'
       path: '/saff'
       fullPath: '/saff'
-      preLoaderRoute: typeof SaffImport
-      parentRoute: typeof rootRoute
-    }
-    '/service': {
-      id: '/service'
-      path: '/service'
-      fullPath: '/service'
-      preLoaderRoute: typeof ServiceImport
-      parentRoute: typeof rootRoute
-    }
-    '/posts/$postId': {
-      id: '/posts/$postId'
-      path: '/posts/$postId'
-      fullPath: '/posts/$postId'
-      preLoaderRoute: typeof PostsPostIdImport
-      parentRoute: typeof rootRoute
-    }
-    '/posts/': {
-      id: '/posts/'
-      path: '/posts'
-      fullPath: '/posts'
-      preLoaderRoute: typeof PostsIndexImport
-      parentRoute: typeof rootRoute
+      preLoaderRoute: typeof AuthenticatedSaffImport
+      parentRoute: typeof AuthenticatedImport
     }
   }
 }
 
 // Create and export the route tree
 
+interface AuthenticatedRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedSaffRoute: AuthenticatedSaffRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/dashboard': typeof DashboardRoute
+  '/Forbidden': typeof ForbiddenRoute
+  '': typeof AuthenticatedRouteWithChildren
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
-  '/saff': typeof SaffRoute
-  '/service': typeof ServiceRoute
-  '/posts/$postId': typeof PostsPostIdRoute
-  '/posts': typeof PostsIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/saff': typeof AuthenticatedSaffRoute
 }
 
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/dashboard': typeof DashboardRoute
+  '/Forbidden': typeof ForbiddenRoute
+  '': typeof AuthenticatedRouteWithChildren
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
-  '/saff': typeof SaffRoute
-  '/service': typeof ServiceRoute
-  '/posts/$postId': typeof PostsPostIdRoute
-  '/posts': typeof PostsIndexRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
+  '/saff': typeof AuthenticatedSaffRoute
 }
 
 export interface FileRoutesById {
   __root__: typeof rootRoute
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/dashboard': typeof DashboardRoute
+  '/Forbidden': typeof ForbiddenRoute
+  '/_authenticated': typeof AuthenticatedRouteWithChildren
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
-  '/profile': typeof ProfileRoute
-  '/saff': typeof SaffRoute
-  '/service': typeof ServiceRoute
-  '/posts/$postId': typeof PostsPostIdRoute
-  '/posts/': typeof PostsIndexRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/saff': typeof AuthenticatedSaffRoute
 }
 
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
-    | '/dashboard'
+    | '/Forbidden'
+    | ''
     | '/line-app'
     | '/login'
-    | '/profile'
+    | '/dashboard'
     | '/saff'
-    | '/service'
-    | '/posts/$postId'
-    | '/posts'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/about'
-    | '/dashboard'
-    | '/line-app'
-    | '/login'
-    | '/profile'
-    | '/saff'
-    | '/service'
-    | '/posts/$postId'
-    | '/posts'
+  to: '/' | '/Forbidden' | '' | '/line-app' | '/login' | '/dashboard' | '/saff'
   id:
     | '__root__'
     | '/'
-    | '/about'
-    | '/dashboard'
+    | '/Forbidden'
+    | '/_authenticated'
     | '/line-app'
     | '/login'
-    | '/profile'
-    | '/saff'
-    | '/service'
-    | '/posts/$postId'
-    | '/posts/'
+    | '/_authenticated/dashboard'
+    | '/_authenticated/saff'
   fileRoutesById: FileRoutesById
 }
 
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
-  DashboardRoute: typeof DashboardRoute
+  ForbiddenRoute: typeof ForbiddenRoute
+  AuthenticatedRoute: typeof AuthenticatedRouteWithChildren
   LineAppRoute: typeof LineAppRoute
   LoginRoute: typeof LoginRoute
-  ProfileRoute: typeof ProfileRoute
-  SaffRoute: typeof SaffRoute
-  ServiceRoute: typeof ServiceRoute
-  PostsPostIdRoute: typeof PostsPostIdRoute
-  PostsIndexRoute: typeof PostsIndexRoute
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
-  DashboardRoute: DashboardRoute,
+  ForbiddenRoute: ForbiddenRoute,
+  AuthenticatedRoute: AuthenticatedRouteWithChildren,
   LineAppRoute: LineAppRoute,
   LoginRoute: LoginRoute,
-  ProfileRoute: ProfileRoute,
-  SaffRoute: SaffRoute,
-  ServiceRoute: ServiceRoute,
-  PostsPostIdRoute: PostsPostIdRoute,
-  PostsIndexRoute: PostsIndexRoute,
 }
 
 export const routeTree = rootRoute
@@ -280,25 +216,24 @@ export const routeTree = rootRoute
       "filePath": "__root.tsx",
       "children": [
         "/",
-        "/about",
-        "/dashboard",
+        "/Forbidden",
+        "/_authenticated",
         "/line-app",
-        "/login",
-        "/profile",
-        "/saff",
-        "/service",
-        "/posts/$postId",
-        "/posts/"
+        "/login"
       ]
     },
     "/": {
       "filePath": "index.tsx"
     },
-    "/about": {
-      "filePath": "about.tsx"
+    "/Forbidden": {
+      "filePath": "Forbidden.tsx"
     },
-    "/dashboard": {
-      "filePath": "dashboard.tsx"
+    "/_authenticated": {
+      "filePath": "_authenticated.ts",
+      "children": [
+        "/_authenticated/dashboard",
+        "/_authenticated/saff"
+      ]
     },
     "/line-app": {
       "filePath": "line-app.tsx"
@@ -306,20 +241,13 @@ export const routeTree = rootRoute
     "/login": {
       "filePath": "login.tsx"
     },
-    "/profile": {
-      "filePath": "profile.tsx"
+    "/_authenticated/dashboard": {
+      "filePath": "_authenticated/dashboard.tsx",
+      "parent": "/_authenticated"
     },
-    "/saff": {
-      "filePath": "saff.tsx"
-    },
-    "/service": {
-      "filePath": "service.tsx"
-    },
-    "/posts/$postId": {
-      "filePath": "posts/$postId.tsx"
-    },
-    "/posts/": {
-      "filePath": "posts/index.tsx"
+    "/_authenticated/saff": {
+      "filePath": "_authenticated/saff.tsx",
+      "parent": "/_authenticated"
     }
   }
 }

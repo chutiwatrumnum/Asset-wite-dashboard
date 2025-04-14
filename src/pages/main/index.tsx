@@ -13,21 +13,10 @@ import {
 } from "@/components/ui/sidebar"
 import { AppSidebar } from "@/components/app-sidebar"
 import { Sheet } from "@/components/ui/sheet.tsx";
-import { SheetDemo } from "@/pages/services/sheet-demo.tsx";
-import { useNavigate } from "@tanstack/react-router";
-
-import Pb from "@/api/pocketbase.tsx";
-import DataTable from "@/pages/services/data-table.tsx";
+import { Outlet, useLocation } from "@tanstack/react-router";
 
 export default function Main() {
-  const navigate = useNavigate();
-
-  if (!Pb.authStore.isValid) {
-    navigate({ to: "/" }).then((result) => {
-      console.log(result);
-    })
-  }
-
+  const location = useLocation();
   return (
     <SidebarProvider>
       <AppSidebar/>
@@ -42,7 +31,7 @@ export default function Main() {
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden md:block">
                     <BreadcrumbLink href="#">
-                      Building Your Application
+                     {location.pathname}
                     </BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block"/>
@@ -54,10 +43,10 @@ export default function Main() {
             </div>
           </header>
           <div className="flex flex-1 flex-col select-none gap-4 p-4 pt-0">
-            <DataTable/>
+          <Outlet />
+            {/* <DataTable/> */}
           </div>
         </SidebarInset>
-        <SheetDemo/>
       </Sheet>
 
     </SidebarProvider>

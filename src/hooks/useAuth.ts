@@ -1,9 +1,14 @@
-import { encryptStorage } from "@/utils/encryptStorage";
 
-export const useAuth = async () => {
-    const isLogged = (await encryptStorage.getItem("accessToken")) ? true : false;
+export const useAuth =  () => {
+    const isLogged=() =>{
+       return  localStorage.getItem("isLogged")
+    }
+    const role=() => {
+        return localStorage.getItem("role")
+    }
+        
 
-    return { isLogged };
+    return { isLogged,role };
 };
 
 export type AuthContext = ReturnType<typeof useAuth>;
