@@ -39,7 +39,6 @@ export function LoginForm({ className }: React.ComponentProps<"form">) {
             await navigate({ to: "/", replace: true });
         } catch (error) {
             console.log(error);
-
             setErrorMessageLoginFaild({
                 title: "Login Failed",
                 description: "Invalid email or password",
