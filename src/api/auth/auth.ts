@@ -8,7 +8,13 @@ const getSaff = async (saffReq: saffRequest): Promise<saffResponse> => {
     const response= await axios.get<saffResponse>("/api/collections/admin/records", {params:saffReq})
     return response.data
 };
-export { login,getSaff };
+
+const deleteSaff = async (id: string): Promise<null> => {
+   await axios.delete(`/api/collections/admin/records/${id}`);
+   return null
+    
+}
+export { login,getSaff,deleteSaff };
 export interface authResponse {
     record: Record;
     token: string;

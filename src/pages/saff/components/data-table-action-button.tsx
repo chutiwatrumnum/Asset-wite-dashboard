@@ -5,11 +5,21 @@ import { SheetTrigger } from "@/components/ui/sheet.tsx";
 import { Cell } from "@tanstack/react-table";
 import { THouse, TStaffRole, useStaffProfile } from "@/store/staff-profile.tsx";
 import { saffItem } from "@/api/auth/auth";
+import { useDeleteSaffMutation } from "@/react-query/manage/auth/auth";
+import { MessageDialog } from "@/components/modal";
+import { useState } from "react";
 // import { useMutation } from "@tanstack/react-query";
 
 function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
     const { setEmail, setRole, setHouse } = useStaffProfile();
-
+    const { mutateAsync } = useDeleteSaffMutation();
+    const [MessageLoginFaild, setMessageLoginFaild] = useState<{
+        title: string;
+        description: string;
+    }>({
+        title: "",
+        description: "",
+    });
     // const {data} = useMutation({
     //   mutationKey: ["update-profile", id],
     //   mutationFn: async () => {
@@ -29,14 +39,11 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
                 <SheetTrigger asChild>
                     <DropdownMenuItem
                         className={"w-[150px] font-anuphan"}
-                        onClick={() => {
+                        onClick={async () => {
                             const email = info.row.getValue("email") as string;
                             const role = info.row.getValue("role") as TStaffRole;
                             const expand: THouse = info.row.getValue("expand");
                             const house = expand?.house_id.address;
-
-                            // const rowId = info.row.getValue("id");
-                            // console.log(rowId);
 
                             setEmail(email);
                             setRole(role);
@@ -48,11 +55,23 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
                     </DropdownMenuItem>
                 </SheetTrigger>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className={"w-[150px] font-anuphan"} onClick={() => {}}>
+                <DropdownMenuItem
+                    className={"w-[150px] font-anuphan"}
+                    onClick={async () => {
+                        const rowId = info.row.getValue("id");
+                        console.log(rowId);
+                        await mutateAsync(rowId as string);
+                        setMessageLoginFaild({
+                            title: "Delete Success",
+                            description: "Delete Success",
+                        })
+                    }}
+                >
                     <LucideTrash className="w-8 h-8 mr-1" />
                     Delete
                 </DropdownMenuItem>
             </DropdownMenuContent>
+            <MessageDialog Message={MessageLoginFaild} />
         </DropdownMenu>
     );
 }
