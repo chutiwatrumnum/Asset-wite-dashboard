@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import DataTableBody from "@/pages/saff/components/data-table-body.tsx";
 import DataTableToolbar from "@/pages/saff/components/data-table-toolbar.tsx";
 import DataTablePagination from "@/pages/saff/components/data-table-pagination.tsx";
-import { CreateSaffDialog } from "@/pages/saff/components/create-saff-dialog.tsx";
+import { CreateSaffDrawer } from "@/pages/saff/components/create-saff-dialog.tsx";
 
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Toaster } from "@/components/ui/sonner.tsx";
@@ -114,7 +114,7 @@ export default function Saff() {
           <CardTitle className="font-anuphan font-light text-2xl tracking-wider">
             จัดการข้อมูลพนักงาน
           </CardTitle>
-          <CreateSaffDialog onSaffCreated={refetch} />
+          <CreateSaffDrawer onSaffCreated={refetch} />
         </CardHeader>
         <CardContent>
           <p className="text-muted-foreground">

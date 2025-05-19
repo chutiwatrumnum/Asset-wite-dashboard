@@ -60,17 +60,11 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
                     onClick={async () => {
                         const rowId = info.row.getValue("id");
                         console.log(rowId);
-                        try {
-                            
-                            await mutateAsync(rowId as string)
-                            setMessageLoginFaild({
-                                title: "Delete Success",
-                                description: "Delete Success",
-                            })
-                        } catch (error) {
-                            console.log("error:",error);
-                            
-                        }
+                        await mutateAsync(rowId as string);
+                        setMessageLoginFaild({
+                            title: "Delete Success",
+                            description: "Delete Success",
+                        })
                     }}
                 >
                     <LucideTrash className="w-8 h-8 mr-1" />
