@@ -26,13 +26,13 @@ export function LoginForm({ className }: React.ComponentProps<"form">) {
     });
     const { control, handleSubmit, formState } = useForm<AuthInputs>();
     const navigate = useNavigate();
-    const loginMutation = useLoginMutation();
+    const {mutateAsync: loginMutation} = useLoginMutation();
 
     const onSubmit = async (data: AuthInputs) => {
         setIsFormDisabled(true);
 
         try {
-            await loginMutation.mutateAsync({
+            await loginMutation({
                 identity: data.email,
                 password: data.password,
             });

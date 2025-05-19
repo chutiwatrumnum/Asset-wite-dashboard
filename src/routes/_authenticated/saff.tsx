@@ -1,6 +1,6 @@
 import Saff from "@/pages/saff";
 import { createFileRoute, redirect } from "@tanstack/react-router";
-const accessRoleLst = ["master", "saff"];
+const accessRoleLst = ["master", "staff"];
 export const Route = createFileRoute("/_authenticated/saff")({
     beforeLoad: async ({ context }) => {
         const { role } = context.authentication;

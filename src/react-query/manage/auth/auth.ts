@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { deleteSaff, getSaff, saffRequest, saffResponse } from "@/api/auth/auth";
+import { createStaff, deleteSaff, getSaff, newSaffRequest, saffRequest, saffResponse } from "@/api/auth/auth";
 
 export const useSaffListQuery = (payloadQuery: saffRequest) => {
     const query = useQuery<saffResponse, Error>({
@@ -20,6 +20,24 @@ export const useDeleteSaffMutation = () => {
         onSuccess: (data) => {
             console.log('data:', data);
             queryClient.invalidateQueries({ queryKey: ["saffList"] });
+        },
+    });
+
+    return mutation;
+};
+
+export const useCreateSaffMutation = () => {
+    const queryClient = useQueryClient();
+    const mutation = useMutation<null, Error, newSaffRequest>({
+        mutationFn:  createStaff,
+        onSuccess: (data) => {
+            console.log('data:', data);
+            queryClient.invalidateQueries({ queryKey: ["saffList"] });
+        },
+        onError(error:Error, variables, context) {
+            console.log('error:', error);
+            console.log('variables:', variables);
+            console.log('context:', context);
         },
     });
 
