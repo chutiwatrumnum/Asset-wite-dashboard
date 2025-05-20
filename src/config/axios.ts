@@ -2,7 +2,7 @@
 import { encryptStorage } from "@/utils/encryptStorage";
 import axios from "axios";
 axios.defaults.baseURL = import.meta.env.VITE_POCKETBASE_URL;
-axios.defaults.headers.post["Content-Type"] = "application/json";
+// axios.defaults.headers.post["Content-Type"] = "application/json";
 axios.interceptors.request.use(
     async (request) => {
         const accessToken = await encryptStorage.getItem("accessToken");

@@ -5,6 +5,8 @@ const login = async (authReq: authRequest): Promise<authResponse> => {
     //  const response= await axios.post<authResponse>("/api/collections/admin/auth-with-password", authReq)
     //  return response.data
     const authData = await Pb.collection('admin').authWithPassword<authResponse>(authReq.identity, authReq.password);
+   console.log("authData:", Pb.authStore.token);
+   
     return authData.record;
 };
 const getSaff = async (request: saffRequest): Promise<saffResponse> => {
@@ -20,6 +22,7 @@ const getSaff = async (request: saffRequest): Promise<saffResponse> => {
     // fetch a paginated records list
 const userList = await Pb.collection('admin').getList<saffItem>(request.page, request.perPage, {
     filter: `id!="${Pb.authStore.record?.id}"`,
+    sort: '-created',
 });
 return userList
 };
@@ -35,10 +38,23 @@ const deleteSaff = async (id: string): Promise<null> => {
 
 const createStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
 
-//   return await Pb.collection('admin').create(newStaffReq);
-    
-         const response= await axios.post("/api/collections/admin/records", newStaffReq)
-         console.log("response:",response);
+    const formData = new FormData();
+    formData.append("email", newStaffReq.email);
+    formData.append("password", newStaffReq.password);
+    formData.append("passwordConfirm", newStaffReq.passwordConfirm);
+    formData.append("role", newStaffReq.role);
+    formData.append("house_id", newStaffReq.house_id);
+    formData.append("emailVisibility", "true");
+    if (newStaffReq.first_name) {
+        formData.append("first_name", newStaffReq.first_name);
+    }
+    if (newStaffReq.last_name) {
+        formData.append("last_name", newStaffReq.last_name);
+    }
+    if (newStaffReq.avatar) {
+        formData.append("avatar", newStaffReq.avatar);
+    }
+    await Pb.collection("admin").create(formData);
          
      return null
 }
@@ -56,7 +72,7 @@ export interface newSaffRequest {
     house_id: string
     first_name: string
     last_name: string
-    image?: File
+    avatar?: File
   }
 export interface authRequest {
     identity: string;
