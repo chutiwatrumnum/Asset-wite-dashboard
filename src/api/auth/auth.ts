@@ -1,43 +1,28 @@
-import axios from "axios";
 import Pb from "../pocketbase";
 
 const login = async (authReq: authRequest): Promise<authResponse> => {
-    //  const response= await axios.post<authResponse>("/api/collections/admin/auth-with-password", authReq)
-    //  return response.data
-    const authData = await Pb.collection('admin').authWithPassword<authResponse>(authReq.identity, authReq.password);
-   console.log("authData:", Pb.authStore.token);
-   
+    const authData = await Pb.collection("admin").authWithPassword<authResponse>(authReq.identity, authReq.password);
+    console.log("authData:", Pb.authStore.token);
+
     return authData.record;
 };
 const getSaff = async (request: saffRequest): Promise<saffResponse> => {
-    // let baseUrl = '/api/collections/admin/records';
-    // const user = await encryptStorage.getItem("user");
-
-    // if (user?.id) {
-    //     baseUrl = `/api/collections/admin/records?filter!=id="${user.id}"`;
-    // }
-
-    // const response = await axios.get<saffResponse>(baseUrl, { params: request });
-    // return response.data;
-    // fetch a paginated records list
-const userList = await Pb.collection('admin').getList<saffItem>(request.page, request.perPage, {
-    filter: `id!="${Pb.authStore.record?.id}"`,
-    sort: '-created',
-});
-return userList
+    const userList = await Pb.collection("admin").getList<saffItem>(request.page, request.perPage, {
+        filter: `id!="${Pb.authStore.record?.id}"`,
+        sort: "-created",
+    });
+    return userList;
 };
 
 const deleteSaff = async (id: string): Promise<null> => {
-    setTimeout(() => {
-        return null
-    }, 3000);
-    return null
-   await axios.delete(`/api/collections/admin/records/${id}`);
-    
-}
+    setTimeout(async() => {
+        await Pb.collection("admin").delete(id);
+    }, 10000);
+   
+    return null;
+};
 
 const createStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
-
     const formData = new FormData();
     formData.append("email", newStaffReq.email);
     formData.append("password", newStaffReq.password);
@@ -55,25 +40,21 @@ const createStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
         formData.append("avatar", newStaffReq.avatar);
     }
     await Pb.collection("admin").create(formData);
-         
-     return null
-}
-export { login,getSaff,deleteSaff,createStaff };
-// export interface authResponse {
-//     record: Record;
-//     token: string;
-// }
+
+    return null;
+};
+export { login, getSaff, deleteSaff, createStaff };
 
 export interface newSaffRequest {
-    email: string
-    password: string
-    passwordConfirm: string
-    role: string
-    house_id: string
-    first_name: string
-    last_name: string
-    avatar?: File
-  }
+    email: string;
+    password: string;
+    passwordConfirm: string;
+    role: string;
+    house_id: string;
+    first_name: string;
+    last_name: string;
+    avatar?: File;
+}
 export interface authRequest {
     identity: string;
     password: string;
@@ -96,31 +77,31 @@ export interface authResponse {
 }
 
 export interface saffRequest {
-    page?:       number;
-    perPage?:    number;
-    sort?:       string;
+    page?: number;
+    perPage?: number;
+    sort?: string;
 }
 export interface saffResponse {
-    items:      saffItem[];
-    page:       number;
-    perPage:    number;
+    items: saffItem[];
+    page: number;
+    perPage: number;
     totalItems: number;
     totalPages: number;
 }
 
 export interface saffItem {
-    collectionId: string
-    collectionName: string
-    id: string
-    email: string
-    emailVisibility: boolean
-    verified: boolean
-    first_name: string
-    last_name: string
-    avatar: string
-    role: string
-    house_id: string
-    authorized_area: string[]
-    created: string
-    updated: string
+    collectionId: string;
+    collectionName: string;
+    id: string;
+    email: string;
+    emailVisibility: boolean;
+    verified: boolean;
+    first_name: string;
+    last_name: string;
+    avatar: string;
+    role: string;
+    house_id: string;
+    authorized_area: string[];
+    created: string;
+    updated: string;
 }

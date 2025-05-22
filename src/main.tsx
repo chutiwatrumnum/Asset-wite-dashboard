@@ -1,6 +1,6 @@
 import { StrictMode } from "react";
 import ReactDOM from "react-dom/client";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
+import { RouterProvider, createHashHistory, createRouter } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "@/components/theme-provider";
 import "./config/axios";
@@ -9,11 +9,11 @@ import "./index.css";
 // Import the generated route tree
 import { routeTree } from "./routeTree.gen";
 import { useAuth } from "./hooks/useAuth";
-
 // Create a new router instance
 const router = createRouter({
-  routeTree,
-  context: { authentication: undefined! },
+    routeTree,
+    history: createHashHistory(),
+    context: { authentication: undefined! },
 });
 
 // Register the router instance for type safety
@@ -31,10 +31,9 @@ const queryClient = new QueryClient({
     },
 });
 
-
 function App() {
-  const authentication = useAuth();
-  return <RouterProvider router={router} context={{ authentication }} />;
+    const authentication = useAuth();
+    return <RouterProvider router={router} context={{ authentication }} />;
 }
 // Render the app
 const rootElement = document.getElementById("root")!;

@@ -6,7 +6,7 @@ export const useSaffListQuery = (payloadQuery: saffRequest) => {
         queryKey: ["saffList", payloadQuery],
         queryFn: () => getSaff(payloadQuery),
         select(dataList) {
-         return dataList
+            return dataList;
         },
         retry: false,
     });
@@ -17,8 +17,7 @@ export const useDeleteSaffMutation = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation<null, Error, string>({
         mutationFn: (adminId) => deleteSaff(adminId),
-        onSuccess: (data) => {
-            console.log('data:', data);
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["saffList"] });
         },
     });
@@ -29,15 +28,14 @@ export const useDeleteSaffMutation = () => {
 export const useCreateSaffMutation = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation<null, Error, newSaffRequest>({
-        mutationFn:  createStaff,
-        onSuccess: (data) => {
-            console.log('data:', data);
+        mutationFn: createStaff,
+        onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["saffList"] });
         },
-        onError(error:Error, variables, context) {
-            console.log('error:', error);
-            console.log('variables:', variables);
-            console.log('context:', context);
+        onError(error: Error, variables, context) {
+            console.log("error:", error);
+            console.log("variables:", variables);
+            console.log("context:", context);
         },
     });
 
