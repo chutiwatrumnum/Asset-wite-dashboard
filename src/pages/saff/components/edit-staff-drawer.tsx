@@ -1,12 +1,12 @@
 "use client";
 
 import type React from "react";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Upload, UserRoundPlus, X, Eye, EyeOff, Wand2 } from "lucide-react";
+import { Upload, X, Eye, EyeOff, Wand2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -14,7 +14,6 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
@@ -42,6 +41,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useHouseListQuery } from "@/react-query/manage/house";
+import { useCreateSaffMutation } from "@/react-query/manage/auth";
+import type { HouseItem } from "@/api/house/house";
+import type { saffItem, newSaffRequest } from "@/api/auth/auth";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,10 +55,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useHouseListQuery } from "@/react-query/manage/house";
-import { useCreateSaffMutation } from "@/react-query/manage/auth";
-import type { HouseItem } from "@/api/house/house";
-import type { newSaffRequest } from "@/api/auth/auth";
 
 type roleSelectList = {
   value: string;
@@ -77,17 +76,20 @@ const roleSelectList: roleSelectList[] = [
   },
 ];
 
-// สร้าง schema สำหรับตรวจสอบฟอร์ม
-const formSchema = z
+const editFormSchema = z
   .object({
     email: z.string().email({ message: "Please enter a valid email address" }),
     password: z
       .string()
-      .min(8, { message: "Password must be at least 8 characters" })
-      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
-        message: "Password must contain uppercase, lowercase and numbers",
+      .optional()
+      .refine((val) => !val || val.length >= 8, {
+        message: "Password must be at least 8 characters if provided",
+      })
+      .refine((val) => !val || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(val), {
+        message:
+          "Password must contain uppercase, lowercase and numbers if provided",
       }),
-    passwordConfirm: z.string(),
+    passwordConfirm: z.string().optional(),
     role: z.string().min(1, { message: "Role is required" }),
     house_id: z.string().min(1, { message: "House ID is required" }),
     first_name: z
@@ -100,32 +102,46 @@ const formSchema = z
       .optional(),
     avatar: z.any().optional(),
   })
-  .refine((data) => data.password === data.passwordConfirm, {
-    message: "Passwords do not match",
-    path: ["passwordConfirm"],
-  });
+  .refine(
+    (data) => {
+      if (data.password || data.passwordConfirm) {
+        return data.password === data.passwordConfirm;
+      }
+      return true;
+    },
+    {
+      message: "Passwords do not match",
+      path: ["passwordConfirm"],
+    }
+  );
 
-interface CreateSaffDrawerProps {
-  onSaffCreated: () => void;
+interface EditStaffDrawerProps {
+  staffData: saffItem | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onStaffUpdated: () => void;
 }
 
-export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
+export function EditStaffDrawer({
+  staffData,
+  open,
+  onOpenChange,
+  onStaffUpdated,
+}: EditStaffDrawerProps) {
   const { data: houseList } = useHouseListQuery({});
-  const [open, setOpen] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { mutateAsync: createSaff } = useCreateSaffMutation();
+  const { mutateAsync: updateStaff } = useCreateSaffMutation();
 
-  // กำหนดค่า form ด้วย useForm และใช้ zodResolver
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof editFormSchema>>({
+    resolver: zodResolver(editFormSchema),
     defaultValues: {
       email: "",
       password: "",
@@ -138,49 +154,97 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
     },
   });
 
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
+  // Complete reset function
+  const resetAllStates = useCallback(() => {
+    if (!isMountedRef.current) return;
+
+    setShowPassword(false);
+    setShowConfirmPassword(false);
+    setImagePreview(null);
+    setImageError(null);
+    setIsLoading(false);
+    setConfirmOpen(false);
+    setIsDirty(false);
+
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+
+    form.reset({
+      email: "",
+      password: "",
+      passwordConfirm: "",
+      role: "",
+      house_id: "",
+      first_name: "",
+      last_name: "",
+      avatar: undefined,
+    });
+  }, [form]);
+
   // Reset form when drawer closes
   useEffect(() => {
     if (!open) {
-      setShowPassword(false);
-      setShowConfirmPassword(false);
-      setImagePreview(null);
-      setImageError(null);
-      setIsLoading(false);
-      setConfirmOpen(false);
-      setIsDirty(false);
-
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-
-      form.reset();
+      // Reset immediately when drawer closes
+      resetAllStates();
     }
-  }, [open, form]);
+  }, [open, resetAllStates]);
+
+  // Populate form when staffData changes and drawer opens
+  useEffect(() => {
+    if (staffData && open) {
+      const formData = {
+        email: staffData.email || "",
+        password: "",
+        passwordConfirm: "",
+        role: staffData.role || "",
+        house_id: staffData.expand?.house_id?.id || "",
+        first_name: staffData.first_name || "",
+        last_name: staffData.last_name || "",
+        avatar: undefined,
+      };
+
+      form.reset(formData);
+
+      if (staffData.avatar) {
+        setImagePreview(staffData.avatar);
+      }
+      setIsDirty(false);
+    }
+  }, [staffData, open, form]);
 
   // Watch for form changes
   useEffect(() => {
     if (!open) return;
 
     const subscription = form.watch(() => {
-      setIsDirty(true);
+      if (open && isMountedRef.current) {
+        setIsDirty(true);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [form, open]);
 
-  // Function to generate a secure password that meets Pocketbase requirements
   function generateSecurePassword() {
-    // Define character sets
     const uppercaseChars = "ABCDEFGHJKLMNPQRSTUVWXYZ";
     const lowercaseChars = "abcdefghijkmnopqrstuvwxyz";
     const numberChars = "23456789";
     const specialChars = "!@#$%^&*_-+=";
 
-    // Generate a password with at least 12 characters
     const length = 12;
     let password = "";
 
-    // Ensure at least one character from each required set
     password += uppercaseChars.charAt(
       Math.floor(Math.random() * uppercaseChars.length)
     );
@@ -194,24 +258,19 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
       Math.floor(Math.random() * specialChars.length)
     );
 
-    // Fill the rest with random characters from all sets
     const allChars =
       uppercaseChars + lowercaseChars + numberChars + specialChars;
     for (let i = password.length; i < length; i++) {
       password += allChars.charAt(Math.floor(Math.random() * allChars.length));
     }
 
-    // Shuffle the password to make it more random
     password = password
       .split("")
       .sort(() => 0.5 - Math.random())
       .join("");
 
-    // Set both password fields
     form.setValue("password", password);
     form.setValue("passwordConfirm", password);
-
-    // Trigger validation
     form.trigger(["password", "passwordConfirm"]);
   }
 
@@ -219,61 +278,94 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
     if (isDirty && !isLoading) {
       setConfirmOpen(true);
     } else {
-      setOpen(false);
+      // Close immediately if no changes
+      resetAllStates();
+      onOpenChange(false);
     }
   };
 
   const handleConfirmClose = () => {
+    // Reset everything and close
     setConfirmOpen(false);
-    setOpen(false);
+    resetAllStates();
+    onOpenChange(false);
   };
 
   const handleCancelClose = () => {
+    // Just close the confirmation dialog
     setConfirmOpen(false);
   };
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  async function onSubmit(values: z.infer<typeof editFormSchema>) {
+    if (!staffData || isLoading || !isMountedRef.current) return;
+
+    const isDataChanged =
+      values.email !== staffData.email ||
+      values.role !== staffData.role ||
+      values.house_id !== staffData.expand?.house_id?.id ||
+      values.first_name !== staffData.first_name ||
+      values.last_name !== staffData.last_name ||
+      values.password !== "" ||
+      values.avatar !== undefined;
+
+    if (!isDataChanged) {
+      toast.warning("ไม่มีการเปลี่ยนแปลงข้อมูล");
+      return;
+    }
+
+    setIsLoading(true);
     try {
-      setIsLoading(true);
-      await createSaff(values as newSaffRequest);
+      const updateData: newSaffRequest = {
+        email: values.email,
+        role: values.role,
+        house_id: values.house_id,
+        first_name: values.first_name || "",
+        last_name: values.last_name || "",
+      };
 
-      toast.success("เพิ่มพนักงานสำเร็จแล้ว", {
-        description: "ข้อมูลพนักงานใหม่ถูกเพิ่มเข้าระบบเรียบร้อยแล้ว",
-        duration: 4000,
-      });
+      if (values.password) {
+        updateData.password = values.password;
+        updateData.passwordConfirm = values.passwordConfirm || "";
+      }
 
-      form.reset();
-      setOpen(false);
-      onSaffCreated();
-    } catch (error) {
-      console.error("Create staff failed:", error);
-      toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
-        description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
-      });
+      if (values.avatar) {
+        updateData.avatar = values.avatar;
+      }
+
+      await updateStaff(updateData);
+
+      // Check if component is still mounted before updating state
+      if (isMountedRef.current) {
+        toast.success("อัปเดตข้อมูลสำเร็จ");
+        resetAllStates();
+        onStaffUpdated();
+      }
+    } catch (error: any) {
+      console.error("Update staff failed:", error);
+      if (isMountedRef.current) {
+        toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
+      }
     } finally {
-      setIsLoading(false);
+      if (isMountedRef.current) {
+        setIsLoading(false);
+      }
     }
   }
 
-  // Function to handle image upload with improved error handling
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setImageError(null);
       const files = e.target.files;
 
-      if (!files || files.length === 0) {
-        return;
-      }
+      if (!files || files.length === 0) return;
 
       const file = files[0];
 
-      // Validate file type
       if (!file.type.startsWith("image/")) {
         setImageError("กรุณาเลือกไฟล์รูปภาพเท่านั้น");
         return;
       }
 
-      // Validate file size (max 5MB)
       if (file.size > 5 * 1024 * 1024) {
         setImageError("ขนาดไฟล์ต้องไม่เกิน 5MB");
         return;
@@ -281,24 +373,12 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
 
       form.setValue("avatar", file);
 
-      // Create a URL for the image preview
       const reader = new FileReader();
       reader.onload = () => {
-        try {
-          if (typeof reader.result === "string") {
-            setImagePreview(reader.result);
-          }
-        } catch (error) {
-          console.error("Error creating image preview:", error);
-          setImageError("เกิดข้อผิดพลาดในการแสดงตัวอย่างรูปภาพ");
+        if (typeof reader.result === "string") {
+          setImagePreview(reader.result);
         }
       };
-
-      reader.onerror = () => {
-        console.error("FileReader error:", reader.error);
-        setImageError("เกิดข้อผิดพลาดในการอ่านไฟล์");
-      };
-
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("Error handling image upload:", error);
@@ -306,13 +386,11 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
     }
   };
 
-  // Function to remove the image
   const removeImage = () => {
-    setImagePreview(null);
+    setImagePreview(staffData?.avatar || null);
     setImageError(null);
     form.setValue("avatar", undefined);
 
-    // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -320,28 +398,18 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <SheetTrigger asChild>
-                <Button variant="default" className="gap-2">
-                  <UserRoundPlus className="h-4 w-4" />
-                  เพิ่มพนักงาน
-                </Button>
-              </SheetTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>เพิ่มข้อมูลพนักงานใหม่</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
+      <Sheet
+        open={open}
+        onOpenChange={(open) => {
+          if (isMountedRef.current) {
+            setConfirmOpen(open);
+          }
+        }}>
         <SheetContent className="sm:max-w-[500px] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>เพิ่มข้อมูลพนักงานใหม่</SheetTitle>
+            <SheetTitle>แก้ไขข้อมูลพนักงาน</SheetTitle>
             <SheetDescription>
-              กรอกข้อมูลพนักงานที่ต้องการเพิ่มในระบบ
+              แก้ไขข้อมูลพนักงาน {staffData?.email}
             </SheetDescription>
           </SheetHeader>
 
@@ -368,12 +436,6 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                               <AvatarImage
                                 src={imagePreview || "/placeholder.svg"}
                                 alt="Profile preview"
-                                onError={() => {
-                                  setImageError(
-                                    "เกิดข้อผิดพลาดในการแสดงรูปภาพ"
-                                  );
-                                  setImagePreview(null);
-                                }}
                               />
                             ) : (
                               <AvatarFallback>
@@ -422,7 +484,6 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                     )}
                   />
 
-                  {/* First name field */}
                   <FormField
                     control={form.control}
                     name="first_name"
@@ -442,7 +503,6 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                     )}
                   />
 
-                  {/* Last name field */}
                   <FormField
                     control={form.control}
                     name="last_name"
@@ -487,7 +547,12 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                     render={({ field }) => (
                       <FormItem>
                         <div className="flex justify-between items-center">
-                          <FormLabel>Password</FormLabel>
+                          <FormLabel>
+                            Password{" "}
+                            <span className="text-muted-foreground text-sm">
+                              (เว้นว่างไว้หากไม่ต้องการเปลี่ยน)
+                            </span>
+                          </FormLabel>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -517,37 +582,19 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                               disabled={isLoading}
                             />
                           </FormControl>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="absolute right-0 top-0 h-full px-3 text-muted-foreground"
-                                  onClick={() => setShowPassword(!showPassword)}
-                                  disabled={isLoading}>
-                                  {showPassword ? (
-                                    <EyeOff className="h-4 w-4" />
-                                  ) : (
-                                    <Eye className="h-4 w-4" />
-                                  )}
-                                  <span className="sr-only">
-                                    {showPassword
-                                      ? "hide password"
-                                      : "show password"}
-                                  </span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {showPassword
-                                    ? "ซ่อนรหัสผ่าน"
-                                    : "แสดงรหัสผ่าน"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3 text-muted-foreground"
+                            onClick={() => setShowPassword(!showPassword)}
+                            disabled={isLoading}>
+                            {showPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -569,39 +616,21 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                               disabled={isLoading}
                             />
                           </FormControl>
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  className="absolute right-0 top-0 h-full px-3 text-muted-foreground"
-                                  onClick={() =>
-                                    setShowConfirmPassword(!showConfirmPassword)
-                                  }
-                                  disabled={isLoading}>
-                                  {showConfirmPassword ? (
-                                    <EyeOff className="h-4 w-4" />
-                                  ) : (
-                                    <Eye className="h-4 w-4" />
-                                  )}
-                                  <span className="sr-only">
-                                    {showConfirmPassword
-                                      ? "hide password"
-                                      : "show password"}
-                                  </span>
-                                </Button>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>
-                                  {showConfirmPassword
-                                    ? "ซ่อนรหัสผ่าน"
-                                    : "แสดงรหัสผ่าน"}
-                                </p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="absolute right-0 top-0 h-full px-3 text-muted-foreground"
+                            onClick={() =>
+                              setShowConfirmPassword(!showConfirmPassword)
+                            }
+                            disabled={isLoading}>
+                            {showConfirmPassword ? (
+                              <EyeOff className="h-4 w-4" />
+                            ) : (
+                              <Eye className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                         <FormMessage />
                       </FormItem>
@@ -624,7 +653,7 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {roleSelectList.map((role: roleSelectList) => (
+                            {roleSelectList.map((role) => (
                               <SelectItem key={role.value} value={role.value}>
                                 {role.label}
                               </SelectItem>
@@ -677,7 +706,7 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
                       ยกเลิก
                     </Button>
                     <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "กำลังบันทึก..." : "บันทึก"}
+                      {isLoading ? "กำลังอัปเดต..." : "อัปเดต"}
                     </Button>
                   </SheetFooter>
                 </form>
@@ -687,27 +716,36 @@ export function CreateSaffDrawer({ onSaffCreated }: CreateSaffDrawerProps) {
         </SheetContent>
       </Sheet>
 
-      {/* Confirmation Dialog */}
-      <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณกำลังจะปิดแบบฟอร์มนี้ ข้อมูลที่คุณกรอกอาจไม่ถูกบันทึก
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={handleCancelClose}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmClose}>
-              ยืนยัน
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Confirmation Dialog - Only render when needed */}
+      {confirmOpen && (
+        <AlertDialog
+          open={confirmOpen}
+          onOpenChange={(open) => {
+            if (isMountedRef.current) {
+              setConfirmOpen(open);
+            }
+          }}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
+              <AlertDialogDescription>
+                คุณกำลังจะปิดแบบฟอร์มนี้
+                ข้อมูลที่คุณทำการเปลี่ยนแปลงอาจไม่ถูกบันทึก
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={handleCancelClose}>
+                ยกเลิก
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={handleConfirmClose}>
+                ยืนยัน
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </>
   );
 }
 
-export default CreateSaffDrawer;
+export default EditStaffDrawer;
