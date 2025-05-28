@@ -15,10 +15,10 @@ const getSaff = async (request: saffRequest): Promise<saffResponse> => {
 };
 
 const deleteSaff = async (id: string): Promise<null> => {
-    setTimeout(async() => {
-        await Pb.collection("admin").delete(id);
+    await Pb.collection("admin").delete(id);
+    setTimeout(async () => {
     }, 10000);
-   
+
     return null;
 };
 
