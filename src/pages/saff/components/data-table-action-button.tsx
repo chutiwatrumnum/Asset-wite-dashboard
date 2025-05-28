@@ -13,7 +13,7 @@ import type { Cell } from "@tanstack/react-table";
 import type { saffItem } from "@/api/auth/auth";
 import { useDeleteSaffMutation } from "@/react-query/manage/auth/auth";
 import { MessageDialog } from "@/components/modal";
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState } from "react";
 import { EditStaffDrawer } from "./edit-staff-drawer";
 import {
   AlertDialog,
@@ -45,26 +45,6 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const queryClient = useQueryClient();
 
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Reset all states
-  const resetAllStates = useCallback(() => {
-    if (!isMountedRef.current) return;
-
-    setIsEditDrawerOpen(false);
-    setSelectedStaff(null);
-    setShowDeleteDialog(false);
-    setIsDeleting(false);
-    setDropdownOpen(false);
-    setMessageLoginFaild({ title: "", description: "" });
-  }, []);
-
   const handleEditClick = () => {
     try {
       // Close dropdown first
@@ -77,7 +57,6 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
     } catch (error) {
       console.error("Error opening edit drawer:", error);
       toast.error("เกิดข้อผิดพลาดในการเปิดหน้าแก้ไข");
-      resetAllStates();
     }
   };
 
@@ -86,13 +65,14 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
       console.log("Staff updated successfully");
       queryClient.invalidateQueries({ queryKey: ["saffList"] });
 
-      // Reset all states after successful update
-      resetAllStates();
+      // Reset states
+      setIsEditDrawerOpen(false);
+      setSelectedStaff(null);
+      setDropdownOpen(false);
 
       toast.success("อัปเดตข้อมูลสำเร็จ");
     } catch (error) {
       console.error("Error updating staff list:", error);
-      resetAllStates();
     }
   };
 
@@ -103,12 +83,11 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
       setShowDeleteDialog(true);
     } catch (error) {
       console.error("Error opening delete dialog:", error);
-      resetAllStates();
     }
   };
 
   const handleDelete = async () => {
-    if (isDeleting || !isMountedRef.current) return;
+    if (isDeleting) return;
 
     setIsDeleting(true);
     try {
@@ -117,33 +96,31 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
 
       await mutateAsync(rowId as string);
 
-      if (isMountedRef.current) {
-        toast.success("ลบข้อมูลสำเร็จ", {
-          description: "ข้อมูลพนักงานถูกลบแล้ว",
-        });
+      // Show success message
+      toast.success("ลบข้อมูลสำเร็จ", {
+        description: "ข้อมูลพนักงานถูกลบแล้ว",
+      });
 
-        queryClient.invalidateQueries({ queryKey: ["saffList"] });
+      // Refresh the data
+      queryClient.invalidateQueries({ queryKey: ["saffList"] });
 
-        setMessageLoginFaild({
-          title: "Delete Success",
-          description: "Delete Success",
-        });
-      }
+      setMessageLoginFaild({
+        title: "Delete Success",
+        description: "Delete Success",
+      });
     } catch (error) {
       console.error("Error deleting staff:", error);
-      if (isMountedRef.current) {
-        toast.error("เกิดข้อผิดพลาดในการลบข้อมูล", {
-          description: "กรุณาลองใหม่อีกครั้ง",
-        });
-        setMessageLoginFaild({
-          title: "Delete Failed",
-          description: "Failed to delete staff.",
-        });
-      }
+      toast.error("เกิดข้อผิดพลาดในการลบข้อมูล", {
+        description: "กรุณาลองใหม่อีกครั้ง",
+      });
+      setMessageLoginFaild({
+        title: "Delete Failed",
+        description: "Failed to delete staff.",
+      });
     } finally {
-      if (isMountedRef.current) {
-        resetAllStates();
-      }
+      setIsDeleting(false);
+      setShowDeleteDialog(false);
+      setDropdownOpen(false);
     }
   };
 
@@ -155,18 +132,14 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
   const handleEditDrawerClose = (open: boolean) => {
     setIsEditDrawerOpen(open);
     if (!open) {
-      // Reset states when drawer closes
-      setTimeout(() => {
-        setSelectedStaff(null);
-        setDropdownOpen(false);
-      }, 100);
+      setSelectedStaff(null);
+      setDropdownOpen(false);
     }
   };
 
   // Reset dropdown state when any dialog opens
   const handleDropdownOpenChange = (open: boolean) => {
-    // Only allow opening dropdown if no other dialogs are open
-    if (!isEditDrawerOpen && !showDeleteDialog && !isDeleting) {
+    if (!isEditDrawerOpen && !showDeleteDialog) {
       setDropdownOpen(open);
     } else if (!open) {
       setDropdownOpen(false);
@@ -233,30 +206,28 @@ function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
 
       <MessageDialog Message={MessageLoginFaild} />
 
-      {/* Delete Confirmation Dialog - Only render when needed */}
-      {showDeleteDialog && (
-        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
-              <AlertDialogDescription>
-                คุณแน่ใจหรือไม่ที่จะลบพนักงานคนนี้?
-                การดำเนินการนี้ไม่สามารถยกเลิกได้
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel
-                onClick={handleCancelDelete}
-                disabled={isDeleting}>
-                ยกเลิก
-              </AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-                {isDeleting ? "กำลังลบ..." : "ลบ"}
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณแน่ใจหรือไม่ที่จะลบพนักงานคนนี้?
+              การดำเนินการนี้ไม่สามารถยกเลิกได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={handleCancelDelete}
+              disabled={isDeleting}>
+              ยกเลิก
+            </AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
+              {isDeleting ? "กำลังลบ..." : "ลบ"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
