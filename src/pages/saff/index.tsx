@@ -33,10 +33,15 @@ export default function Saff() {
     page: pagination.pageIndex + 1,
     perPage: pagination.pageSize,
   });
+  // const [handlerDelete, sethandlerDelete] = useState<boolean>(false)
+  const handleDeleteById = async () => {
+    console.log("handleDeleteById");
+    await refetch();
+  };
 
   useEffect(() => {
     refetch();
-  }, []);
+  }, [refetch]);
 
   const table = useReactTable({
     initialState: {
