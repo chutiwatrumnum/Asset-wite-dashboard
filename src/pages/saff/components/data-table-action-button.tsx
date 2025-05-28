@@ -10,7 +10,7 @@ import { MessageDialog } from "@/components/modal";
 import { useState } from "react";
 // import { useMutation } from "@tanstack/react-query";
 
-function DataTableActionButton({ info }: { info: Cell<saffItem, any> }) {
+function DataTableActionButton({ info }: { info: Cell<saffItem, any>}) {
     const { setEmail, setRole, setHouse } = useStaffProfile();
     const { mutateAsync } = useDeleteSaffMutation();
     const [MessageLoginFaild, setMessageLoginFaild] = useState<{

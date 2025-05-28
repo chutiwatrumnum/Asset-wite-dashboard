@@ -21,7 +21,7 @@ function DataTablePagination<T>(props: { table: Table<T>, totalRows: number, pgS
             <PaginationItem>
               <PaginationPrevious
                 className={"font-anuphan font-light text-xm"}
-                href="#" onClick={async () => table.previousPage()}/>
+               onClick={async () => table.previousPage()}/>
             </PaginationItem>
 
             <span className={"font-anuphan font-light text-xm"}> {pgState.pageIndex + 1} of {totalPages} </span>
@@ -29,7 +29,7 @@ function DataTablePagination<T>(props: { table: Table<T>, totalRows: number, pgS
             <PaginationItem>
               <PaginationNext
                 className={"font-anuphan font-light text-xm"}
-                href="#" onClick={async () => {
+                 onClick={async () => {
                 if (pgState.pageIndex < totalPages - 1) {
                   table.nextPage();
                 }
