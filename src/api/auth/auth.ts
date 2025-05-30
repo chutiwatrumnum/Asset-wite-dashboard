@@ -16,8 +16,7 @@ const getSaff = async (request: saffRequest): Promise<saffResponse> => {
 
 const deleteSaff = async (id: string): Promise<null> => {
     await Pb.collection("admin").delete(id);
-    setTimeout(async () => {
-    }, 10000);
+    setTimeout(async () => {}, 10000);
 
     return null;
 };
@@ -43,9 +42,30 @@ const createStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
 
     return null;
 };
-export { login, getSaff, deleteSaff, createStaff };
+
+const editStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
+    const formData = new FormData();
+    formData.append("email", newStaffReq.email);
+    formData.append("role", newStaffReq.role);
+    formData.append("house_id", newStaffReq.house_id);
+
+    formData.append("first_name", newStaffReq.first_name);
+
+    formData.append("last_name", newStaffReq.last_name);
+
+    formData.append("avatar", newStaffReq.avatar ? newStaffReq.avatar : "");
+
+    console.log("editStaff", newStaffReq);
+
+    // return null;
+    await Pb.collection("admin").update(newStaffReq.id!, formData);
+
+    return null;
+};
+export { login, getSaff, deleteSaff, createStaff, editStaff };
 
 export interface newSaffRequest {
+    id?: string;
     email: string;
     password: string;
     passwordConfirm: string;
