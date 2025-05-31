@@ -1,13 +1,11 @@
 import Pb from "../pocketbase";
-
+const collectionName = "admin";
 const login = async (authReq: authRequest): Promise<authResponse> => {
-    const authData = await Pb.collection("admin").authWithPassword<authResponse>(authReq.identity, authReq.password);
-    console.log("authData:", Pb.authStore.token);
-
+    const authData = await Pb.collection(collectionName).authWithPassword<authResponse>(authReq.identity, authReq.password);
     return authData.record;
 };
 const getSaff = async (request: saffRequest): Promise<saffResponse> => {
-    const userList = await Pb.collection("admin").getList<saffItem>(request.page, request.perPage, {
+    const userList = await Pb.collection(collectionName).getList<saffItem>(request.page, request.perPage, {
         filter: `id!="${Pb.authStore.record?.id}"`,
         sort: "-created",
     });
@@ -15,7 +13,7 @@ const getSaff = async (request: saffRequest): Promise<saffResponse> => {
 };
 
 const deleteSaff = async (id: string): Promise<null> => {
-    await Pb.collection("admin").delete(id);
+    await Pb.collection(collectionName).delete(id);
     setTimeout(async () => {}, 10000);
 
     return null;
@@ -38,7 +36,7 @@ const createStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
     if (newStaffReq.avatar) {
         formData.append("avatar", newStaffReq.avatar);
     }
-    await Pb.collection("admin").create(formData);
+    await Pb.collection(collectionName).create(formData);
 
     return null;
 };
@@ -48,17 +46,10 @@ const editStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
     formData.append("email", newStaffReq.email);
     formData.append("role", newStaffReq.role);
     formData.append("house_id", newStaffReq.house_id);
-
     formData.append("first_name", newStaffReq.first_name);
-
     formData.append("last_name", newStaffReq.last_name);
-
     formData.append("avatar", newStaffReq.avatar ? newStaffReq.avatar : "");
-
-    console.log("editStaff", newStaffReq);
-
-    // return null;
-    await Pb.collection("admin").update(newStaffReq.id!, formData);
+    await Pb.collection(collectionName).update(newStaffReq.id!, formData);
 
     return null;
 };

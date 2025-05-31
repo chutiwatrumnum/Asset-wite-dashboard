@@ -147,28 +147,49 @@ export function EditStaffDrawer({ staffData, open, onOpenChange, onStaffUpdated 
             resetAllStates();
         }
     }, [open, resetAllStates]);
+    async function imageUrlToFile(url: string): Promise<string> {
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image from URL: ${url}`);
+        }
+
+        const blob = await response.blob();
+
+        return await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onloadend = () => {
+                if (typeof reader.result === "string") {
+                    resolve(reader.result); // includes data:image/...;base64,...
+                } else {
+                    reject("Failed to convert image to base64 string.");
+                }
+            };
+
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+        });
+    }
 
     // Populate form when staffData changes and drawer opens
     useEffect(() => {
         const fetchData = async () => {
             if (staffData && open) {
+                staffData.collectionName = "admin";
                 const formData = {
                     email: staffData.email || "",
                     role: staffData.role || "",
                     house_id: staffData.house_id || "",
                     first_name: staffData.first_name || "",
                     last_name: staffData.last_name || "",
-                    avatar: staffData.avatar ? Pb.files.getURL(staffData, staffData.avatar) : "",
                 };
-                const record = await Pb.collection("admin").getOne(staffData.id);
-                console.log("record:", record);
-                // const fileToken = await Pb.files.getToken();
-                console.log("staffData avatar:", Pb.files.getURL(record, record.avatar));
-
+                const imageUrl = Pb.files.getURL(staffData, staffData.avatar);
+                const file = await imageUrlToFile(imageUrl);
                 form.reset(formData);
 
                 if (staffData.avatar) {
-                    setImagePreview(staffData.avatar);
+                    setImagePreview(file);
                 }
                 setIsDirty(false);
             }
