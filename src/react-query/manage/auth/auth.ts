@@ -1,10 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createStaff, deleteSaff, editStaff, getSaff, newSaffRequest, saffRequest, saffResponse } from "@/api/auth/auth";
+import { createStaff, deleteSaff, editStaff, getAllSaff, getSaff, newSaffRequest, saffItem, saffRequest, saffResponse } from "@/api/auth/auth";
 
 export const useSaffListQuery = (payloadQuery: saffRequest) => {
     const query = useQuery<saffResponse, Error>({
         queryKey: ["saffList", payloadQuery],
         queryFn: () => getSaff(payloadQuery),
+        select(dataList) {
+            return dataList;
+        },
+        retry: false,
+    });
+    return { ...query };
+};
+
+export const useSaffAllListQuery = () => {
+    const query = useQuery<saffItem[], Error>({
+        queryKey: ["saffList"],
+        queryFn: () => getAllSaff(),
         select(dataList) {
             return dataList;
         },

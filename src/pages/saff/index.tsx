@@ -9,26 +9,30 @@ import { CreateSaffDrawer } from "@/pages/saff/components/create-saff-dialog.tsx
 
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Toaster } from "@/components/ui/sonner.tsx";
-import { getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useReactTable, getSortedRowModel, type PaginationState } from "@tanstack/react-table";
+import { getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useReactTable, getSortedRowModel, type PaginationState, RowSelectionState } from "@tanstack/react-table";
 import DataTableColumnHeader from "@/pages/saff/components/data-table-column-header.tsx";
 import DataTableActionButton from "@/pages/saff/components/data-table-action-button.tsx";
 import { columns } from "@/pages/saff/components/columns.tsx";
-import { useSaffListQuery } from "@/react-query/manage/auth";
+import { useSaffAllListQuery, useSaffListQuery } from "@/react-query/manage/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { saffItem } from "@/api/auth/auth";
 import { Button } from "@/components/ui/button";
 import Pb from "@/api/pocketbase";
+import React from "react";
 
 export default function Saff() {
     const [pagination, setPagination] = useState<PaginationState>({
         pageIndex: 0,
         pageSize: 10,
     });
-    const { data, refetch, isLoading } = useSaffListQuery({
-        page: pagination.pageIndex + 1,
-        perPage: pagination.pageSize,
-    });
+    // const { data, refetch, isLoading } = useSaffListQuery({
+    //     page: pagination.pageIndex + 1,
+    //     perPage: pagination.pageSize,
+    // });
+    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+
+    const { data, refetch, isLoading } = useSaffAllListQuery();
     // const [handlerDelete, sethandlerDelete] = useState<boolean>(false)
     const handleDeleteById = async () => {
         console.log("handleDeleteById");
@@ -46,7 +50,7 @@ export default function Saff() {
                 house_id: false,
             },
         },
-        data: data?.items ?? [],
+        data: data ?? [],
         columns: [
             {
                 id: "select",
@@ -56,49 +60,39 @@ export default function Saff() {
                             className={"ml-4"}
                             checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
                             onCheckedChange={(value) => {
-                                table.toggleAllPageRowsSelected(!!value);
+                                table.toggleAllRowsSelected(!!value);
+                                // table.toggleAllPageRowsSelected(!!value);
                             }}
                             aria-label="Select all"
                         />
                         <Button
+                            disabled={!table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
                             onClick={async () => {
                                 console.log("table.getIsAllRowsSelected():", table.getIsAllRowsSelected());
-                                if (table.getIsAllRowsSelected()) {
-                                    const batch = Pb.createBatch();
-                                    try {
-                                        const dataAdmin = await Pb.collection("admin").getFullList<saffItem>({
-                                            filter: `id!="${Pb.authStore.record?.id}"`,
-                                        });
-                                        await Promise.all(dataAdmin.map((data) => Pb.collection("admin").delete(data.id)));
-                                        batch.collection("admin").delete("RECORD_ID");
-                                        console.log("dataAdmin:", dataAdmin);
-                                        const result = await batch.send()
-                                        console.log("result:", result);
-                                        alert("delete all item success.")
-                                    } catch (err) {
-                                        console.error("Error deleting records:", err);
-                                        alert("delete all item failed.")
-                                    }
-                                }
+                                console.log("table.getIsSomeRowsSelected():", table.getIsSomeRowsSelected());
+
+                                console.log("table.getSelectedRowModel():", rowSelection);
+                                // const allIds = Object.keys(rowSelection);
+                                // const batch = Pb.createBatch();
+                                // try {
+                                //     await Promise.all(allIds.map((data) => batch.collection("admin").delete(data)));
+                                //     const result = await batch.send();
+                                //     console.log("result:", result);
+                                //     alert("delete all item success.");
+                                // } catch (err) {
+                                //     console.error("Error deleting records:", err);
+                                //     alert("delete all item failed.");
+                                // }
+                              
                             }}
                         >
                             delete
                         </Button>
                     </div>
                 ),
-                cell: ({ row, table }) => (
+                cell: ({ row }) => (
                     <div className="min-w-[40px]">
-                        <Checkbox
-                            className={"ml-4"}
-                            checked={row.getIsSelected()}
-                            onCheckedChange={(value) => {
-                                console.log("value:", value, table.getIsAllRowsSelected(), row.original.id);
-
-                                row.toggleSelected(!!value);
-                                //  row.getIsAllSubRowsSelected()
-                            }}
-                            aria-label="Select row"
-                        />
+                        <Checkbox className={"ml-4"} checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} aria-label="Select row" />
                     </div>
                 ),
                 enableSorting: false,
@@ -121,16 +115,19 @@ export default function Saff() {
                 enableHiding: false,
             },
         ],
+        getRowId: (row) => row.id,
         getCoreRowModel: getCoreRowModel(),
         getSortedRowModel: getSortedRowModel(),
         getFilteredRowModel: getFilteredRowModel(),
         getPaginationRowModel: getPaginationRowModel(),
         onPaginationChange: setPagination,
+        onRowSelectionChange: setRowSelection,
+        enableRowSelection: true,
         debugTable: false,
         autoResetPageIndex: false,
-        manualPagination: true,
         state: {
             pagination,
+            rowSelection,
         },
     });
 
@@ -161,7 +158,7 @@ export default function Saff() {
                     <DataTableBody table={table} />
                 )}
 
-                <DataTablePagination table={table} totalRows={data?.totalItems || 0} pgState={pagination} />
+                <DataTablePagination table={table} totalRows={data?.length || 0} pgState={pagination} />
             </div>
 
             <Toaster />

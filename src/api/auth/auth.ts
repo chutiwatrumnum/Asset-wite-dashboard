@@ -12,6 +12,14 @@ const getSaff = async (request: saffRequest): Promise<saffResponse> => {
     return userList;
 };
 
+const getAllSaff = async (): Promise<saffItem[]> => {
+    const userList = await Pb.collection(collectionName).getFullList<saffItem>({
+        filter: `id!="${Pb.authStore.record?.id}"`,
+        sort: "-created",
+    });
+    return userList
+};
+
 const deleteSaff = async (id: string): Promise<null> => {
     await Pb.collection(collectionName).delete(id);
     setTimeout(async () => {}, 10000);
@@ -53,7 +61,7 @@ const editStaff = async (newStaffReq: newSaffRequest): Promise<null> => {
 
     return null;
 };
-export { login, getSaff, deleteSaff, createStaff, editStaff };
+export { login, getSaff, deleteSaff, createStaff, editStaff,getAllSaff };
 
 export interface newSaffRequest {
     id?: string;

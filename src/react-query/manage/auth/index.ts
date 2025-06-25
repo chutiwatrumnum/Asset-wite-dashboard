@@ -1,2 +1,2 @@
-import { useSaffListQuery, useCreateSaffMutation, useDeleteSaffMutation,useEditSaffMutation } from './auth'
-export {useSaffListQuery, useCreateSaffMutation, useDeleteSaffMutation,useEditSaffMutation}
+import { useSaffListQuery, useCreateSaffMutation, useDeleteSaffMutation,useEditSaffMutation,useSaffAllListQuery } from './auth'
+export {useSaffListQuery, useCreateSaffMutation, useDeleteSaffMutation,useEditSaffMutation,useSaffAllListQuery}
