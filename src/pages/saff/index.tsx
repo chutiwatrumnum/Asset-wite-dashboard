@@ -9,159 +9,254 @@ import { CreateSaffDrawer } from "@/pages/saff/components/create-saff-dialog.tsx
 
 import { Checkbox } from "@/components/ui/checkbox.tsx";
 import { Toaster } from "@/components/ui/sonner.tsx";
-import { getCoreRowModel, getFilteredRowModel, getPaginationRowModel, useReactTable, getSortedRowModel, type PaginationState, RowSelectionState } from "@tanstack/react-table";
+import {
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  useReactTable,
+  getSortedRowModel,
+  type PaginationState,
+  RowSelectionState,
+} from "@tanstack/react-table";
 import DataTableColumnHeader from "@/pages/saff/components/data-table-column-header.tsx";
 import DataTableActionButton from "@/pages/saff/components/data-table-action-button.tsx";
 import { columns } from "@/pages/saff/components/columns.tsx";
-import { useSaffAllListQuery, useSaffListQuery } from "@/react-query/manage/auth";
+import {
+  useSaffAllListQuery,
+  useBulkDeleteSaffMutation,
+} from "@/react-query/manage/auth";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { saffItem } from "@/api/auth/auth";
 import { Button } from "@/components/ui/button";
 import Pb from "@/api/pocketbase";
 import React from "react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
+import { Trash2 } from "lucide-react";
 
 export default function Saff() {
-    const [pagination, setPagination] = useState<PaginationState>({
-        pageIndex: 0,
-        pageSize: 10,
-    });
-    // const { data, refetch, isLoading } = useSaffListQuery({
-    //     page: pagination.pageIndex + 1,
-    //     perPage: pagination.pageSize,
-    // });
-    const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [pagination, setPagination] = useState<PaginationState>({
+    pageIndex: 0,
+    pageSize: 10,
+  });
 
-    const { data, refetch, isLoading } = useSaffAllListQuery();
-    // const [handlerDelete, sethandlerDelete] = useState<boolean>(false)
-    const handleDeleteById = async () => {
-        console.log("handleDeleteById");
-        await refetch();
-    };
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
-    useEffect(() => {
-        refetch();
-    }, [refetch]);
+  const { data, refetch, isLoading } = useSaffAllListQuery();
+  const { mutateAsync: bulkDeleteStaff, isPending: isDeleting } =
+    useBulkDeleteSaffMutation();
 
-    const table = useReactTable({
-        initialState: {
-            columnVisibility: {
-                id: false,
-                house_id: false,
-            },
-        },
-        data: data ?? [],
-        columns: [
-            {
-                id: "select",
-                header: ({ table }) => (
-                    <div className="min-w-[40px]">
-                        <Checkbox
-                            className={"ml-4"}
-                            checked={table.getIsAllPageRowsSelected() || (table.getIsSomePageRowsSelected() && "indeterminate")}
-                            onCheckedChange={(value) => {
-                                table.toggleAllRowsSelected(!!value);
-                                // table.toggleAllPageRowsSelected(!!value);
-                            }}
-                            aria-label="Select all"
-                        />
-                        <Button
-                            disabled={!table.getIsSomeRowsSelected() && !table.getIsAllRowsSelected()}
-                            onClick={async () => {
-                                console.log("table.getIsAllRowsSelected():", table.getIsAllRowsSelected());
-                                console.log("table.getIsSomeRowsSelected():", table.getIsSomeRowsSelected());
+  const handleDeleteById = async () => {
+    console.log("handleDeleteById");
+    await refetch();
+  };
 
-                                console.log("table.getSelectedRowModel():", rowSelection);
-                                // const allIds = Object.keys(rowSelection);
-                                // const batch = Pb.createBatch();
-                                // try {
-                                //     await Promise.all(allIds.map((data) => batch.collection("admin").delete(data)));
-                                //     const result = await batch.send();
-                                //     console.log("result:", result);
-                                //     alert("delete all item success.");
-                                // } catch (err) {
-                                //     console.error("Error deleting records:", err);
-                                //     alert("delete all item failed.");
-                                // }
-                              
-                            }}
-                        >
-                            delete
-                        </Button>
-                    </div>
-                ),
-                cell: ({ row }) => (
-                    <div className="min-w-[40px]">
-                        <Checkbox className={"ml-4"} checked={row.getIsSelected()} onCheckedChange={(value) => row.toggleSelected(!!value)} aria-label="Select row" />
-                    </div>
-                ),
-                enableSorting: false,
-                enableHiding: false,
-            },
-            ...columns,
-            {
-                id: "action",
-                header: () => (
-                    <div className="flex justify-center items-center">
-                        <DataTableColumnHeader title={"action"} />
-                    </div>
-                ),
-                cell: (info) => (
-                    <div className="flex justify-center items-center">
-                        <DataTableActionButton info={info.cell} />
-                    </div>
-                ),
-                enableSorting: false,
-                enableHiding: false,
-            },
-        ],
-        getRowId: (row) => row.id,
-        getCoreRowModel: getCoreRowModel(),
-        getSortedRowModel: getSortedRowModel(),
-        getFilteredRowModel: getFilteredRowModel(),
-        getPaginationRowModel: getPaginationRowModel(),
-        onPaginationChange: setPagination,
-        onRowSelectionChange: setRowSelection,
-        enableRowSelection: true,
-        debugTable: false,
-        autoResetPageIndex: false,
-        state: {
-            pagination,
-            rowSelection,
-        },
-    });
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
 
-    return (
-        <div className="w-full pl-10 pr-10">
-            <Card className="mb-6">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="font-anuphan font-light text-2xl tracking-wider">จัดการข้อมูลพนักงาน</CardTitle>
-                    <CreateSaffDrawer onSaffCreated={refetch} />
-                </CardHeader>
-                <CardContent>
-                    <p className="text-muted-foreground">จัดการข้อมูลพนักงานทั้งหมดในระบบ เพิ่ม แก้ไข หรือลบข้อมูลพนักงาน</p>
-                </CardContent>
-            </Card>
+  // Handle bulk delete with mutation
+  const handleBulkDelete = async () => {
+    if (!rowSelection || Object.keys(rowSelection).length === 0) {
+      toast.error("กรุณาเลือกรายการที่ต้องการลบ");
+      return;
+    }
 
-            <div className="rounded-md border">
-                <DataTableToolbar table={table} />
+    setShowBulkDeleteDialog(false);
 
-                {isLoading ? (
-                    <div className="p-4 space-y-4">
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                        <Skeleton className="h-10 w-full" />
-                    </div>
-                ) : (
-                    <DataTableBody table={table} />
-                )}
+    try {
+      const selectedIds = Object.keys(rowSelection);
+      console.log("Deleting staff with IDs:", selectedIds);
 
-                <DataTablePagination table={table} totalRows={data?.length || 0} pgState={pagination} />
-            </div>
+      await bulkDeleteStaff(selectedIds);
 
-            <Toaster />
-        </div>
-    );
+      // Clear selection and refresh data
+      setRowSelection({});
+      await refetch();
+    } catch (error) {
+      // Error handling is done in the mutation
+      console.error("Bulk delete failed:", error);
+    }
+  };
+
+  const handleBulkDeleteClick = () => {
+    const selectedCount = Object.keys(rowSelection).length;
+    if (selectedCount === 0) {
+      toast.warning("กรุณาเลือกรายการที่ต้องการลบ");
+      return;
+    }
+    setShowBulkDeleteDialog(true);
+  };
+
+  const table = useReactTable({
+    initialState: {
+      columnVisibility: {
+        id: false,
+        house_id: false,
+      },
+    },
+    data: data ?? [],
+    columns: [
+      {
+        id: "select",
+        header: ({ table }) => (
+          <div className="min-w-[120px] flex items-center gap-2">
+            <Checkbox
+              className="ml-4"
+              checked={
+                table.getIsAllPageRowsSelected() ||
+                (table.getIsSomePageRowsSelected() && "indeterminate")
+              }
+              onCheckedChange={(value) => {
+                table.toggleAllRowsSelected(!!value);
+              }}
+              aria-label="Select all"
+            />
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={
+                (!table.getIsSomeRowsSelected() &&
+                  !table.getIsAllRowsSelected()) ||
+                isDeleting
+              }
+              onClick={handleBulkDeleteClick}
+              className="h-7 px-2 text-xs">
+              <Trash2 className="h-3 w-3 mr-1" />
+              {isDeleting
+                ? "กำลังลบ..."
+                : `ลบ (${Object.keys(rowSelection).length})`}
+            </Button>
+          </div>
+        ),
+        cell: ({ row }) => (
+          <div className="min-w-[40px]">
+            <Checkbox
+              className="ml-4"
+              checked={row.getIsSelected()}
+              onCheckedChange={(value) => row.toggleSelected(!!value)}
+              aria-label="Select row"
+            />
+          </div>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+      ...columns,
+      {
+        id: "action",
+        header: () => (
+          <div className="flex justify-center items-center">
+            <DataTableColumnHeader title={"action"} />
+          </div>
+        ),
+        cell: (info) => (
+          <div className="flex justify-center items-center">
+            <DataTableActionButton info={info.cell} />
+          </div>
+        ),
+        enableSorting: false,
+        enableHiding: false,
+      },
+    ],
+    getRowId: (row) => row.id,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onPaginationChange: setPagination,
+    onRowSelectionChange: setRowSelection,
+    enableRowSelection: true,
+    debugTable: false,
+    autoResetPageIndex: false,
+    state: {
+      pagination,
+      rowSelection,
+    },
+  });
+
+  return (
+    <div className="w-full pl-10 pr-10">
+      <Card className="mb-6">
+        <CardHeader className="flex flex-row items-center justify-between pb-2">
+          <CardTitle className="font-anuphan font-light text-2xl tracking-wider">
+            จัดการข้อมูลพนักงาน
+          </CardTitle>
+          <CreateSaffDrawer onSaffCreated={refetch} />
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground">
+            จัดการข้อมูลพนักงานทั้งหมดในระบบ เพิ่ม แก้ไข หรือลบข้อมูลพนักงาน
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="rounded-md border">
+        <DataTableToolbar table={table} />
+
+        {isLoading ? (
+          <div className="p-4 space-y-4">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        ) : (
+          <DataTableBody table={table} />
+        )}
+
+        <DataTablePagination
+          table={table}
+          totalRows={data?.length || 0}
+          pgState={pagination}
+        />
+      </div>
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog
+        open={showBulkDeleteDialog}
+        onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>ยืนยันการลบหลายรายการ</AlertDialogTitle>
+            <AlertDialogDescription>
+              คุณแน่ใจหรือไม่ที่จะลบพนักงาน {Object.keys(rowSelection).length}{" "}
+              คน?
+              <br />
+              การดำเนินการนี้ไม่สามารถยกเลิกได้
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              onClick={() => setShowBulkDeleteDialog(false)}
+              disabled={isDeleting}>
+              ยกเลิก
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {isDeleting
+                ? "กำลังลบ..."
+                : `ลบ ${Object.keys(rowSelection).length} รายการ`}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <Toaster />
+    </div>
+  );
 }
