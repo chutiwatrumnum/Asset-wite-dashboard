@@ -111,7 +111,7 @@ export default function Saff() {
       {
         id: "select",
         header: ({ table }) => (
-          <div className="min-w-[120px] flex items-center gap-2">
+          <div className="min-w-[40px]">
             <Checkbox
               className="ml-4"
               checked={
@@ -123,21 +123,6 @@ export default function Saff() {
               }}
               aria-label="Select all"
             />
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={
-                (!table.getIsSomeRowsSelected() &&
-                  !table.getIsAllRowsSelected()) ||
-                isDeleting
-              }
-              onClick={handleBulkDeleteClick}
-              className="h-7 px-2 text-xs">
-              <Trash2 className="h-3 w-3 mr-1" />
-              {isDeleting
-                ? "กำลังลบ..."
-                : `ลบ (${Object.keys(rowSelection).length})`}
-            </Button>
           </div>
         ),
         cell: ({ row }) => (
@@ -223,6 +208,33 @@ export default function Saff() {
           pgState={pagination}
         />
       </div>
+
+      {/* Floating Selection Bar */}
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-card border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
+            <span className="text-sm font-medium">
+              Selected {Object.keys(rowSelection).length} records
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRowSelection({})}
+              className="h-8">
+              Reset
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              disabled={isDeleting}
+              onClick={handleBulkDeleteClick}
+              className="h-8">
+              <Trash2 className="h-3 w-3 mr-1" />
+              {isDeleting ? "กำลังลบ..." : "Delete selected"}
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Delete Confirmation Dialog */}
       <AlertDialog
