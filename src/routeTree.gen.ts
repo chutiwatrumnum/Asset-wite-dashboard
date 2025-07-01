@@ -17,6 +17,7 @@ import { Route as AuthenticatedImport } from './routes/_authenticated'
 import { Route as ForbiddenImport } from './routes/Forbidden'
 import { Route as IndexImport } from './routes/index'
 import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
+import { Route as AuthenticatedResidentsImport } from './routes/_authenticated/residents'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
 
 // Create/Update Routes
@@ -53,6 +54,12 @@ const IndexRoute = IndexImport.update({
 const AuthenticatedSaffRoute = AuthenticatedSaffImport.update({
   id: '/saff',
   path: '/saff',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+
+const AuthenticatedResidentsRoute = AuthenticatedResidentsImport.update({
+  id: '/residents',
+  path: '/residents',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 
@@ -108,6 +115,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardImport
       parentRoute: typeof AuthenticatedImport
     }
+    '/_authenticated/residents': {
+      id: '/_authenticated/residents'
+      path: '/residents'
+      fullPath: '/residents'
+      preLoaderRoute: typeof AuthenticatedResidentsImport
+      parentRoute: typeof AuthenticatedImport
+    }
     '/_authenticated/saff': {
       id: '/_authenticated/saff'
       path: '/saff'
@@ -122,11 +136,13 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
   AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
   AuthenticatedSaffRoute: AuthenticatedSaffRoute,
 }
 
@@ -141,6 +157,7 @@ export interface FileRoutesByFullPath {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
 }
 
@@ -151,6 +168,7 @@ export interface FileRoutesByTo {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
 }
 
@@ -162,6 +180,7 @@ export interface FileRoutesById {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/residents': typeof AuthenticatedResidentsRoute
   '/_authenticated/saff': typeof AuthenticatedSaffRoute
 }
 
@@ -174,9 +193,18 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/dashboard'
+    | '/residents'
     | '/saff'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/Forbidden' | '' | '/line-app' | '/login' | '/dashboard' | '/saff'
+  to:
+    | '/'
+    | '/Forbidden'
+    | ''
+    | '/line-app'
+    | '/login'
+    | '/dashboard'
+    | '/residents'
+    | '/saff'
   id:
     | '__root__'
     | '/'
@@ -185,6 +213,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/_authenticated/dashboard'
+    | '/_authenticated/residents'
     | '/_authenticated/saff'
   fileRoutesById: FileRoutesById
 }
@@ -232,6 +261,7 @@ export const routeTree = rootRoute
       "filePath": "_authenticated.ts",
       "children": [
         "/_authenticated/dashboard",
+        "/_authenticated/residents",
         "/_authenticated/saff"
       ]
     },
@@ -243,6 +273,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/dashboard": {
       "filePath": "_authenticated/dashboard.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/residents": {
+      "filePath": "_authenticated/residents.tsx",
       "parent": "/_authenticated"
     },
     "/_authenticated/saff": {
