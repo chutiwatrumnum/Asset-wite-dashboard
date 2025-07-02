@@ -1,11 +1,13 @@
+// src/pages/residents/components/create-resident-dialog.tsx
 "use client";
+
 import type React from "react";
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
-import { Upload, X, Eye, EyeOff, Wand2 } from "lucide-react";
+import { Upload, UserRoundPlus, X, Eye, EyeOff, Wand2 } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -13,6 +15,7 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
+  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
@@ -40,9 +43,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { useHouseListQuery } from "@/react-query/manage/house";
-import type { HouseItem } from "@/api/house/house";
-import type { residentItem, newResidentRequest } from "@/api/resident/resident";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,9 +53,11 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useEditResidentMutation } from "@/react-query/manage/resident";
+import { useHouseListQuery } from "@/react-query/manage/house";
+import { useCreateResidentMutation } from "@/react-query/manage/resident";
+import type { HouseItem } from "@/api/house/house";
+import type { newResidentRequest } from "@/api/resident/resident";
 import { Checkbox } from "@/components/ui/checkbox";
-import Pb from "@/api/pocketbase";
 
 type roleSelectList = {
   value: string;
@@ -73,20 +75,17 @@ const roleSelectList: roleSelectList[] = [
   },
 ];
 
-const editFormSchema = z
+// Schema สำหรับ resident form
+const formSchema = z
   .object({
     email: z.string().email({ message: "Please enter a valid email address" }),
     password: z
       .string()
-      .optional()
-      .refine((val) => !val || val.length >= 8, {
-        message: "Password must be at least 8 characters if provided",
-      })
-      .refine((val) => !val || /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(val), {
-        message:
-          "Password must contain uppercase, lowercase and numbers if provided",
+      .min(8, { message: "Password must be at least 8 characters" })
+      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/, {
+        message: "Password must contain uppercase, lowercase and numbers",
       }),
-    passwordConfirm: z.string().optional(),
+    passwordConfirm: z.string(),
     role: z.string().min(1, { message: "Role is required" }),
     house_id: z
       .array(z.string())
@@ -102,48 +101,37 @@ const editFormSchema = z
       .optional(),
     avatar: z.any().optional(),
   })
-  .refine(
-    (data) => {
-      if (data.password || data.passwordConfirm) {
-        return data.password === data.passwordConfirm;
-      }
-      return true;
-    },
-    {
-      message: "Passwords do not match",
-      path: ["passwordConfirm"],
-    }
-  );
+  .refine((data) => data.password === data.passwordConfirm, {
+    message: "Passwords do not match",
+    path: ["passwordConfirm"],
+  });
 
-interface EditResidentDialogProps {
-  residentData: residentItem | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onResidentUpdated: () => void;
+interface CreateResidentDrawerProps {
+  onResidentCreated: () => void;
 }
 
-export function EditResidentDialog({
-  residentData,
-  open,
-  onOpenChange,
-  onResidentUpdated,
-}: EditResidentDialogProps) {
+export function CreateResidentDrawer({
+  onResidentCreated,
+}: CreateResidentDrawerProps) {
   const { data: houseList } = useHouseListQuery({});
+  const [open, setOpen] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageError, setImageError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const { mutateAsync: updateResident } = useEditResidentMutation();
+  const { mutateAsync: createResident } = useCreateResidentMutation();
 
-  const form = useForm<z.infer<typeof editFormSchema>>({
-    resolver: zodResolver(editFormSchema),
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
     defaultValues: {
       email: "",
+      password: "",
+      passwordConfirm: "",
       role: "",
       house_id: [],
       authorized_area: [],
@@ -153,134 +141,34 @@ export function EditResidentDialog({
     },
   });
 
-  const isMountedRef = useRef(true);
-
-  useEffect(() => {
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
-
-  // Complete reset function
-  const resetAllStates = useCallback(() => {
-    if (!isMountedRef.current) return;
-
-    setImagePreview(null);
-    setImageError(null);
-    setIsLoading(false);
-    setConfirmOpen(false);
-    setIsDirty(false);
-    setShowPassword(false);
-    setShowConfirmPassword(false);
-
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-
-    form.reset({
-      email: "",
-      role: "",
-      house_id: [],
-      authorized_area: [],
-      first_name: "",
-      last_name: "",
-      avatar: undefined,
-    });
-  }, [form]);
-
   // Reset form when drawer closes
   useEffect(() => {
     if (!open) {
-      resetAllStates();
-    }
-  }, [open, resetAllStates]);
+      setShowPassword(false);
+      setShowConfirmPassword(false);
+      setImagePreview(null);
+      setImageError(null);
+      setIsLoading(false);
+      setConfirmOpen(false);
+      setIsDirty(false);
 
-  async function imageUrlToFile(url: string): Promise<string> {
-    try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image from URL: ${url}`);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
       }
-      const blob = await response.blob();
 
-      return await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-          if (typeof reader.result === "string") {
-            resolve(reader.result);
-          } else {
-            reject("Failed to convert image to base64 string.");
-          }
-        };
-        reader.onerror = () => reject(reader.error);
-        reader.readAsDataURL(blob);
-      });
-    } catch (error) {
-      console.error("Error converting image URL to file:", error);
-      return "";
+      form.reset();
     }
-  }
-
-  // Populate form when residentData changes and drawer opens
-  useEffect(() => {
-    const fetchData = async () => {
-      if (residentData && open) {
-        // Prepare house_id as array
-        let houseIdArray: string[] = [];
-        if (typeof residentData.house_id === "string") {
-          try {
-            houseIdArray = JSON.parse(residentData.house_id);
-          } catch {
-            houseIdArray = [residentData.house_id];
-          }
-        } else if (Array.isArray(residentData.house_id)) {
-          houseIdArray = residentData.house_id;
-        }
-
-        const formData = {
-          email: residentData.email || "",
-          role: residentData.role || "",
-          house_id: houseIdArray,
-          authorized_area: residentData.authorized_area || [],
-          first_name: residentData.first_name || "",
-          last_name: residentData.last_name || "",
-        };
-
-        form.reset(formData);
-
-        // Handle avatar
-        if (residentData.avatar) {
-          try {
-            residentData.collectionName = "resident";
-            const imageUrl = Pb.files.getURL(residentData, residentData.avatar);
-            const file = await imageUrlToFile(imageUrl);
-            if (file) {
-              setImagePreview(file);
-            }
-          } catch (error) {
-            console.error("Error loading avatar:", error);
-          }
-        }
-
-        setIsDirty(false);
-      }
-    };
-    fetchData();
-  }, [residentData, open, form]);
+  }, [open, form]);
 
   // Watch for form changes
   useEffect(() => {
     if (!open) return;
 
     const subscription = form.watch(() => {
-      if (open && isMountedRef.current) {
-        setIsDirty(true);
-      }
+      setIsDirty(true);
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, [form, open]);
 
   function generateSecurePassword() {
@@ -321,56 +209,50 @@ export function EditResidentDialog({
     form.trigger(["password", "passwordConfirm"]);
   }
 
-  // Handle close with confirmation
   const handleClose = () => {
     if (isDirty && !isLoading) {
       setConfirmOpen(true);
     } else {
-      resetAllStates();
-      onOpenChange(false);
+      setOpen(false);
     }
   };
 
   const handleConfirmClose = () => {
     setConfirmOpen(false);
-    resetAllStates();
-    onOpenChange(false);
+    setOpen(false);
   };
 
   const handleCancelClose = () => {
     setConfirmOpen(false);
   };
 
-  // Handle sheet open change (includes X button click)
-  const handleSheetOpenChange = (open: boolean) => {
-    if (!open) {
-      handleClose();
-    } else {
-      onOpenChange(open);
-    }
-  };
-
-  async function onSubmit(values: z.infer<typeof editFormSchema>) {
-    setIsLoading(true);
+  async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
-      const reqData = values as newResidentRequest;
-      reqData.id = residentData?.id;
-      await updateResident(reqData);
+      setIsLoading(true);
 
-      if (isMountedRef.current) {
-        toast.success("อัปเดตข้อมูลสำเร็จ");
-        resetAllStates();
-        onResidentUpdated();
-      }
-    } catch (error: any) {
-      console.error("Update resident failed:", error);
-      if (isMountedRef.current) {
-        toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
-      }
+      // Convert house_id array to appropriate format for API
+      const residentData: newResidentRequest = {
+        ...values,
+        house_id: values.house_id, // Keep as array
+      };
+
+      await createResident(residentData);
+
+      toast.success("เพิ่มลูกบ้านสำเร็จแล้ว", {
+        description: "ข้อมูลลูกบ้านใหม่ถูกเพิ่มเข้าระบบเรียบร้อยแล้ว",
+        duration: 4000,
+      });
+
+      form.reset();
+      setOpen(false);
+      onResidentCreated();
+    } catch (error) {
+      console.error("Create resident failed:", error);
+      toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
+        description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
+      });
     } finally {
-      if (isMountedRef.current) {
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }
   }
 
@@ -379,7 +261,9 @@ export function EditResidentDialog({
       setImageError(null);
       const files = e.target.files;
 
-      if (!files || files.length === 0) return;
+      if (!files || files.length === 0) {
+        return;
+      }
 
       const file = files[0];
 
@@ -397,10 +281,21 @@ export function EditResidentDialog({
 
       const reader = new FileReader();
       reader.onload = () => {
-        if (typeof reader.result === "string") {
-          setImagePreview(reader.result);
+        try {
+          if (typeof reader.result === "string") {
+            setImagePreview(reader.result);
+          }
+        } catch (error) {
+          console.error("Error creating image preview:", error);
+          setImageError("เกิดข้อผิดพลาดในการแสดงตัวอย่างรูปภาพ");
         }
       };
+
+      reader.onerror = () => {
+        console.error("FileReader error:", reader.error);
+        setImageError("เกิดข้อผิดพลาดในการอ่านไฟล์");
+      };
+
       reader.readAsDataURL(file);
     } catch (error) {
       console.error("Error handling image upload:", error);
@@ -409,7 +304,7 @@ export function EditResidentDialog({
   };
 
   const removeImage = () => {
-    setImagePreview(residentData?.avatar || null);
+    setImagePreview(null);
     setImageError(null);
     form.setValue("avatar", undefined);
 
@@ -420,12 +315,28 @@ export function EditResidentDialog({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={handleSheetOpenChange}>
+      <Sheet open={open} onOpenChange={setOpen}>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SheetTrigger asChild>
+                <Button variant="default" className="gap-2">
+                  <UserRoundPlus className="h-4 w-4" />
+                  เพิ่มลูกบ้าน
+                </Button>
+              </SheetTrigger>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>เพิ่มข้อมูลลูกบ้านใหม่</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+
         <SheetContent className="sm:max-w-[500px] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>แก้ไขข้อมูลลูกบ้าน</SheetTitle>
+            <SheetTitle>เพิ่มข้อมูลลูกบ้านใหม่</SheetTitle>
             <SheetDescription>
-              แก้ไขข้อมูลลูกบ้าน {residentData?.email}
+              กรอกข้อมูลลูกบ้านที่ต้องการเพิ่มในระบบ
             </SheetDescription>
           </SheetHeader>
 
@@ -435,6 +346,7 @@ export function EditResidentDialog({
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-4">
+                  {/* Avatar Field */}
                   <FormField
                     control={form.control}
                     name="avatar"
@@ -452,6 +364,12 @@ export function EditResidentDialog({
                               <AvatarImage
                                 src={imagePreview || "/placeholder.svg"}
                                 alt="Profile preview"
+                                onError={() => {
+                                  setImageError(
+                                    "เกิดข้อผิดพลาดในการแสดงรูปภาพ"
+                                  );
+                                  setImagePreview(null);
+                                }}
                               />
                             ) : (
                               <AvatarFallback>
@@ -500,6 +418,7 @@ export function EditResidentDialog({
                     )}
                   />
 
+                  {/* First name field */}
                   <FormField
                     control={form.control}
                     name="first_name"
@@ -519,6 +438,7 @@ export function EditResidentDialog({
                     )}
                   />
 
+                  {/* Last name field */}
                   <FormField
                     control={form.control}
                     name="last_name"
@@ -563,12 +483,7 @@ export function EditResidentDialog({
                     render={({ field }) => (
                       <FormItem>
                         <div className="flex justify-between items-center">
-                          <FormLabel>
-                            รหัสผ่าน{" "}
-                            <span className="text-muted-foreground text-sm">
-                              (เว้นว่างถ้าไม่ต้องการเปลี่ยน)
-                            </span>
-                          </FormLabel>
+                          <FormLabel>รหัสผ่าน</FormLabel>
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
@@ -593,7 +508,7 @@ export function EditResidentDialog({
                           <FormControl>
                             <Input
                               type={showPassword ? "text" : "password"}
-                              placeholder="รหัสผ่านใหม่"
+                              placeholder="รหัสผ่าน"
                               {...field}
                               disabled={isLoading}
                             />
@@ -645,7 +560,7 @@ export function EditResidentDialog({
                           <FormControl>
                             <Input
                               type={showConfirmPassword ? "text" : "password"}
-                              placeholder="ยืนยันรหัสผ่านใหม่"
+                              placeholder="ยืนยันรหัสผ่าน"
                               {...field}
                               disabled={isLoading}
                             />
@@ -705,7 +620,7 @@ export function EditResidentDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {roleSelectList.map((role) => (
+                            {roleSelectList.map((role: roleSelectList) => (
                               <SelectItem key={role.value} value={role.value}>
                                 {role.label}
                               </SelectItem>
@@ -726,6 +641,7 @@ export function EditResidentDialog({
                         <FormLabel>บ้าน</FormLabel>
                         <FormDescription>
                           เลือกบ้านที่ลูกบ้านคนนี้สามารถเข้าถึงได้
+                          (สามารถเลือกได้หลายบ้าน)
                         </FormDescription>
                         <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto border rounded-md p-3">
                           {houseList?.items.map((house: HouseItem) => (
@@ -780,7 +696,7 @@ export function EditResidentDialog({
                       ยกเลิก
                     </Button>
                     <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "กำลังอัปเดต..." : "อัปเดต"}
+                      {isLoading ? "กำลังบันทึก..." : "บันทึก"}
                     </Button>
                   </SheetFooter>
                 </form>
@@ -796,8 +712,7 @@ export function EditResidentDialog({
           <AlertDialogHeader>
             <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณกำลังจะปิดแบบฟอร์มนี้
-              ข้อมูลที่คุณทำการเปลี่ยนแปลงอาจไม่ถูกบันทึก
+              คุณกำลังจะปิดแบบฟอร์มนี้ ข้อมูลที่คุณกรอกอาจไม่ถูกบันทึก
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -814,4 +729,4 @@ export function EditResidentDialog({
   );
 }
 
-export default EditResidentDialog;
+export default CreateResidentDrawer;
