@@ -52,15 +52,16 @@ export const columns = [
       );
     },
   }),
-  columnHelper.accessor("group", {
+  columnHelper.accessor("tier", {
+    // เปลี่ยนจาก group เป็น tier
     header: () => (
       <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="กลุ่ม" />
+        <DataTableColumnHeader title="ระดับ" />
       </div>
     ),
     cell: (info) => {
-      const group = info.getValue();
-      const groupMap: { [key: string]: { label: string; color: string } } = {
+      const tier = info.getValue();
+      const tierMap: { [key: string]: { label: string; color: string } } = {
         resident: { label: "ลูกบ้าน", color: "bg-blue-100 text-blue-800" },
         staff: { label: "เจ้าหน้าที่", color: "bg-green-100 text-green-800" },
         invited: { label: "แขก", color: "bg-yellow-100 text-yellow-800" },
@@ -68,13 +69,13 @@ export const columns = [
         blacklisted: { label: "บัญชีดำ", color: "bg-red-100 text-red-800" },
       };
 
-      const groupInfo = groupMap[group] || groupMap.unknown;
+      const tierInfo = tierMap[tier] || tierMap.unknown;
 
       return (
         <div className="flex justify-center items-center">
           <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${groupInfo.color}`}>
-            {groupInfo.label}
+            className={`px-2 py-1 rounded-full text-xs font-medium ${tierInfo.color}`}>
+            {tierInfo.label}
           </span>
         </div>
       );

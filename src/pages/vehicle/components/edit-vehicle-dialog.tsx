@@ -49,12 +49,12 @@ import {
 import { useEditVehicleMutation } from "@/react-query/manage/vehicle";
 import { Textarea } from "@/components/ui/textarea";
 
-type groupSelectList = {
+type tierSelectList = {
   value: string;
   label: string;
 };
 
-const groupSelectList: groupSelectList[] = [
+const tierSelectList: tierSelectList[] = [
   { value: "resident", label: "ลูกบ้าน" },
   { value: "staff", label: "เจ้าหน้าที่" },
   { value: "invited", label: "แขก" },
@@ -86,7 +86,7 @@ const provinceList = [
 const editFormSchema = z.object({
   license_plate: z.string().min(1, { message: "กรุณากรอกป้ายทะเบียน" }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-  group: z.string().min(1, { message: "กรุณาเลือกกลุ่ม" }),
+  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }), // เปลี่ยนจาก group เป็น tier
   start_time: z.string().optional(),
   expire_time: z.string().optional(),
   house_id: z.string().optional(),
@@ -118,7 +118,7 @@ export function EditVehicleDialog({
     defaultValues: {
       license_plate: "",
       area_code: "",
-      group: "",
+      tier: "", // เปลี่ยนจาก group เป็น tier
       start_time: "",
       expire_time: "",
       house_id: "",
@@ -135,7 +135,7 @@ export function EditVehicleDialog({
     form.reset({
       license_plate: "",
       area_code: "",
-      group: "",
+      tier: "", // เปลี่ยนจาก group เป็น tier
       start_time: "",
       expire_time: "",
       house_id: "",
@@ -173,7 +173,7 @@ export function EditVehicleDialog({
       const formData = {
         license_plate: vehicleData.license_plate || "",
         area_code: vehicleData.area_code || "",
-        group: vehicleData.group || "",
+        tier: vehicleData.tier || "", // เปลี่ยนจาก group เป็น tier
         start_time: formatDateTimeForInput(vehicleData.start_time),
         expire_time: formatDateTimeForInput(vehicleData.expire_time),
         house_id: vehicleData.house_id || "",
@@ -326,28 +326,28 @@ export function EditVehicleDialog({
 
                   <FormField
                     control={form.control}
-                    name="group"
+                    name="tier" // เปลี่ยนจาก group เป็น tier
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>กลุ่มยานพาหนะ *</FormLabel>
+                        <FormLabel>ระดับยานพาหนะ *</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           value={field.value}
                           disabled={isLoading}>
                           <FormControl>
                             <SelectTrigger>
-                              <SelectValue placeholder="เลือกกลุ่ม" />
+                              <SelectValue placeholder="เลือกระดับ" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {groupSelectList.map((group) => (
-                              <SelectItem key={group.value} value={group.value}>
-                                {group.label}
+                            {tierSelectList.map((tier) => (
+                              <SelectItem key={tier.value} value={tier.value}>
+                                {tier.label}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
-                        <FormDescription>ประเภทของยานพาหนะ</FormDescription>
+                        <FormDescription>ระดับของยานพาหนะ</FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
