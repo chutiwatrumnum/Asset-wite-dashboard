@@ -1,12 +1,10 @@
+// src/pages/vehicle/components/columns.tsx
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
 import DataTableColumnHeader from "./data-table-column-header";
 import { vehicleItem } from "@/api/vehicle/vehicle";
-import {
-  getTierInfo,
-  getProvinceName,
-  isVehicleExpired,
-} from "@/utils/vehicleUtils";
+import { VehicleStatusBadge } from "@/components/ui/vehicle-status-badge";
+import { getProvinceName, isVehicleExpired } from "@/utils/vehicleUtils";
 
 const TimeZone = "Asia/Bangkok";
 const columnHelper = createColumnHelper<vehicleItem>();
@@ -47,19 +45,18 @@ export const columns = [
   columnHelper.accessor("tier", {
     header: () => (
       <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="ระดับ" />
+        <DataTableColumnHeader title="สถานะ" />
       </div>
     ),
     cell: (info) => {
-      const tier = info.getValue();
-      const tierInfo = getTierInfo(tier);
+      const rowData = info.row.original;
 
       return (
         <div className="flex justify-center items-center">
-          <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${tierInfo.color}`}>
-            {tierInfo.label}
-          </span>
+          <VehicleStatusBadge
+            tier={rowData.tier}
+            expireTime={rowData.expire_time}
+          />
         </div>
       );
     },

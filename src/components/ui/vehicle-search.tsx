@@ -1,3 +1,4 @@
+// 1. สร้างไฟล์ src/components/ui/vehicle-search.tsx
 import { useState } from "react";
 import { Search } from "lucide-react";
 import { Input } from "@/components/ui/input";

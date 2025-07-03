@@ -27,15 +27,15 @@ export const THAI_PROVINCES = {
   "th-27": "ตราด",
 } as const;
 
-export type VehicleTier = keyof typeof VEHICLE_TIERS;
-export type ProvinceCode = keyof typeof THAI_PROVINCES;
-
+// ตรวจสอบว่ามีฟังก์ชันเหล่านี้ครบหรือไม่
 export const getTierInfo = (tier: string) => {
-  return VEHICLE_TIERS[tier as VehicleTier] || VEHICLE_TIERS.unknown;
+  return (
+    VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS] || VEHICLE_TIERS.unknown
+  );
 };
 
 export const getProvinceName = (areaCode: string) => {
-  return THAI_PROVINCES[areaCode as ProvinceCode] || areaCode;
+  return THAI_PROVINCES[areaCode as keyof typeof THAI_PROVINCES] || areaCode;
 };
 
 export const isVehicleExpired = (expireTime: string) => {
@@ -43,25 +43,7 @@ export const isVehicleExpired = (expireTime: string) => {
   return new Date(expireTime) < new Date();
 };
 
-export const formatVehicleDateTime = (dateString: string) => {
-  if (!dateString) return "";
-
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
-};
-
 export const validateLicensePlate = (licensePlate: string) => {
-  // Basic validation for Thai license plates
   const patterns = [
     /^[ก-ฮ]{2}\s?\d{4}$/, // Old format: กข 1234
     /^\d[ก-ฮ]{2}\d{3}$/, // New format: 1กข234

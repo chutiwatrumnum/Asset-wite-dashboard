@@ -1,0 +1,11 @@
+{
+    "vehicle": {
+      "search": {
+        "placeholder": "ค้นหาป้ายทะเบียน...",
+        "tier": "ระดับ",
+        "province": "จังหวัด",
+        "search_button": "ค้นหา",
+        "reset_button": "รีเซ็ต"
+      }
+    }
+  }

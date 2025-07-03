@@ -4,9 +4,9 @@
 import { useEffect, useState } from "react";
 
 import DataTableBody from "./components/data-table-body";
-import DataTableToolbar from "./components/data-table-toolbar";
 import DataTablePagination from "./components/data-table-pagination";
 import { CreateVehicleDrawer } from "./components/create-vehicle-dialog";
+import { VehicleSearch } from "@/components/ui/vehicle-search";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import { Toaster } from "@/components/ui/sonner";
@@ -42,7 +42,13 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Trash2 } from "lucide-react";
+import { Trash2, LucideSettings2 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export default function Vehicles() {
   const [pagination, setPagination] = useState<PaginationState>({
@@ -53,9 +59,48 @@ export default function Vehicles() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
 
+  // state สำหรับการกรองข้อมูล
+  const [searchFilters, setSearchFilters] = useState<{
+    licensePlate?: string;
+    tier?: string;
+    areaCode?: string;
+  }>({});
+
   const { data, refetch, isLoading } = useVehicleAllListQuery();
   const { mutateAsync: bulkDeleteVehicle, isPending: isDeleting } =
     useBulkDeleteVehicleMutation();
+
+  // ฟังก์ชันกรองข้อมูลตาม filters
+  const filteredData = React.useMemo(() => {
+    if (!data) return [];
+
+    return data.filter((vehicle) => {
+      // กรองตามป้ายทะเบียน
+      if (
+        searchFilters.licensePlate &&
+        !vehicle.license_plate
+          .toLowerCase()
+          .includes(searchFilters.licensePlate.toLowerCase())
+      ) {
+        return false;
+      }
+
+      // กรองตามระดับ
+      if (searchFilters.tier && vehicle.tier !== searchFilters.tier) {
+        return false;
+      }
+
+      // กรองตามจังหวัด
+      if (
+        searchFilters.areaCode &&
+        vehicle.area_code !== searchFilters.areaCode
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [data, searchFilters]);
 
   const handleDeleteById = async () => {
     console.log("handleDeleteById");
@@ -65,6 +110,17 @@ export default function Vehicles() {
   useEffect(() => {
     refetch();
   }, [refetch]);
+
+  // Handle search filters
+  const handleSearch = (filters: {
+    licensePlate?: string;
+    tier?: string;
+    areaCode?: string;
+  }) => {
+    setSearchFilters(filters);
+    // รีเซ็ตไปหน้าแรกเมื่อค้นหา
+    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
+  };
 
   // Handle bulk delete with mutation
   const handleBulkDelete = async () => {
@@ -105,7 +161,7 @@ export default function Vehicles() {
         id: false,
       },
     },
-    data: data ?? [],
+    data: filteredData ?? [],
     columns: [
       {
         id: "select",
@@ -186,8 +242,72 @@ export default function Vehicles() {
         </CardContent>
       </Card>
 
+      {/* ใช้ VehicleSearch แทน DataTableToolbar */}
+      <div className="mb-6">
+        <VehicleSearch onSearch={handleSearch} />
+      </div>
+
+      {/* แสดงผลลัพธ์การค้นหา */}
+      {Object.keys(searchFilters).some(
+        (key) => searchFilters[key as keyof typeof searchFilters]
+      ) && (
+        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <div className="text-sm text-blue-800">
+            <span className="font-medium">ผลการค้นหา:</span>
+            <span className="ml-2">
+              พบ {filteredData.length} รายการ จากทั้งหมด {data?.length || 0}{" "}
+              รายการ
+            </span>
+            {searchFilters.licensePlate && (
+              <span className="ml-2">
+                • ป้ายทะเบียน: {searchFilters.licensePlate}
+              </span>
+            )}
+            {searchFilters.tier && (
+              <span className="ml-2">• ระดับ: {searchFilters.tier}</span>
+            )}
+            {searchFilters.areaCode && (
+              <span className="ml-2">• จังหวัด: {searchFilters.areaCode}</span>
+            )}
+          </div>
+        </div>
+      )}
+
       <div className="rounded-md border">
-        <DataTableToolbar table={table} />
+        {/* Toolbar สำหรับควบคุมการแสดงผลเท่านั้น (ไม่มีช่องค้นหา) */}
+        <div className="flex items-center justify-between py-4 mb-2 px-4">
+          <div className="text-sm text-muted-foreground">
+            แสดง {filteredData.length} รายการ
+          </div>
+
+          {/* ปุ่มจัดการคอลัมน์ */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm">
+                <LucideSettings2 className="h-4 w-4" />
+                จัดการคอลัมน์
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(value)
+                      }>
+                      {column.id.replace("_", " ")}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
 
         {isLoading ? (
           <div className="p-4 space-y-4">
@@ -203,7 +323,7 @@ export default function Vehicles() {
 
         <DataTablePagination
           table={table}
-          totalRows={data?.length || 0}
+          totalRows={filteredData?.length || 0}
           pgState={pagination}
         />
       </div>
