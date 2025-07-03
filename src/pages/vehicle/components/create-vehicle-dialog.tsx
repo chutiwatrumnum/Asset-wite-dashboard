@@ -1,4 +1,3 @@
-// 2. src/pages/vehicle/components/create-vehicle-dialog.tsx
 "use client";
 
 import type React from "react";
@@ -57,43 +56,31 @@ import { useCreateVehicleMutation } from "@/react-query/manage/vehicle";
 import type { HouseItem } from "@/api/house/house";
 import type { newVehicleRequest } from "@/api/vehicle/vehicle";
 import { Textarea } from "@/components/ui/textarea";
+// Import from vehicleUtils
+import {
+  VEHICLE_TIERS,
+  THAI_PROVINCES,
+  validateLicensePlate,
+} from "@/utils/vehicleUtils";
 
-type tierSelectList = {
-  value: string;
-  label: string;
-};
+// Convert constants to select list format
+const tierSelectList = Object.entries(VEHICLE_TIERS).map(([value, info]) => ({
+  value,
+  label: info.label,
+}));
 
-const tierSelectList: tierSelectList[] = [
-  { value: "resident", label: "ลูกบ้าน" },
-  { value: "staff", label: "เจ้าหน้าที่" },
-  { value: "invited", label: "แขก" },
-  { value: "unknown", label: "ไม่ทราบ" },
-  { value: "blacklisted", label: "บัญชีดำ" },
-];
-
-const provinceList = [
-  { value: "th-10", label: "กรุงเทพมหานคร" },
-  { value: "th-11", label: "สมุทรปราการ" },
-  { value: "th-12", label: "นนทบุรี" },
-  { value: "th-13", label: "ปทุมธานี" },
-  { value: "th-14", label: "พระนครศรีอยุธยา" },
-  { value: "th-15", label: "อ่างทอง" },
-  { value: "th-16", label: "ลพบุรี" },
-  { value: "th-17", label: "สิงห์บุรี" },
-  { value: "th-18", label: "ชัยนาท" },
-  { value: "th-19", label: "สระบุรี" },
-  { value: "th-20", label: "นครนายก" },
-  { value: "th-21", label: "สระแก้ว" },
-  { value: "th-22", label: "ปราจีนบุรี" },
-  { value: "th-23", label: "ฉะเชิงเทรา" },
-  { value: "th-24", label: "ชลบุรี" },
-  { value: "th-25", label: "ระยอง" },
-  { value: "th-26", label: "จันทบุรี" },
-  { value: "th-27", label: "ตราด" },
-];
+const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
+  value,
+  label,
+}));
 
 const formSchema = z.object({
-  license_plate: z.string().min(1, { message: "กรุณากรอกป้ายทะเบียน" }),
+  license_plate: z
+    .string()
+    .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
+    .refine(validateLicensePlate, {
+      message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กข234)",
+    }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
   start_time: z.string().optional(),
@@ -243,11 +230,14 @@ export function CreateVehicleDrawer({
                         <FormLabel>ป้ายทะเบียน *</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="เช่น กข 1234 หรือ 9กค566"
+                            placeholder="เช่น กข 1234 หรือ 1กค234"
                             {...field}
                             disabled={isLoading}
                           />
                         </FormControl>
+                        <FormDescription>
+                          รูปแบบป้ายทะเบียนไทย (เก่า: กข 1234, ใหม่: 1กค234)
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

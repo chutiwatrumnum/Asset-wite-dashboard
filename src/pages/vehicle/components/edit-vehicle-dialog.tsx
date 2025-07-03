@@ -1,4 +1,4 @@
-// 3. src/pages/vehicle/components/edit-vehicle-dialog.tsx
+// src/pages/vehicle/components/edit-vehicle-dialog.tsx
 "use client";
 import type React from "react";
 import { useState, useEffect, useCallback } from "react";
@@ -48,43 +48,32 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useEditVehicleMutation } from "@/react-query/manage/vehicle";
 import { Textarea } from "@/components/ui/textarea";
+// Import from vehicleUtils
+import {
+  VEHICLE_TIERS,
+  THAI_PROVINCES,
+  validateLicensePlate,
+} from "@/utils/vehicleUtils";
 
-type tierSelectList = {
-  value: string;
-  label: string;
-};
+// Convert constants to select list format
+const tierSelectList = Object.entries(VEHICLE_TIERS).map(([value, info]) => ({
+  value,
+  label: info.label,
+}));
 
-const tierSelectList: tierSelectList[] = [
-  { value: "resident", label: "ลูกบ้าน" },
-  { value: "staff", label: "เจ้าหน้าที่" },
-  { value: "invited", label: "แขก" },
-  { value: "unknown", label: "ไม่ทราบ" },
-  { value: "blacklisted", label: "บัญชีดำ" },
-];
+const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
+  value,
+  label,
+}));
 
-const provinceList = [
-  { value: "th-10", label: "กรุงเทพมหานคร" },
-  { value: "th-11", label: "สมุทรปราการ" },
-  { value: "th-12", label: "นนทบุรี" },
-  { value: "th-13", label: "ปทุมธานี" },
-  { value: "th-14", label: "พระนครศรีอยุธยา" },
-  { value: "th-15", label: "อ่างทอง" },
-  { value: "th-16", label: "ลพบุรี" },
-  { value: "th-17", label: "สิงห์บุรี" },
-  { value: "th-18", label: "ชัยนาท" },
-  { value: "th-19", label: "สระบุรี" },
-  { value: "th-20", label: "นครนายก" },
-  { value: "th-21", label: "สระแก้ว" },
-  { value: "th-22", label: "ปราจีนบุรี" },
-  { value: "th-23", label: "ฉะเชิงเทรา" },
-  { value: "th-24", label: "ชลบุรี" },
-  { value: "th-25", label: "ระยอง" },
-  { value: "th-26", label: "จันทบุรี" },
-  { value: "th-27", label: "ตราด" },
-];
-
+// Schema with validation using vehicleUtils
 const editFormSchema = z.object({
-  license_plate: z.string().min(1, { message: "กรุณากรอกป้ายทะเบียน" }),
+  license_plate: z
+    .string()
+    .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
+    .refine(validateLicensePlate, {
+      message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กค234)",
+    }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
   start_time: z.string().optional(),
@@ -128,6 +117,7 @@ export function EditVehicleDialog({
     },
   });
 
+  // Complete reset function
   const resetAllStates = useCallback(() => {
     setIsLoading(false);
     setConfirmOpen(false);
@@ -145,12 +135,14 @@ export function EditVehicleDialog({
     });
   }, [form]);
 
+  // Reset form when drawer closes
   useEffect(() => {
     if (!open) {
       resetAllStates();
     }
   }, [open, resetAllStates]);
 
+  // Format datetime for input
   const formatDateTimeForInput = (dateString: string) => {
     if (!dateString) return "";
     try {
@@ -167,6 +159,7 @@ export function EditVehicleDialog({
     }
   };
 
+  // Populate form when vehicleData changes and drawer opens
   useEffect(() => {
     if (vehicleData && open) {
       const formData = {
@@ -185,6 +178,7 @@ export function EditVehicleDialog({
     }
   }, [vehicleData, open, form]);
 
+  // Watch for form changes
   useEffect(() => {
     if (!open) return;
 
@@ -199,6 +193,7 @@ export function EditVehicleDialog({
     };
   }, [form, open]);
 
+  // Handle close with confirmation
   const handleClose = () => {
     if (isDirty && !isLoading) {
       setConfirmOpen(true);
@@ -218,6 +213,7 @@ export function EditVehicleDialog({
     setConfirmOpen(false);
   };
 
+  // Handle sheet open change (includes X button click)
   const handleSheetOpenChange = (open: boolean) => {
     if (!open) {
       handleClose();
@@ -232,6 +228,7 @@ export function EditVehicleDialog({
       const reqData = values as newVehicleRequest;
       reqData.id = vehicleData?.id;
 
+      // แปลงวันที่เป็น ISO string ถ้ามีการกรอก
       if (values.start_time) {
         reqData.start_time = new Date(values.start_time).toISOString();
       }
@@ -277,11 +274,14 @@ export function EditVehicleDialog({
                         <FormLabel>ป้ายทะเบียน *</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="เช่น กข 1234 หรือ 9กค566"
+                            placeholder="เช่น กข 1234 หรือ 1กค234"
                             {...field}
                             disabled={isLoading}
                           />
                         </FormControl>
+                        <FormDescription>
+                          รูปแบบป้ายทะเบียนไทย (เก่า: กข 1234, ใหม่: 1กค234)
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -480,6 +480,7 @@ export function EditVehicleDialog({
         </SheetContent>
       </Sheet>
 
+      {/* Confirmation Dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

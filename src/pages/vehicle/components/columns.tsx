@@ -1,8 +1,12 @@
-// 1. src/pages/vehicle/components/columns.tsx
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
 import DataTableColumnHeader from "./data-table-column-header";
 import { vehicleItem } from "@/api/vehicle/vehicle";
+import {
+  getTierInfo,
+  getProvinceName,
+  isVehicleExpired,
+} from "@/utils/vehicleUtils";
 
 const TimeZone = "Asia/Bangkok";
 const columnHelper = createColumnHelper<vehicleItem>();
@@ -29,31 +33,12 @@ export const columns = [
     ),
     cell: (info) => {
       const areaCode = info.getValue();
-      const provinceMap: { [key: string]: string } = {
-        "th-10": "กรุงเทพฯ",
-        "th-11": "สมุทรปราการ",
-        "th-12": "นนทบุรี",
-        "th-13": "ปทุมธานี",
-        "th-14": "พระนครศรีอยุธยา",
-        "th-15": "อ่างทอง",
-        "th-16": "ลพบุรี",
-        "th-17": "สิงห์บุรี",
-        "th-18": "ชัยนาท",
-        "th-19": "สระบุรี",
-        "th-20": "นครนายก",
-        "th-21": "สระแก้ว",
-        "th-22": "ปราจีนบุรี",
-        "th-23": "ฉะเชิงเทรา",
-        "th-24": "ชลบุรี",
-        "th-25": "ระยอง",
-        "th-26": "จันทบุรี",
-        "th-27": "ตราด",
-      };
+      const provinceName = getProvinceName(areaCode);
 
       return (
         <div className="flex justify-center items-center">
           <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-            {provinceMap[areaCode] || areaCode}
+            {provinceName}
           </span>
         </div>
       );
@@ -67,15 +52,7 @@ export const columns = [
     ),
     cell: (info) => {
       const tier = info.getValue();
-      const tierMap: { [key: string]: { label: string; color: string } } = {
-        resident: { label: "ลูกบ้าน", color: "bg-blue-100 text-blue-800" },
-        staff: { label: "เจ้าหน้าที่", color: "bg-green-100 text-green-800" },
-        invited: { label: "แขก", color: "bg-yellow-100 text-yellow-800" },
-        unknown: { label: "ไม่ทราบ", color: "bg-gray-100 text-gray-800" },
-        blacklisted: { label: "บัญชีดำ", color: "bg-red-100 text-red-800" },
-      };
-
-      const tierInfo = tierMap[tier] || tierMap.unknown;
+      const tierInfo = getTierInfo(tier);
 
       return (
         <div className="flex justify-center items-center">
@@ -127,11 +104,11 @@ export const columns = [
       if (!expireTime)
         return <div className="text-center text-gray-400">-</div>;
 
-      const isExpired = new Date(expireTime) < new Date();
+      const expired = isVehicleExpired(expireTime);
 
       return (
         <div className="flex justify-center items-center">
-          <span className={isExpired ? "text-red-600 font-medium" : ""}>
+          <span className={expired ? "text-red-600 font-medium" : ""}>
             {formatInTimeZone(new Date(expireTime), TimeZone, "dd MMM yyyy")}
           </span>
         </div>
