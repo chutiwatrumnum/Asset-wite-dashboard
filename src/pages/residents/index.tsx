@@ -56,7 +56,7 @@ export default function Residents() {
   const { data, refetch, isLoading } = useResidentAllListQuery();
   const { mutateAsync: bulkDeleteResident, isPending: isDeleting } =
     useBulkDeleteResidentMutation();
-    console.log("Resident data:", data);
+
   const handleDeleteById = async () => {
     console.log("handleDeleteById");
     await refetch();
