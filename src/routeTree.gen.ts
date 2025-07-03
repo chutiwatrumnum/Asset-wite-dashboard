@@ -16,7 +16,7 @@ import { Route as LineAppImport } from './routes/line-app'
 import { Route as AuthenticatedImport } from './routes/_authenticated'
 import { Route as ForbiddenImport } from './routes/Forbidden'
 import { Route as IndexImport } from './routes/index'
-import { Route as AuthenticatedVehicleImport } from './routes/_authenticated/vehicle'
+import { Route as AuthenticatedVehiclesImport } from './routes/_authenticated/vehicles'
 import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
 import { Route as AuthenticatedResidentsImport } from './routes/_authenticated/residents'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
@@ -52,9 +52,9 @@ const IndexRoute = IndexImport.update({
   getParentRoute: () => rootRoute,
 } as any)
 
-const AuthenticatedVehicleRoute = AuthenticatedVehicleImport.update({
-  id: '/vehicle',
-  path: '/vehicle',
+const AuthenticatedVehiclesRoute = AuthenticatedVehiclesImport.update({
+  id: '/vehicles',
+  path: '/vehicles',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 
@@ -136,11 +136,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSaffImport
       parentRoute: typeof AuthenticatedImport
     }
-    '/_authenticated/vehicle': {
-      id: '/_authenticated/vehicle'
-      path: '/vehicle'
-      fullPath: '/vehicle'
-      preLoaderRoute: typeof AuthenticatedVehicleImport
+    '/_authenticated/vehicles': {
+      id: '/_authenticated/vehicles'
+      path: '/vehicles'
+      fullPath: '/vehicles'
+      preLoaderRoute: typeof AuthenticatedVehiclesImport
       parentRoute: typeof AuthenticatedImport
     }
   }
@@ -152,14 +152,14 @@ interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
   AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
-  AuthenticatedVehicleRoute: typeof AuthenticatedVehicleRoute
+  AuthenticatedVehiclesRoute: typeof AuthenticatedVehiclesRoute
 }
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
   AuthenticatedSaffRoute: AuthenticatedSaffRoute,
-  AuthenticatedVehicleRoute: AuthenticatedVehicleRoute,
+  AuthenticatedVehiclesRoute: AuthenticatedVehiclesRoute,
 }
 
 const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
@@ -175,7 +175,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
-  '/vehicle': typeof AuthenticatedVehicleRoute
+  '/vehicles': typeof AuthenticatedVehiclesRoute
 }
 
 export interface FileRoutesByTo {
@@ -187,7 +187,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
-  '/vehicle': typeof AuthenticatedVehicleRoute
+  '/vehicles': typeof AuthenticatedVehiclesRoute
 }
 
 export interface FileRoutesById {
@@ -200,7 +200,7 @@ export interface FileRoutesById {
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/residents': typeof AuthenticatedResidentsRoute
   '/_authenticated/saff': typeof AuthenticatedSaffRoute
-  '/_authenticated/vehicle': typeof AuthenticatedVehicleRoute
+  '/_authenticated/vehicles': typeof AuthenticatedVehiclesRoute
 }
 
 export interface FileRouteTypes {
@@ -214,7 +214,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/residents'
     | '/saff'
-    | '/vehicle'
+    | '/vehicles'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -225,7 +225,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/residents'
     | '/saff'
-    | '/vehicle'
+    | '/vehicles'
   id:
     | '__root__'
     | '/'
@@ -236,7 +236,7 @@ export interface FileRouteTypes {
     | '/_authenticated/dashboard'
     | '/_authenticated/residents'
     | '/_authenticated/saff'
-    | '/_authenticated/vehicle'
+    | '/_authenticated/vehicles'
   fileRoutesById: FileRoutesById
 }
 
@@ -285,7 +285,7 @@ export const routeTree = rootRoute
         "/_authenticated/dashboard",
         "/_authenticated/residents",
         "/_authenticated/saff",
-        "/_authenticated/vehicle"
+        "/_authenticated/vehicles"
       ]
     },
     "/line-app": {
@@ -306,8 +306,8 @@ export const routeTree = rootRoute
       "filePath": "_authenticated/saff.tsx",
       "parent": "/_authenticated"
     },
-    "/_authenticated/vehicle": {
-      "filePath": "_authenticated/vehicle.tsx",
+    "/_authenticated/vehicles": {
+      "filePath": "_authenticated/vehicles.tsx",
       "parent": "/_authenticated"
     }
   }

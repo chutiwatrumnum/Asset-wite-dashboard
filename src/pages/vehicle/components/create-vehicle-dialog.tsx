@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
-import { CarIcon, Calendar } from "lucide-react";
+import { CarIcon } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -71,7 +71,7 @@ const groupSelectList: groupSelectList[] = [
   { value: "blacklisted", label: "บัญชีดำ" },
 ];
 
-// รายการจังหวัดไทย (ตัวอย่าง)
+// รายการจังหวัดไทยตาม ISO3166-2:TH
 const provinceList = [
   { value: "th-10", label: "กรุงเทพมหานคร" },
   { value: "th-11", label: "สมุทรปราการ" },
@@ -83,6 +83,14 @@ const provinceList = [
   { value: "th-17", label: "สิงห์บุรี" },
   { value: "th-18", label: "ชัยนาท" },
   { value: "th-19", label: "สระบุรี" },
+  { value: "th-20", label: "นครนายก" },
+  { value: "th-21", label: "สระแก้ว" },
+  { value: "th-22", label: "ปราจีนบุรี" },
+  { value: "th-23", label: "ฉะเชิงเทรา" },
+  { value: "th-24", label: "ชลบุรี" },
+  { value: "th-25", label: "ระยอง" },
+  { value: "th-26", label: "จันทบุรี" },
+  { value: "th-27", label: "ตราด" },
 ];
 
 const formSchema = z.object({
@@ -237,7 +245,7 @@ export function CreateVehicleDrawer({
                         <FormLabel>ป้ายทะเบียน *</FormLabel>
                         <FormControl>
                           <Input
-                            placeholder="เช่น กข 1234"
+                            placeholder="เช่น กข 1234 หรือ 9กค566"
                             {...field}
                             disabled={isLoading}
                           />
@@ -272,6 +280,9 @@ export function CreateVehicleDrawer({
                             ))}
                           </SelectContent>
                         </Select>
+                        <FormDescription>
+                          รหัสจังหวัดตามมาตรฐาน ISO3166-2:TH
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -360,6 +371,9 @@ export function CreateVehicleDrawer({
                             disabled={isLoading}
                           />
                         </FormControl>
+                        <FormDescription>
+                          วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -383,6 +397,9 @@ export function CreateVehicleDrawer({
                             disabled={isLoading}
                           />
                         </FormControl>
+                        <FormDescription>
+                          วันที่และเวลาที่สิ้นสุดการอนุญาต
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}

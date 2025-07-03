@@ -1,3 +1,4 @@
+// src/api/vehicle/vehicle.ts
 import Pb from "../pocketbase";
 
 const collectionName = "vehicle";
@@ -6,7 +7,7 @@ const collectionName = "vehicle";
 export interface newVehicleRequest {
   id?: string;
   license_plate: string;
-  area_code: string; // ISO3166-2:TH (e.g., th-BT)
+  area_code: string; // ISO3166-2:TH (e.g., th-BT, th-10, th-11)
   group: string; // resident, staff, invited, unknown, blacklisted
   start_time?: string; // RFC3339 format
   expire_time?: string; // RFC3339 format
@@ -22,7 +23,7 @@ export interface vehicleItem {
   id: string;
   license_plate: string;
   area_code: string;
-  group: string;
+  group: string; // resident, staff, invited, unknown, blacklisted (ใช้ group แทน tier)
   start_time: string;
   expire_time: string;
   authorized_area: string[];
@@ -89,7 +90,7 @@ const createVehicle = async (
 
   formData.append("license_plate", newVehicleReq.license_plate);
   formData.append("area_code", newVehicleReq.area_code);
-  formData.append("group", newVehicleReq.group);
+  formData.append("group", newVehicleReq.group); // ใช้ group แทน tier
 
   if (newVehicleReq.start_time) {
     formData.append("start_time", newVehicleReq.start_time);
@@ -126,7 +127,7 @@ const editVehicle = async (vehicleReq: newVehicleRequest): Promise<null> => {
 
   formData.append("license_plate", vehicleReq.license_plate);
   formData.append("area_code", vehicleReq.area_code);
-  formData.append("group", vehicleReq.group);
+  formData.append("group", vehicleReq.group); // ใช้ group แทน tier
 
   if (vehicleReq.start_time) {
     formData.append("start_time", vehicleReq.start_time);

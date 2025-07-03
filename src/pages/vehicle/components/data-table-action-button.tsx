@@ -1,4 +1,4 @@
-// src/pages/residents/components/data-table-action-button.tsx
+// src/pages/vehicle/components/data-table-action-button.tsx
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -11,11 +11,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { EllipsisIcon, LucideTrash, SquarePen } from "lucide-react";
 import type { Cell } from "@tanstack/react-table";
-import type { residentItem } from "@/api/resident/resident";
-import { useDeleteResidentMutation } from "@/react-query/manage/resident";
+import type { vehicleItem } from "@/api/vehicle/vehicle";
+import { useDeleteVehicleMutation } from "@/react-query/manage/vehicle";
 import { MessageDialog } from "@/components/modal";
 import { useState } from "react";
-import EditResidentDialog from "./edit-vehicle-dialog";
+import EditVehicleDialog from "./edit-vehicle-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,8 +29,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
-function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
-  const { mutateAsync } = useDeleteResidentMutation();
+function DataTableActionButton({ info }: { info: Cell<vehicleItem, any> }) {
+  const { mutateAsync } = useDeleteVehicleMutation();
   const [MessageLoginFaild, setMessageLoginFaild] = useState<{
     title: string;
     description: string;
@@ -40,7 +40,7 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
   });
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedResident, setSelectedResident] = useState<residentItem | null>(
+  const [selectedVehicle, setSelectedVehicle] = useState<vehicleItem | null>(
     null
   );
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -51,9 +51,9 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
   const handleEditClick = () => {
     try {
       setDropdownOpen(false);
-      const residentData = info.row.original as residentItem;
-      console.log("Opening edit for resident:", residentData);
-      setSelectedResident(residentData);
+      const vehicleData = info.row.original as vehicleItem;
+      console.log("Opening edit for vehicle:", vehicleData);
+      setSelectedVehicle(vehicleData);
       setIsEditDialogOpen(true);
     } catch (error) {
       console.error("Error opening edit drawer:", error);
@@ -61,18 +61,18 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
     }
   };
 
-  const handleResidentUpdated = () => {
+  const handleVehicleUpdated = () => {
     try {
-      console.log("Resident updated successfully");
-      queryClient.invalidateQueries({ queryKey: ["residentList"] });
+      console.log("Vehicle updated successfully");
+      queryClient.invalidateQueries({ queryKey: ["vehicleList"] });
 
       setIsEditDialogOpen(false);
-      setSelectedResident(null);
+      setSelectedVehicle(null);
       setDropdownOpen(false);
 
       toast.success("อัปเดตข้อมูลสำเร็จ");
     } catch (error) {
-      console.error("Error updating resident list:", error);
+      console.error("Error updating vehicle list:", error);
     }
   };
 
@@ -91,28 +91,28 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
     setIsDeleting(true);
     try {
       const rowId = info.row.getValue("id");
-      console.log("Deleting resident with ID:", rowId);
+      console.log("Deleting vehicle with ID:", rowId);
 
       await mutateAsync(rowId as string);
 
       toast.success("ลบข้อมูลสำเร็จ", {
-        description: "ข้อมูลลูกบ้านถูกลบแล้ว",
+        description: "ข้อมูลยานพาหนะถูกลบแล้ว",
       });
 
-      queryClient.invalidateQueries({ queryKey: ["residentList"] });
+      queryClient.invalidateQueries({ queryKey: ["vehicleList"] });
 
       setMessageLoginFaild({
         title: "Delete Success",
         description: "Delete Success",
       });
     } catch (error) {
-      console.error("Error deleting resident:", error);
+      console.error("Error deleting vehicle:", error);
       toast.error("เกิดข้อผิดพลาดในการลบข้อมูล", {
         description: "กรุณาลองใหม่อีกครั้ง",
       });
       setMessageLoginFaild({
         title: "Delete Failed",
-        description: "Failed to delete resident.",
+        description: "Failed to delete vehicle.",
       });
     } finally {
       setIsDeleting(false);
@@ -129,7 +129,7 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
   const handleEditDialogClose = (open: boolean) => {
     setIsEditDialogOpen(open);
     if (!open) {
-      setSelectedResident(null);
+      setSelectedVehicle(null);
       setDropdownOpen(false);
     }
   };
@@ -190,12 +190,12 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {selectedResident && (
-        <EditResidentDialog
-          residentData={selectedResident}
+      {selectedVehicle && (
+        <EditVehicleDialog
+          vehicleData={selectedVehicle}
           open={isEditDialogOpen}
           onOpenChange={handleEditDialogClose}
-          onResidentUpdated={handleResidentUpdated}
+          onVehicleUpdated={handleVehicleUpdated}
         />
       )}
 
@@ -207,7 +207,7 @@ function DataTableActionButton({ info }: { info: Cell<residentItem, any> }) {
           <AlertDialogHeader>
             <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ที่จะลบลูกบ้านคนนี้?
+              คุณแน่ใจหรือไม่ที่จะลบยานพาหนะคันนี้?
               การดำเนินการนี้ไม่สามารถยกเลิกได้
             </AlertDialogDescription>
           </AlertDialogHeader>

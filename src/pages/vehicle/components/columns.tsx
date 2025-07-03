@@ -1,3 +1,4 @@
+// src/pages/vehicle/components/columns.tsx
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
 import DataTableColumnHeader from "./data-table-column-header";
@@ -23,16 +24,33 @@ export const columns = [
   columnHelper.accessor("area_code", {
     header: () => (
       <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="จังหวัด" />
+        <DataTableColumnHeader title="รหัสพื้นที่" />
       </div>
     ),
-    cell: (info) => (
-      <div className="flex justify-center items-center">
-        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
-          {info.getValue()}
-        </span>
-      </div>
-    ),
+    cell: (info) => {
+      const areaCode = info.getValue();
+      // แปลงรหัส ISO3166-2:TH เป็นชื่อจังหวัด
+      const provinceMap: { [key: string]: string } = {
+        "th-10": "กรุงเทพฯ",
+        "th-11": "สมุทรปราการ",
+        "th-12": "นนทบุรี",
+        "th-13": "ปทุมธานี",
+        "th-14": "พระนครศรีอยุธยา",
+        "th-15": "อ่างทอง",
+        "th-16": "ลพบุรี",
+        "th-17": "สิงห์บุรี",
+        "th-18": "ชัยนาท",
+        "th-19": "สระบุรี",
+      };
+
+      return (
+        <div className="flex justify-center items-center">
+          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+            {provinceMap[areaCode] || areaCode}
+          </span>
+        </div>
+      );
+    },
   }),
   columnHelper.accessor("group", {
     header: () => (
@@ -42,19 +60,21 @@ export const columns = [
     ),
     cell: (info) => {
       const group = info.getValue();
-      const colorMap = {
-        resident: "bg-blue-100 text-blue-800",
-        staff: "bg-green-100 text-green-800",
-        invited: "bg-yellow-100 text-yellow-800",
-        unknown: "bg-gray-100 text-gray-800",
-        blacklisted: "bg-red-100 text-red-800",
+      const groupMap: { [key: string]: { label: string; color: string } } = {
+        resident: { label: "ลูกบ้าน", color: "bg-blue-100 text-blue-800" },
+        staff: { label: "เจ้าหน้าที่", color: "bg-green-100 text-green-800" },
+        invited: { label: "แขก", color: "bg-yellow-100 text-yellow-800" },
+        unknown: { label: "ไม่ทราบ", color: "bg-gray-100 text-gray-800" },
+        blacklisted: { label: "บัญชีดำ", color: "bg-red-100 text-red-800" },
       };
+
+      const groupInfo = groupMap[group] || groupMap.unknown;
 
       return (
         <div className="flex justify-center items-center">
           <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${colorMap[group as keyof typeof colorMap] || colorMap.unknown}`}>
-            {group}
+            className={`px-2 py-1 rounded-full text-xs font-medium ${groupInfo.color}`}>
+            {groupInfo.label}
           </span>
         </div>
       );
