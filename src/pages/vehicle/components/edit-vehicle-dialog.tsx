@@ -1,13 +1,11 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx
+// src/pages/vehicle/components/edit-vehicle-dialog.tsx
 "use client";
-
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { toast } from "sonner";
-import { CarIcon, Calendar } from "lucide-react";
 import {
   Sheet,
   SheetContent,
@@ -15,7 +13,6 @@ import {
   SheetFooter,
   SheetHeader,
   SheetTitle,
-  SheetTrigger,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,12 +33,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { useHouseListQuery } from "@/react-query/manage/house";
+import type { HouseItem } from "@/api/house/house";
+import type { vehicleItem, newVehicleRequest } from "@/api/vehicle/vehicle";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,10 +46,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useHouseListQuery } from "@/react-query/manage/house";
-import { useCreateVehicleMutation } from "@/react-query/manage/vehicle";
-import type { HouseItem } from "@/api/house/house";
-import type { newVehicleRequest } from "@/api/vehicle/vehicle";
+import { useEditVehicleMutation } from "@/react-query/manage/vehicle";
 import { Textarea } from "@/components/ui/textarea";
 
 type groupSelectList = {
@@ -71,7 +62,6 @@ const groupSelectList: groupSelectList[] = [
   { value: "blacklisted", label: "บัญชีดำ" },
 ];
 
-// รายการจังหวัดไทย (ตัวอย่าง)
 const provinceList = [
   { value: "th-10", label: "กรุงเทพมหานคร" },
   { value: "th-11", label: "สมุทรปราการ" },
@@ -85,7 +75,7 @@ const provinceList = [
   { value: "th-19", label: "สระบุรี" },
 ];
 
-const formSchema = z.object({
+const editFormSchema = z.object({
   license_plate: z.string().min(1, { message: "กรุณากรอกป้ายทะเบียน" }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   group: z.string().min(1, { message: "กรุณาเลือกกลุ่ม" }),
@@ -95,23 +85,28 @@ const formSchema = z.object({
   note: z.string().optional(),
 });
 
-interface CreateVehicleDrawerProps {
-  onVehicleCreated: () => void;
+interface EditVehicleDialogProps {
+  vehicleData: vehicleItem | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onVehicleUpdated: () => void;
 }
 
-export function CreateVehicleDrawer({
-  onVehicleCreated,
-}: CreateVehicleDrawerProps) {
+export function EditVehicleDialog({
+  vehicleData,
+  open,
+  onOpenChange,
+  onVehicleUpdated,
+}: EditVehicleDialogProps) {
   const { data: houseList } = useHouseListQuery({});
-  const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
-  const { mutateAsync: createVehicle } = useCreateVehicleMutation();
+  const { mutateAsync: updateVehicle } = useEditVehicleMutation();
 
-  const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<z.infer<typeof editFormSchema>>({
+    resolver: zodResolver(editFormSchema),
     defaultValues: {
       license_plate: "",
       area_code: "",
@@ -123,74 +118,131 @@ export function CreateVehicleDrawer({
     },
   });
 
+  // Complete reset function
+  const resetAllStates = useCallback(() => {
+    setIsLoading(false);
+    setConfirmOpen(false);
+    setIsDirty(false);
+
+    form.reset({
+      license_plate: "",
+      area_code: "",
+      group: "",
+      start_time: "",
+      expire_time: "",
+      house_id: "",
+      note: "",
+    });
+  }, [form]);
+
   // Reset form when drawer closes
   useEffect(() => {
     if (!open) {
-      setIsLoading(false);
-      setConfirmOpen(false);
-      setIsDirty(false);
-      form.reset();
+      resetAllStates();
     }
-  }, [open, form]);
+  }, [open, resetAllStates]);
+
+  // Format datetime for input
+  const formatDateTimeForInput = (dateString: string) => {
+    if (!dateString) return "";
+    try {
+      const date = new Date(dateString);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    } catch {
+      return "";
+    }
+  };
+
+  // Populate form when vehicleData changes and drawer opens
+  useEffect(() => {
+    if (vehicleData && open) {
+      const formData = {
+        license_plate: vehicleData.license_plate || "",
+        area_code: vehicleData.area_code || "",
+        group: vehicleData.group || "",
+        start_time: formatDateTimeForInput(vehicleData.start_time),
+        expire_time: formatDateTimeForInput(vehicleData.expire_time),
+        house_id: vehicleData.house_id || "",
+        note: vehicleData.note || "",
+      };
+
+      form.reset(formData);
+      setIsDirty(false);
+    }
+  }, [vehicleData, open, form]);
 
   // Watch for form changes
   useEffect(() => {
     if (!open) return;
 
     const subscription = form.watch(() => {
-      setIsDirty(true);
+      if (open) {
+        setIsDirty(true);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [form, open]);
 
+  // Handle close with confirmation
   const handleClose = () => {
     if (isDirty && !isLoading) {
       setConfirmOpen(true);
     } else {
-      setOpen(false);
+      resetAllStates();
+      onOpenChange(false);
     }
   };
 
   const handleConfirmClose = () => {
     setConfirmOpen(false);
-    setOpen(false);
+    resetAllStates();
+    onOpenChange(false);
   };
 
   const handleCancelClose = () => {
     setConfirmOpen(false);
   };
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  // Handle sheet open change (includes X button click)
+  const handleSheetOpenChange = (open: boolean) => {
+    if (!open) {
+      handleClose();
+    } else {
+      onOpenChange(open);
+    }
+  };
+
+  async function onSubmit(values: z.infer<typeof editFormSchema>) {
+    setIsLoading(true);
     try {
-      setIsLoading(true);
+      const reqData = values as newVehicleRequest;
+      reqData.id = vehicleData?.id;
 
-      // แปลงวันที่เป็น RFC3339 format ถ้ามีการกรอก
-      const vehicleData: newVehicleRequest = {
-        ...values,
-        start_time: values.start_time
-          ? new Date(values.start_time).toISOString()
-          : undefined,
-        expire_time: values.expire_time
-          ? new Date(values.expire_time).toISOString()
-          : undefined,
-      };
+      // แปลงวันที่เป็น ISO string ถ้ามีการกรอก
+      if (values.start_time) {
+        reqData.start_time = new Date(values.start_time).toISOString();
+      }
+      if (values.expire_time) {
+        reqData.expire_time = new Date(values.expire_time).toISOString();
+      }
 
-      await createVehicle(vehicleData);
+      await updateVehicle(reqData);
 
-      toast.success("เพิ่มยานพาหนะสำเร็จแล้ว", {
-        description: "ข้อมูลยานพาหนะใหม่ถูกเพิ่มเข้าระบบเรียบร้อยแล้ว",
-        duration: 4000,
-      });
-
-      form.reset();
-      setOpen(false);
-      onVehicleCreated();
-    } catch (error) {
-      console.error("Create vehicle failed:", error);
-      toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
-        description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
-      });
+      toast.success("อัปเดตข้อมูลสำเร็จ");
+      resetAllStates();
+      onVehicleUpdated();
+    } catch (error: any) {
+      console.error("Update vehicle failed:", error);
+      toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
     } finally {
       setIsLoading(false);
     }
@@ -198,28 +250,12 @@ export function CreateVehicleDrawer({
 
   return (
     <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <SheetTrigger asChild>
-                <Button variant="default" className="gap-2">
-                  <CarIcon className="h-4 w-4" />
-                  เพิ่มยานพาหนะ
-                </Button>
-              </SheetTrigger>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>เพิ่มข้อมูลยานพาหนะใหม่</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-
+      <Sheet open={open} onOpenChange={handleSheetOpenChange}>
         <SheetContent className="sm:max-w-[500px] overflow-y-auto">
           <SheetHeader>
-            <SheetTitle>เพิ่มข้อมูลยานพาหนะใหม่</SheetTitle>
+            <SheetTitle>แก้ไขข้อมูลยานพาหนะ</SheetTitle>
             <SheetDescription>
-              กรอกข้อมูลยานพาหนะที่ต้องการเพิ่มในระบบ
+              แก้ไขข้อมูลยานพาหนะ {vehicleData?.license_plate}
             </SheetDescription>
           </SheetHeader>
 
@@ -421,7 +457,7 @@ export function CreateVehicleDrawer({
                       ยกเลิก
                     </Button>
                     <Button type="submit" disabled={isLoading}>
-                      {isLoading ? "กำลังบันทึก..." : "บันทึก"}
+                      {isLoading ? "กำลังอัปเดต..." : "อัปเดต"}
                     </Button>
                   </SheetFooter>
                 </form>
@@ -437,7 +473,8 @@ export function CreateVehicleDrawer({
           <AlertDialogHeader>
             <AlertDialogTitle>คุณแน่ใจหรือไม่?</AlertDialogTitle>
             <AlertDialogDescription>
-              คุณกำลังจะปิดแบบฟอร์มนี้ ข้อมูลที่คุณกรอกอาจไม่ถูกบันทึก
+              คุณกำลังจะปิดแบบฟอร์มนี้
+              ข้อมูลที่คุณทำการเปลี่ยนแปลงอาจไม่ถูกบันทึก
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -454,4 +491,4 @@ export function CreateVehicleDrawer({
   );
 }
 
-export default CreateVehicleDrawer;
+export default EditVehicleDialog;

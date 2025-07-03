@@ -1,3 +1,4 @@
+// src/pages/vehicle/components/data-table-toolbar.tsx
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -15,10 +16,12 @@ function DataTableToolbar<T>(props: { table: Table<T> }) {
     <div className="flex items-center gap-2 py-4 mb-2">
       <Input
         className="max-w-sm"
-        placeholder="ค้นหาอีเมล..."
-        value={(table.getColumn("email")?.getFilterValue() as string) ?? ""}
+        placeholder="ค้นหาป้ายทะเบียน..."
+        value={
+          (table.getColumn("license_plate")?.getFilterValue() as string) ?? ""
+        }
         onChange={(event) =>
-          table.getColumn("email")?.setFilterValue(event.target.value)
+          table.getColumn("license_plate")?.setFilterValue(event.target.value)
         }
       />
       <DropdownMenu>

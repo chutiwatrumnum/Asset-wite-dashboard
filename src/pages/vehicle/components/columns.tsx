@@ -9,7 +9,7 @@ const columnHelper = createColumnHelper<vehicleItem>();
 export const columns = [
   columnHelper.accessor("id", {
     cell: (info) => info.getValue(),
-    enableHiding: false,
+    enableHiding: false, // ป้องกันการซ่อน id
   }),
   columnHelper.accessor("license_plate", {
     header: () => <DataTableColumnHeader title="ป้ายทะเบียน" />,
@@ -28,8 +28,8 @@ export const columns = [
     ),
     cell: (info) => (
       <div className="flex justify-center items-center">
-        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-          {info.getValue().replace("th-", "")}
+        <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+          {info.getValue()}
         </span>
       </div>
     ),
@@ -37,67 +37,24 @@ export const columns = [
   columnHelper.accessor("group", {
     header: () => (
       <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="ประเภท" />
+        <DataTableColumnHeader title="กลุ่ม" />
       </div>
     ),
     cell: (info) => {
       const group = info.getValue();
-      const getGroupStyle = (group: string) => {
-        switch (group) {
-          case "resident":
-            return "bg-green-100 text-green-800";
-          case "staff":
-            return "bg-blue-100 text-blue-800";
-          case "invited":
-            return "bg-yellow-100 text-yellow-800";
-          case "unknown":
-            return "bg-gray-100 text-gray-800";
-          case "blacklisted":
-            return "bg-red-100 text-red-800";
-          default:
-            return "bg-gray-100 text-gray-800";
-        }
+      const colorMap = {
+        resident: "bg-blue-100 text-blue-800",
+        staff: "bg-green-100 text-green-800",
+        invited: "bg-yellow-100 text-yellow-800",
+        unknown: "bg-gray-100 text-gray-800",
+        blacklisted: "bg-red-100 text-red-800",
       };
 
       return (
         <div className="flex justify-center items-center">
           <span
-            className={`px-2 py-1 rounded-full text-xs font-medium ${getGroupStyle(group)}`}>
+            className={`px-2 py-1 rounded-full text-xs font-medium ${colorMap[group as keyof typeof colorMap] || colorMap.unknown}`}>
             {group}
-          </span>
-        </div>
-      );
-    },
-  }),
-  columnHelper.accessor("start_time", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="เริ่มต้น" />
-      </div>
-    ),
-    cell: (info) => {
-      const startTime = new Date(info.getValue());
-      return (
-        <div className="flex justify-center items-center text-xs">
-          {formatInTimeZone(startTime, TimeZone, "dd MMM yyyy HH:mm")}
-        </div>
-      );
-    },
-  }),
-  columnHelper.accessor("expire_time", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="สิ้นสุด" />
-      </div>
-    ),
-    cell: (info) => {
-      const expireTime = new Date(info.getValue());
-      const isExpired = expireTime < new Date();
-
-      return (
-        <div className="flex justify-center items-center text-xs">
-          <span className={isExpired ? "text-red-600" : "text-green-600"}>
-            {formatInTimeZone(expireTime, TimeZone, "dd MMM yyyy HH:mm")}
           </span>
         </div>
       );
@@ -109,11 +66,47 @@ export const columns = [
         <DataTableColumnHeader title="บ้าน" />
       </div>
     ),
+    cell: (info) => (
+      <div className="flex justify-center items-center">
+        <span className="text-xs">{info.getValue() || "ไม่ระบุ"}</span>
+      </div>
+    ),
+  }),
+  columnHelper.accessor("start_time", {
+    header: () => (
+      <div className="flex justify-center items-center">
+        <DataTableColumnHeader title="วันที่เริ่ม" />
+      </div>
+    ),
     cell: (info) => {
-      const houseId = info.getValue();
+      const startTime = info.getValue();
+      if (!startTime) return <div className="text-center text-gray-400">-</div>;
+
       return (
         <div className="flex justify-center items-center">
-          <span className="text-xs">{houseId ? houseId.slice(-8) : "-"}</span>
+          {formatInTimeZone(new Date(startTime), TimeZone, "dd MMM yyyy")}
+        </div>
+      );
+    },
+  }),
+  columnHelper.accessor("expire_time", {
+    header: () => (
+      <div className="flex justify-center items-center">
+        <DataTableColumnHeader title="วันหมดอายุ" />
+      </div>
+    ),
+    cell: (info) => {
+      const expireTime = info.getValue();
+      if (!expireTime)
+        return <div className="text-center text-gray-400">-</div>;
+
+      const isExpired = new Date(expireTime) < new Date();
+
+      return (
+        <div className="flex justify-center items-center">
+          <span className={isExpired ? "text-red-600 font-medium" : ""}>
+            {formatInTimeZone(new Date(expireTime), TimeZone, "dd MMM yyyy")}
+          </span>
         </div>
       );
     },
@@ -121,13 +114,13 @@ export const columns = [
   columnHelper.accessor("created", {
     header: () => (
       <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="สร้างเมื่อ" />
+        <DataTableColumnHeader title="วันที่สร้าง" />
       </div>
     ),
     cell: (info) => {
       const createdTime = new Date(info.getValue());
       return (
-        <div className="flex justify-center items-center text-xs">
+        <div className="flex justify-center items-center">
           {formatInTimeZone(createdTime, TimeZone, "dd MMM yyyy")}
         </div>
       );

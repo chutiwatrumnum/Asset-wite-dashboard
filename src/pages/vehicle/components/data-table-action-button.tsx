@@ -15,7 +15,7 @@ import type { residentItem } from "@/api/resident/resident";
 import { useDeleteResidentMutation } from "@/react-query/manage/resident";
 import { MessageDialog } from "@/components/modal";
 import { useState } from "react";
-import EditResidentDialog from "./edit-resident-dialog";
+import EditResidentDialog from "./edit-vehicle-dialog";
 import {
   AlertDialog,
   AlertDialogAction,
