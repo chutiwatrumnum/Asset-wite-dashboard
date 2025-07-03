@@ -5,6 +5,10 @@ import {
     useEditVehicleMutation,
     useVehicleAllListQuery,
     useVehicleByIdQuery,
+    useVehicleByLicensePlateQuery,
+    useVehiclesByTierQuery,
+    useVehiclesByHouseQuery,
+    useActiveVehiclesQuery,
     useBulkDeleteVehicleMutation
 } from './vehicle'
 
@@ -15,5 +19,9 @@ export {
     useEditVehicleMutation,
     useVehicleAllListQuery,
     useVehicleByIdQuery,
+    useVehicleByLicensePlateQuery,
+    useVehiclesByTierQuery,
+    useVehiclesByHouseQuery,
+    useActiveVehiclesQuery,
     useBulkDeleteVehicleMutation
 }

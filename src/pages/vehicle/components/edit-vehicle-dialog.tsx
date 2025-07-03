@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/edit-vehicle-dialog.tsx
+// 3. src/pages/vehicle/components/edit-vehicle-dialog.tsx
 "use client";
 import type React from "react";
 import { useState, useEffect, useCallback } from "react";
@@ -86,10 +86,11 @@ const provinceList = [
 const editFormSchema = z.object({
   license_plate: z.string().min(1, { message: "กรุณากรอกป้ายทะเบียน" }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }), // เปลี่ยนจาก group เป็น tier
+  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
   start_time: z.string().optional(),
   expire_time: z.string().optional(),
   house_id: z.string().optional(),
+  authorized_area: z.array(z.string()).optional(),
   note: z.string().optional(),
 });
 
@@ -118,15 +119,15 @@ export function EditVehicleDialog({
     defaultValues: {
       license_plate: "",
       area_code: "",
-      tier: "", // เปลี่ยนจาก group เป็น tier
+      tier: "",
       start_time: "",
       expire_time: "",
       house_id: "",
+      authorized_area: [],
       note: "",
     },
   });
 
-  // Complete reset function
   const resetAllStates = useCallback(() => {
     setIsLoading(false);
     setConfirmOpen(false);
@@ -135,22 +136,21 @@ export function EditVehicleDialog({
     form.reset({
       license_plate: "",
       area_code: "",
-      tier: "", // เปลี่ยนจาก group เป็น tier
+      tier: "",
       start_time: "",
       expire_time: "",
       house_id: "",
+      authorized_area: [],
       note: "",
     });
   }, [form]);
 
-  // Reset form when drawer closes
   useEffect(() => {
     if (!open) {
       resetAllStates();
     }
   }, [open, resetAllStates]);
 
-  // Format datetime for input
   const formatDateTimeForInput = (dateString: string) => {
     if (!dateString) return "";
     try {
@@ -167,16 +167,16 @@ export function EditVehicleDialog({
     }
   };
 
-  // Populate form when vehicleData changes and drawer opens
   useEffect(() => {
     if (vehicleData && open) {
       const formData = {
         license_plate: vehicleData.license_plate || "",
         area_code: vehicleData.area_code || "",
-        tier: vehicleData.tier || "", // เปลี่ยนจาก group เป็น tier
+        tier: vehicleData.tier || "",
         start_time: formatDateTimeForInput(vehicleData.start_time),
         expire_time: formatDateTimeForInput(vehicleData.expire_time),
         house_id: vehicleData.house_id || "",
+        authorized_area: vehicleData.authorized_area || [],
         note: vehicleData.note || "",
       };
 
@@ -185,7 +185,6 @@ export function EditVehicleDialog({
     }
   }, [vehicleData, open, form]);
 
-  // Watch for form changes
   useEffect(() => {
     if (!open) return;
 
@@ -200,7 +199,6 @@ export function EditVehicleDialog({
     };
   }, [form, open]);
 
-  // Handle close with confirmation
   const handleClose = () => {
     if (isDirty && !isLoading) {
       setConfirmOpen(true);
@@ -220,7 +218,6 @@ export function EditVehicleDialog({
     setConfirmOpen(false);
   };
 
-  // Handle sheet open change (includes X button click)
   const handleSheetOpenChange = (open: boolean) => {
     if (!open) {
       handleClose();
@@ -235,7 +232,6 @@ export function EditVehicleDialog({
       const reqData = values as newVehicleRequest;
       reqData.id = vehicleData?.id;
 
-      // แปลงวันที่เป็น ISO string ถ้ามีการกรอก
       if (values.start_time) {
         reqData.start_time = new Date(values.start_time).toISOString();
       }
@@ -326,7 +322,7 @@ export function EditVehicleDialog({
 
                   <FormField
                     control={form.control}
-                    name="tier" // เปลี่ยนจาก group เป็น tier
+                    name="tier"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>ระดับยานพาหนะ *</FormLabel>
@@ -484,7 +480,6 @@ export function EditVehicleDialog({
         </SheetContent>
       </Sheet>
 
-      {/* Confirmation Dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

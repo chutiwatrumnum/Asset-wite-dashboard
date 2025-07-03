@@ -6,6 +6,10 @@ import {
     getAllVehicle,
     getVehicle,
     getVehicleById,
+    getVehicleByLicensePlate,
+    getVehiclesByTier,
+    getVehiclesByHouse,
+    getActiveVehicles,
     newVehicleRequest,
     vehicleItem,
     vehicleRequest,
@@ -47,12 +51,57 @@ export const useVehicleByIdQuery = (id: string) => {
     return { ...query };
 };
 
+// New hooks for additional functions
+export const useVehicleByLicensePlateQuery = (licensePlate: string) => {
+    const query = useQuery<vehicleItem[], Error>({
+        queryKey: ["vehicleByLicensePlate", licensePlate],
+        queryFn: () => getVehicleByLicensePlate(licensePlate),
+        enabled: !!licensePlate,
+        retry: false,
+    });
+    return { ...query };
+};
+
+export const useVehiclesByTierQuery = (tier: string) => {
+    const query = useQuery<vehicleItem[], Error>({
+        queryKey: ["vehiclesByTier", tier],
+        queryFn: () => getVehiclesByTier(tier),
+        enabled: !!tier,
+        retry: false,
+    });
+    return { ...query };
+};
+
+export const useVehiclesByHouseQuery = (houseId: string) => {
+    const query = useQuery<vehicleItem[], Error>({
+        queryKey: ["vehiclesByHouse", houseId],
+        queryFn: () => getVehiclesByHouse(houseId),
+        enabled: !!houseId,
+        retry: false,
+    });
+    return { ...query };
+};
+
+export const useActiveVehiclesQuery = () => {
+    const query = useQuery<vehicleItem[], Error>({
+        queryKey: ["activeVehicles"],
+        queryFn: () => getActiveVehicles(),
+        retry: false,
+    });
+    return { ...query };
+};
+
 export const useDeleteVehicleMutation = () => {
     const queryClient = useQueryClient();
     const mutation = useMutation<null, Error, string>({
         mutationFn: (vehicleId) => deleteVehicle(vehicleId),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["vehicleList"] });
+            queryClient.invalidateQueries({ queryKey: ["vehicle"] });
+            queryClient.invalidateQueries({ queryKey: ["vehicleByLicensePlate"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByTier"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByHouse"] });
+            queryClient.invalidateQueries({ queryKey: ["activeVehicles"] });
         },
     });
 
@@ -65,6 +114,9 @@ export const useCreateVehicleMutation = () => {
         mutationFn: createVehicle,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["vehicleList"] });
+            queryClient.invalidateQueries({ queryKey: ["activeVehicles"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByTier"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByHouse"] });
         },
         onError(error: Error, variables, context) {
             console.log("error:", error);
@@ -82,6 +134,11 @@ export const useEditVehicleMutation = () => {
         mutationFn: editVehicle,
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: ["vehicleList"] });
+            queryClient.invalidateQueries({ queryKey: ["vehicle"] });
+            queryClient.invalidateQueries({ queryKey: ["vehicleByLicensePlate"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByTier"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByHouse"] });
+            queryClient.invalidateQueries({ queryKey: ["activeVehicles"] });
         },
         onError(error: Error, variables, context) {
             console.log("error:", error);
@@ -121,6 +178,11 @@ export const useBulkDeleteVehicleMutation = () => {
         },
         onSuccess: (data) => {
             queryClient.invalidateQueries({ queryKey: ["vehicleList"] });
+            queryClient.invalidateQueries({ queryKey: ["vehicle"] });
+            queryClient.invalidateQueries({ queryKey: ["vehicleByLicensePlate"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByTier"] });
+            queryClient.invalidateQueries({ queryKey: ["vehiclesByHouse"] });
+            queryClient.invalidateQueries({ queryKey: ["activeVehicles"] });
 
             if (data.successful.length > 0) {
                 toast.success(`ลบข้อมูลสำเร็จ ${data.successful.length} รายการ`);

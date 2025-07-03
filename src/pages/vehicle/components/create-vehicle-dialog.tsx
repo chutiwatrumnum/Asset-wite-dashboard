@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx
+// 2. src/pages/vehicle/components/create-vehicle-dialog.tsx
 "use client";
 
 import type React from "react";
@@ -71,7 +71,6 @@ const tierSelectList: tierSelectList[] = [
   { value: "blacklisted", label: "บัญชีดำ" },
 ];
 
-// รายการจังหวัดไทยตาม ISO3166-2:TH
 const provinceList = [
   { value: "th-10", label: "กรุงเทพมหานคร" },
   { value: "th-11", label: "สมุทรปราการ" },
@@ -96,10 +95,11 @@ const provinceList = [
 const formSchema = z.object({
   license_plate: z.string().min(1, { message: "กรุณากรอกป้ายทะเบียน" }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }), // เปลี่ยนจาก group เป็น tier
+  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
   start_time: z.string().optional(),
   expire_time: z.string().optional(),
   house_id: z.string().optional(),
+  authorized_area: z.array(z.string()).optional(),
   note: z.string().optional(),
 });
 
@@ -123,15 +123,15 @@ export function CreateVehicleDrawer({
     defaultValues: {
       license_plate: "",
       area_code: "",
-      tier: "", // เปลี่ยนจาก group เป็น tier
+      tier: "",
       start_time: "",
       expire_time: "",
       house_id: "",
+      authorized_area: [],
       note: "",
     },
   });
 
-  // Reset form when drawer closes
   useEffect(() => {
     if (!open) {
       setIsLoading(false);
@@ -141,7 +141,6 @@ export function CreateVehicleDrawer({
     }
   }, [open, form]);
 
-  // Watch for form changes
   useEffect(() => {
     if (!open) return;
 
@@ -173,7 +172,6 @@ export function CreateVehicleDrawer({
     try {
       setIsLoading(true);
 
-      // แปลงวันที่เป็น RFC3339 format ถ้ามีการกรอก
       const vehicleData: newVehicleRequest = {
         ...values,
         start_time: values.start_time
@@ -290,7 +288,7 @@ export function CreateVehicleDrawer({
 
                   <FormField
                     control={form.control}
-                    name="tier" // เปลี่ยนจาก group เป็น tier
+                    name="tier"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>ระดับยานพาหนะ *</FormLabel>
@@ -448,7 +446,6 @@ export function CreateVehicleDrawer({
         </SheetContent>
       </Sheet>
 
-      {/* Confirmation Dialog */}
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>

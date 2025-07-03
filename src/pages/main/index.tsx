@@ -17,6 +17,21 @@ import { Outlet, useLocation } from "@tanstack/react-router";
 
 export default function Main() {
   const location = useLocation();
+  
+  // สร้าง breadcrumb path
+  const getBreadcrumbText = (pathname: string) => {
+    const pathMap: { [key: string]: string } = {
+      "/dashboard": "แดชบอร์ด",
+      "/saff": "เจ้าหน้าที่", 
+      "/residents": "ลูกบ้าน",
+      "/vehicles": "จัดการยานพาหนะ",
+      "/appointments": "นัดหมาย",
+      "/history-in-out": "ประวัติการเข้าออก",
+    };
+    
+    return pathMap[pathname] || pathname;
+  };
+
   return (
     <SidebarProvider>
       <AppSidebar/>
@@ -31,24 +46,19 @@ export default function Main() {
                 <BreadcrumbList>
                   <BreadcrumbItem className="hidden md:block">
                     <BreadcrumbLink href="#">
-                     {location.pathname}
+                      {getBreadcrumbText(location.pathname)}
                     </BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator className="hidden md:block"/>
-                  {/*<BreadcrumbItem>*/}
-                  {/*  <BreadcrumbPage>Data Fetching</BreadcrumbPage>*/}
-                  {/*</BreadcrumbItem>*/}
                 </BreadcrumbList>
               </Breadcrumb>
             </div>
           </header>
           <div className="flex flex-1 flex-col select-none gap-4 p-4 pt-0">
-          <Outlet />
-            {/* <DataTable/> */}
+            <Outlet />
           </div>
         </SidebarInset>
       </Sheet>
-
     </SidebarProvider>
   )
 }

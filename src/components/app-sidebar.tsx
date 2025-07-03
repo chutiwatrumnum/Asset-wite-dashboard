@@ -1,16 +1,30 @@
-import * as React from "react"
+import * as React from "react";
 import Pb from "@/api/pocketbase.tsx";
-import { NavMain } from "@/components/nav-main"
-import { NavUser } from "@/components/nav-user"
-import { TeamSwitcher } from "@/components/team-switcher"
+import { NavMain } from "@/components/nav-main";
+import { NavUser } from "@/components/nav-user";
+import { TeamSwitcher } from "@/components/team-switcher";
 import {
-  Frame, Map, PieChart,
-  LayoutDashboard, LucideCalendar, LucideCar,
-  LucideCctv, LucideFileClock,
-  LucideUserRound, LucideHome, GlassesIcon
-} from "lucide-react"
-import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarRail } from "@/components/ui/sidebar"
+  Frame,
+  Map,
+  PieChart,
+  LayoutDashboard,
+  LucideCalendar,
+  LucideCar,
+  LucideCctv,
+  LucideFileClock,
+  LucideUserRound,
+  LucideHome,
+  GlassesIcon,
+} from "lucide-react";
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarHeader,
+  SidebarRail,
+} from "@/components/ui/sidebar";
 import { encryptStorage } from "@/utils/encryptStorage";
+
 const data = {
   teams: [
     {
@@ -48,17 +62,21 @@ const data = {
       icon: LucideCalendar,
     },
     {
-      title: "ยานพาหนะ",
-      url: "",
+      title: "จัดการยานพาหนะ",
+      url: "/vehicles",
       icon: LucideCar,
       items: [
         {
           title: "ลูกบ้าน & เจ้าหน้าที่",
-          url: "/line-app",
+          url: "/vehicles?tier=resident,staff",
         },
         {
           title: "บุคคลภายนอก",
-          url: "/visitor",
+          url: "/vehicles?tier=invited,unknown",
+        },
+        {
+          title: "รายการทั้งหมด",
+          url: "/vehicles",
         },
       ],
     },
@@ -73,7 +91,7 @@ const data = {
         },
         {
           title: "ยานพาหนะ",
-          url: "/vehicles",
+          url: "/vehicle-history",
         },
       ],
     },
@@ -95,32 +113,32 @@ const data = {
       icon: Map,
     },
   ],
-}
+};
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const authRecord = encryptStorage.getItem("user");
   if (!authRecord) {
-   return 
+    return;
   }
   const { first_name, last_name, email } = authRecord;
   const user = {
     name: first_name + " " + last_name,
     email: email,
     avatar: Pb.files.getURL(authRecord, authRecord.avatar),
-  }
+  };
 
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <TeamSwitcher teams={data.teams}/>
+        <TeamSwitcher teams={data.teams} />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={data.navMain}/>
+        <NavMain items={data.navMain} />
       </SidebarContent>
       <SidebarFooter>
-        <NavUser user={user}/>
+        <NavUser user={user} />
       </SidebarFooter>
-      <SidebarRail/>
+      <SidebarRail />
     </Sidebar>
-  )
+  );
 }

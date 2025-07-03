@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/columns.tsx
+// 1. src/pages/vehicle/components/columns.tsx
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
 import DataTableColumnHeader from "./data-table-column-header";
@@ -10,7 +10,7 @@ const columnHelper = createColumnHelper<vehicleItem>();
 export const columns = [
   columnHelper.accessor("id", {
     cell: (info) => info.getValue(),
-    enableHiding: false, // ป้องกันการซ่อน id
+    enableHiding: false,
   }),
   columnHelper.accessor("license_plate", {
     header: () => <DataTableColumnHeader title="ป้ายทะเบียน" />,
@@ -29,7 +29,6 @@ export const columns = [
     ),
     cell: (info) => {
       const areaCode = info.getValue();
-      // แปลงรหัส ISO3166-2:TH เป็นชื่อจังหวัด
       const provinceMap: { [key: string]: string } = {
         "th-10": "กรุงเทพฯ",
         "th-11": "สมุทรปราการ",
@@ -41,6 +40,14 @@ export const columns = [
         "th-17": "สิงห์บุรี",
         "th-18": "ชัยนาท",
         "th-19": "สระบุรี",
+        "th-20": "นครนายก",
+        "th-21": "สระแก้ว",
+        "th-22": "ปราจีนบุรี",
+        "th-23": "ฉะเชิงเทรา",
+        "th-24": "ชลบุรี",
+        "th-25": "ระยอง",
+        "th-26": "จันทบุรี",
+        "th-27": "ตราด",
       };
 
       return (
@@ -53,7 +60,6 @@ export const columns = [
     },
   }),
   columnHelper.accessor("tier", {
-    // เปลี่ยนจาก group เป็น tier
     header: () => (
       <div className="flex justify-center items-center">
         <DataTableColumnHeader title="ระดับ" />
