@@ -163,60 +163,70 @@ const getActiveVehicles = async (): Promise<vehicleItem[]> => {
 };
 
 const deleteVehicle = async (id: string): Promise<null> => {
-  await Pb.collection(collectionName).delete(id);
-  return null;
+  try {
+    await Pb.collection(collectionName).delete(id);
+    return null;
+  } catch (error) {
+    console.error(`Error deleting vehicle with id ${id}:`, error);
+    throw error;
+  }
 };
 
 const createVehicle = async (
   newVehicleReq: newVehicleRequest
 ): Promise<null> => {
-  const formData = new FormData();
+  try {
+    const formData = new FormData();
 
-  // Required fields
-  formData.append("license_plate", newVehicleReq.license_plate);
-  formData.append("area_code", newVehicleReq.area_code);
-  formData.append("tier", newVehicleReq.tier);
+    // Required fields
+    formData.append("license_plate", newVehicleReq.license_plate);
+    formData.append("area_code", newVehicleReq.area_code);
+    formData.append("tier", newVehicleReq.tier);
 
-  // Optional fields
-  if (newVehicleReq.start_time) {
-    formData.append("start_time", newVehicleReq.start_time);
-  }
-  if (newVehicleReq.expire_time) {
-    formData.append("expire_time", newVehicleReq.expire_time);
-  }
-  if (newVehicleReq.invitation) {
-    formData.append("invitation", newVehicleReq.invitation);
-  }
-  if (newVehicleReq.house_id) {
-    formData.append("house_id", newVehicleReq.house_id);
-  }
-  if (newVehicleReq.authorized_area && newVehicleReq.authorized_area.length > 0) {
-    formData.append(
-      "authorized_area",
-      JSON.stringify(newVehicleReq.authorized_area)
-    );
-  } else {
-    formData.append("authorized_area", "[]");
-  }
-  if (newVehicleReq.stamper) {
-    formData.append("stamper", newVehicleReq.stamper);
-  }
-  if (newVehicleReq.stamped_time) {
-    formData.append("stamped_time", newVehicleReq.stamped_time);
-  }
-  if (newVehicleReq.note) {
-    formData.append("note", newVehicleReq.note);
-  }
+    // Optional fields
+    if (newVehicleReq.start_time) {
+      formData.append("start_time", newVehicleReq.start_time);
+    }
+    if (newVehicleReq.expire_time) {
+      formData.append("expire_time", newVehicleReq.expire_time);
+    }
+    if (newVehicleReq.invitation) {
+      formData.append("invitation", newVehicleReq.invitation);
+    }
+    if (newVehicleReq.house_id) {
+      formData.append("house_id", newVehicleReq.house_id);
+    }
+    if (newVehicleReq.authorized_area && newVehicleReq.authorized_area.length > 0) {
+      formData.append(
+        "authorized_area",
+        JSON.stringify(newVehicleReq.authorized_area)
+      );
+    } else {
+      formData.append("authorized_area", "[]");
+    }
+    if (newVehicleReq.stamper) {
+      formData.append("stamper", newVehicleReq.stamper);
+    }
+    if (newVehicleReq.stamped_time) {
+      formData.append("stamped_time", newVehicleReq.stamped_time);
+    }
+    if (newVehicleReq.note) {
+      formData.append("note", newVehicleReq.note);
+    }
 
-  // Set issuer to current user if not provided
-  if (newVehicleReq.issuer) {
-    formData.append("issuer", newVehicleReq.issuer);
-  } else if (Pb.authStore.record?.id) {
-    formData.append("issuer", Pb.authStore.record.id);
-  }
+    // Set issuer to current user if not provided
+    if (newVehicleReq.issuer) {
+      formData.append("issuer", newVehicleReq.issuer);
+    } else if (Pb.authStore.record?.id) {
+      formData.append("issuer", Pb.authStore.record.id);
+    }
 
-  await Pb.collection(collectionName).create(formData);
-  return null;
+    await Pb.collection(collectionName).create(formData);
+    return null;
+  } catch (error) {
+    console.error("Error creating vehicle:", error);
+    throw error;
+  }
 };
 
 const editVehicle = async (vehicleReq: newVehicleRequest): Promise<null> => {
@@ -224,45 +234,50 @@ const editVehicle = async (vehicleReq: newVehicleRequest): Promise<null> => {
     throw new Error("Vehicle ID is required for editing");
   }
 
-  const updateData: Record<string, any> = {};
+  try {
+    const updateData: Record<string, any> = {};
 
-  // Required fields
-  updateData.license_plate = vehicleReq.license_plate;
-  updateData.area_code = vehicleReq.area_code;
-  updateData.tier = vehicleReq.tier;
+    // Required fields
+    updateData.license_plate = vehicleReq.license_plate;
+    updateData.area_code = vehicleReq.area_code;
+    updateData.tier = vehicleReq.tier;
 
-  // Optional fields - only update if provided
-  if (vehicleReq.start_time !== undefined) {
-    updateData.start_time = vehicleReq.start_time;
-  }
-  if (vehicleReq.expire_time !== undefined) {
-    updateData.expire_time = vehicleReq.expire_time;
-  }
-  if (vehicleReq.invitation !== undefined) {
-    updateData.invitation = vehicleReq.invitation;
-  }
-  if (vehicleReq.house_id !== undefined) {
-    updateData.house_id = vehicleReq.house_id;
-  }
-  if (vehicleReq.authorized_area !== undefined) {
-    updateData.authorized_area = vehicleReq.authorized_area;
-  }
-  if (vehicleReq.stamper !== undefined) {
-    updateData.stamper = vehicleReq.stamper;
-  }
-  if (vehicleReq.stamped_time !== undefined) {
-    updateData.stamped_time = vehicleReq.stamped_time;
-  }
-  if (vehicleReq.note !== undefined) {
-    updateData.note = vehicleReq.note;
-  }
-  if (vehicleReq.issuer !== undefined) {
-    updateData.issuer = vehicleReq.issuer;
-  }
+    // Optional fields - only update if provided
+    if (vehicleReq.start_time !== undefined) {
+      updateData.start_time = vehicleReq.start_time;
+    }
+    if (vehicleReq.expire_time !== undefined) {
+      updateData.expire_time = vehicleReq.expire_time;
+    }
+    if (vehicleReq.invitation !== undefined) {
+      updateData.invitation = vehicleReq.invitation;
+    }
+    if (vehicleReq.house_id !== undefined) {
+      updateData.house_id = vehicleReq.house_id;
+    }
+    if (vehicleReq.authorized_area !== undefined) {
+      updateData.authorized_area = vehicleReq.authorized_area;
+    }
+    if (vehicleReq.stamper !== undefined) {
+      updateData.stamper = vehicleReq.stamper;
+    }
+    if (vehicleReq.stamped_time !== undefined) {
+      updateData.stamped_time = vehicleReq.stamped_time;
+    }
+    if (vehicleReq.note !== undefined) {
+      updateData.note = vehicleReq.note;
+    }
+    if (vehicleReq.issuer !== undefined) {
+      updateData.issuer = vehicleReq.issuer;
+    }
 
-  // Use PATCH method via PocketBase's update function
-  await Pb.collection(collectionName).update(vehicleReq.id, updateData);
-  return null;
+    // Use PATCH method via PocketBase's update function
+    await Pb.collection(collectionName).update(vehicleReq.id, updateData);
+    return null;
+  } catch (error) {
+    console.error("Error updating vehicle:", error);
+    throw error;
+  }
 };
 
 // Additional function for partial updates (PATCH-like behavior)
@@ -270,18 +285,23 @@ const patchVehicle = async (
   id: string,
   patchData: Partial<Omit<newVehicleRequest, 'id'>>
 ): Promise<null> => {
-  const updateData: Record<string, any> = {};
+  try {
+    const updateData: Record<string, any> = {};
 
-  // Only include fields that are explicitly provided
-  Object.keys(patchData).forEach(key => {
-    const value = patchData[key as keyof typeof patchData];
-    if (value !== undefined) {
-      updateData[key] = value;
-    }
-  });
+    // Only include fields that are explicitly provided
+    Object.keys(patchData).forEach(key => {
+      const value = patchData[key as keyof typeof patchData];
+      if (value !== undefined) {
+        updateData[key] = value;
+      }
+    });
 
-  await Pb.collection(collectionName).update(id, updateData);
-  return null;
+    await Pb.collection(collectionName).update(id, updateData);
+    return null;
+  } catch (error) {
+    console.error("Error patching vehicle:", error);
+    throw error;
+  }
 };
 
 // Function to stamp a vehicle (approve/validate)
@@ -290,13 +310,18 @@ const stampVehicle = async (
   stamperId: string,
   stampedTime?: string
 ): Promise<null> => {
-  const updateData = {
-    stamper: stamperId,
-    stamped_time: stampedTime || new Date().toISOString()
-  };
+  try {
+    const updateData = {
+      stamper: stamperId,
+      stamped_time: stampedTime || new Date().toISOString()
+    };
 
-  await Pb.collection(collectionName).update(id, updateData);
-  return null;
+    await Pb.collection(collectionName).update(id, updateData);
+    return null;
+  } catch (error) {
+    console.error("Error stamping vehicle:", error);
+    throw error;
+  }
 };
 
 export {
