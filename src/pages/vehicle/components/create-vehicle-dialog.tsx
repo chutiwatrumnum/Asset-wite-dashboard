@@ -1,3 +1,4 @@
+// src/pages/vehicle/components/create-vehicle-dialog.tsx
 "use client";
 
 import type React from "react";
@@ -79,7 +80,7 @@ const formSchema = z.object({
     .string()
     .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
     .refine(validateLicensePlate, {
-      message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กข234)",
+      message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กค234)",
     }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
@@ -159,15 +160,28 @@ export function CreateVehicleDrawer({
     try {
       setIsLoading(true);
 
+      // Debug log to check values before sending
+      console.log("Form values before sending:", values);
+
       const vehicleData: newVehicleRequest = {
-        ...values,
+        license_plate: values.license_plate,
+        area_code: values.area_code,
+        tier: values.tier,
         start_time: values.start_time
           ? new Date(values.start_time).toISOString()
           : undefined,
         expire_time: values.expire_time
           ? new Date(values.expire_time).toISOString()
           : undefined,
+        house_id: values.house_id || undefined,
+        authorized_area: values.authorized_area?.length
+          ? values.authorized_area
+          : undefined,
+        note: values.note || undefined,
       };
+
+      // Debug log to check final data
+      console.log("Vehicle data to be sent:", vehicleData);
 
       await createVehicle(vehicleData);
 
@@ -181,9 +195,27 @@ export function CreateVehicleDrawer({
       onVehicleCreated();
     } catch (error) {
       console.error("Create vehicle failed:", error);
-      toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
-        description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
-      });
+
+      // More detailed error handling
+      if (error && typeof error === "object" && "response" in error) {
+        const apiError = error as any;
+        console.error("API Error details:", apiError.response?.data);
+
+        // Check for specific tier validation error
+        if (apiError.response?.data?.data?.tier) {
+          toast.error("ข้อผิดพลาดในการเลือกระดับยานพาหนะ", {
+            description: "กรุณาตรวจสอบข้อมูลระดับยานพาหนะ",
+          });
+        } else {
+          toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
+            description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
+          });
+        }
+      } else {
+        toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
+          description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -317,8 +349,11 @@ export function CreateVehicleDrawer({
                           </span>
                         </FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
+                          onValueChange={(value) => {
+                            // Handle special "none" value
+                            field.onChange(value === "none" ? "" : value);
+                          }}
+                          value={field.value || "none"}
                           disabled={isLoading}>
                           <FormControl>
                             <SelectTrigger>
@@ -326,6 +361,7 @@ export function CreateVehicleDrawer({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value="none">ไม่ระบุ</SelectItem>
                             {houseList?.items.map((house: HouseItem) => (
                               <SelectItem key={house.id} value={house.id}>
                                 {house.address}

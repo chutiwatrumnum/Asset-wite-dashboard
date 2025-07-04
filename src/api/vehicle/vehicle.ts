@@ -176,6 +176,20 @@ const createVehicle = async (
   newVehicleReq: newVehicleRequest
 ): Promise<null> => {
   try {
+    console.log("Creating vehicle with data:", newVehicleReq);
+
+    // Ensure required fields are properly set
+    if (!newVehicleReq.license_plate) {
+      throw new Error("License plate is required");
+    }
+    if (!newVehicleReq.area_code) {
+      throw new Error("Area code is required");
+    }
+    if (!newVehicleReq.tier) {
+      throw new Error("Tier is required");
+    }
+
+    // Create the form data for PocketBase
     const formData = new FormData();
 
     // Required fields
@@ -183,7 +197,7 @@ const createVehicle = async (
     formData.append("area_code", newVehicleReq.area_code);
     formData.append("tier", newVehicleReq.tier);
 
-    // Optional fields
+    // Optional fields - only append if they have values
     if (newVehicleReq.start_time) {
       formData.append("start_time", newVehicleReq.start_time);
     }
@@ -201,8 +215,6 @@ const createVehicle = async (
         "authorized_area",
         JSON.stringify(newVehicleReq.authorized_area)
       );
-    } else {
-      formData.append("authorized_area", "[]");
     }
     if (newVehicleReq.stamper) {
       formData.append("stamper", newVehicleReq.stamper);
@@ -221,10 +233,30 @@ const createVehicle = async (
       formData.append("issuer", Pb.authStore.record.id);
     }
 
-    await Pb.collection(collectionName).create(formData);
+    // Log FormData contents for debugging
+    console.log("FormData contents:");
+    for (const [key, value] of formData.entries()) {
+      console.log(`${key}: ${value}`);
+    }
+
+    const result = await Pb.collection(collectionName).create(formData);
+    console.log("Vehicle created successfully:", result);
+
     return null;
   } catch (error) {
     console.error("Error creating vehicle:", error);
+
+    // Log the full error details
+    if (error && typeof error === 'object') {
+      console.error("Full error object:", error);
+      if ('response' in error) {
+        console.error("Error response:", (error as any).response);
+      }
+      if ('data' in error) {
+        console.error("Error data:", (error as any).data);
+      }
+    }
+
     throw error;
   }
 };

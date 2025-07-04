@@ -361,8 +361,11 @@ export function EditVehicleDialog({
                           </span>
                         </FormLabel>
                         <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
+                          onValueChange={(value) => {
+                            // Handle special "none" value
+                            field.onChange(value === "none" ? "" : value);
+                          }}
+                          value={field.value || "none"}
                           disabled={isLoading}>
                           <FormControl>
                             <SelectTrigger>
@@ -370,6 +373,7 @@ export function EditVehicleDialog({
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
+                            <SelectItem value="none">ไม่ระบุ</SelectItem>
                             {houseList?.items.map((house: HouseItem) => (
                               <SelectItem key={house.id} value={house.id}>
                                 {house.address}
