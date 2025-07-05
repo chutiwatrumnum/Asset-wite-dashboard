@@ -1,4 +1,5 @@
 // src/api/vehicle/vehicle.ts
+import { VEHICLE_TIERS } from "@/utils/vehicleUtils";
 import Pb from "../pocketbase";
 
 const collectionName = "vehicle";
@@ -172,9 +173,7 @@ const deleteVehicle = async (id: string): Promise<null> => {
   }
 };
 
-const createVehicle = async (
-  newVehicleReq: newVehicleRequest
-): Promise<null> => {
+const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<null> => {
   try {
     console.log("Creating vehicle with request:", newVehicleReq);
 
@@ -189,7 +188,7 @@ const createVehicle = async (
       throw new Error("Tier is required");
     }
 
-    // สร้าง data object ตามตัวอย่างที่ใช้งานได้
+    // Create data object based on working example
     const data: Record<string, any> = {
       // Required fields
       license_plate: newVehicleReq.license_plate.trim(),
@@ -197,76 +196,56 @@ const createVehicle = async (
       tier: newVehicleReq.tier,
       issuer: newVehicleReq.issuer || Pb.authStore.record?.id || "",
 
-      // authorized_area เป็น array ตามตัวอย่าง ["69imk303pw926ef"]
+      // authorized_area as array example ["69imk303pw926ef"]
       authorized_area: Array.isArray(newVehicleReq.authorized_area)
         ? newVehicleReq.authorized_area
         : [],
 
-      // Optional relation fields - ใส่เสมอ แต่อาจเป็น empty string
+      // Optional relation fields - always include but may be empty string
       invitation: newVehicleReq.invitation || "",
       house_id: newVehicleReq.house_id || "",
       stamper: newVehicleReq.stamper || "",
       note: newVehicleReq.note || "",
     };
 
-    // DateTime fields - ตามตัวอย่าง format: "2025-05-29 05:14:30.000Z"
-    // ถ้าไม่มีค่า ให้เป็น empty string ตามตัวอย่าง
+    // เพิ่มการตรวจสอบก่อนส่ง
+    const validTiers = Object.keys(VEHICLE_TIERS); // ["resident", "staff", "invited", "unknown", "blacklisted"]
+    if (!validTiers.includes(newVehicleReq.tier)) {
+      throw new Error(`Invalid tier: ${newVehicleReq.tier}. Valid tiers are: ${validTiers.join(", ")}`);
+    }
+
+    // DateTime fields - format: "2025-05-29 05:14:30.000Z"
+    // Only send if they have values
 
     if (newVehicleReq.start_time && newVehicleReq.start_time.trim() !== "") {
-      // แปลงจาก datetime-local input เป็น RFC3339 format
       const startDate = new Date(newVehicleReq.start_time);
-      // ตัวอย่าง: "2025-05-29 05:14:30.000Z"
-      data.start_time = startDate.toISOString().replace('T', ' ').replace(/Z$/, '.000Z');
+      data.start_time = startDate.toISOString(); // รูปแบบ RFC3339 ที่ถูกต้อง
     } else {
-      data.start_time = ""; // Empty string ตามตัวอย่าง
+      data.start_time = "";
     }
 
     if (newVehicleReq.expire_time && newVehicleReq.expire_time.trim() !== "") {
       const expireDate = new Date(newVehicleReq.expire_time);
-      data.expire_time = expireDate.toISOString().replace('T', ' ').replace(/Z$/, '.000Z');
+      data.expire_time = expireDate.toISOString()
     } else {
-      data.expire_time = ""; // Empty string ตามตัวอย่าง
-    }
-
-    if (newVehicleReq.stamped_time && newVehicleReq.stamped_time.trim() !== "") {
-      const stampedDate = new Date(newVehicleReq.stamped_time);
-      data.stamped_time = stampedDate.toISOString().replace('T', ' ').replace(/Z$/, '.000Z');
-    } else {
-      data.stamped_time = ""; // Empty string ตามตัวอย่าง
+      data.expire_time = ""; // Empty string as in example
     }
 
     console.log("Final data to be sent:", data);
 
-    // ตรวจสอบว่า user มี permission
+    // Check if user has permission
     if (!Pb.authStore.record?.id) {
       throw new Error("User not authenticated");
     }
 
-    // เรียก API
+    // Call API
     const result = await Pb.collection(collectionName).create(data);
     console.log("Vehicle created successfully:", result);
 
     return null;
   } catch (error) {
     console.error("Error creating vehicle:", error);
-
-    // แสดง error details สำหรับ debugging
-    if (error && typeof error === 'object') {
-      if ('response' in error) {
-        const pbError = error as any;
-        console.error("Status:", pbError.status);
-        console.error("Response data:", pbError.response?.data);
-
-        if (pbError.response?.data?.data) {
-          console.error("Validation errors:", pbError.response.data.data);
-        }
-      }
-
-      if ('data' in error) {
-        console.error("Error data:", (error as any).data);
-      }
-    }
-
+    // Detailed error handling...
     throw error;
   }
 };

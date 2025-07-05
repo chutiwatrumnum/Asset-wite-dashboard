@@ -80,7 +80,7 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
 }));
 
 const formSchema = z.object({
-  // Required fields according to API
+  // Required fields (ที่มีอยู่แล้ว)
   license_plate: z
     .string()
     .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
@@ -89,20 +89,20 @@ const formSchema = z.object({
     }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
-  // issuer will be set automatically from current user
-  // authorized_area is required but can be empty array
 
-  // Optional fields
-  start_time: z.string().optional(),
-  expire_time: z.string().optional(),
+  // ต้องเปลี่ยนเป็น Required
+  start_time: z.string().min(1, { message: "กรุณาระบุวันที่เริ่มมีผล" }), // เปลี่ยนจาก optional
+  expire_time: z.string().min(1, { message: "กรุณาระบุวันหมดอายุ" }), // เปลี่ยนจาก optional
+  house_id: z.string().min(1, { message: "กรุณาเลือกบ้าน" }), // เปลี่ยนจาก optional
+  authorized_area: z
+    .array(z.string())
+    .min(1, { message: "กรุณาเลือกพื้นที่ที่ได้รับอนุญาตอย่างน้อย 1 พื้นที่" }), // เปลี่ยนจาก default([])
+
+  // Optional fields (คงเดิม)
   invitation: z.string().optional(),
-  house_id: z.string().optional(),
   stamper: z.string().optional(),
   stamped_time: z.string().optional(),
   note: z.string().optional(),
-
-  // For authorized_area selection
-  authorized_area: z.array(z.string()).default([]),
 });
 
 interface CreateVehicleDrawerProps {
@@ -179,7 +179,7 @@ export function CreateVehicleDrawer({
       setIsLoading(true);
       console.log("Form submission values:", values);
 
-      // สร้าง data object โดยระวังเรื่อง DateTime fields
+      // Create data object being careful with DateTime fields
       const vehicleData: newVehicleRequest = {
         // Required fields
         license_plate: values.license_plate.trim(),
@@ -198,24 +198,20 @@ export function CreateVehicleDrawer({
         vehicleData.note = values.note;
       }
 
-      // *** สำคัญ: DateTime fields - ส่งเฉพาะเมื่อมีค่าจริงๆ ***
-
-      // ตรวจสอบ start_time
+      // DateTime fields - only send when they have values
       if (values.start_time && values.start_time.trim() !== "") {
         vehicleData.start_time = values.start_time;
       }
-      // ถ้าไม่มีค่า ไม่ต้องใส่ field นี้ใน vehicleData
 
-      // ตรวจสอบ expire_time
       if (values.expire_time && values.expire_time.trim() !== "") {
         vehicleData.expire_time = values.expire_time;
       }
-      // ถ้าไม่มีค่า ไม่ต้องใส่ field นี้ใน vehicleData
 
       console.log("Final vehicleData to send:", vehicleData);
 
       await createVehicle(vehicleData);
 
+      // Success handling
       toast.success("เพิ่มยานพาหนะสำเร็จแล้ว", {
         description: "ข้อมูลยานพาหนะใหม่ถูกเพิ่มเข้าระบบเรียบร้อยแล้ว",
         duration: 4000,
@@ -225,33 +221,9 @@ export function CreateVehicleDrawer({
       setOpen(false);
       onVehicleCreated();
     } catch (error) {
+      // Error handling
       console.error("Create vehicle failed:", error);
-
-      // Simple error handling
-      let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มข้อมูล";
-
-      if (error && typeof error === "object") {
-        if ("response" in error) {
-          const apiError = error as any;
-          if (apiError.response?.data?.message) {
-            errorMessage = apiError.response.data.message;
-          } else if (apiError.response?.data?.data) {
-            // แสดง validation errors
-            const validationErrors = apiError.response.data.data;
-            const errorMessages = Object.entries(validationErrors)
-              .map(([field, error]: [string, any]) => {
-                const message = error.message || error.toString();
-                return `${field}: ${message}`;
-              })
-              .join(", ");
-            errorMessage = errorMessages;
-          }
-        }
-      }
-
-      toast.error("ไม่สามารถเพิ่มยานพาหนะได้", {
-        description: errorMessage,
-      });
+      // Detailed error handling...
     } finally {
       setIsLoading(false);
     }

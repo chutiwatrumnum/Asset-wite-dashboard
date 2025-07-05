@@ -34,7 +34,9 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent } from "@/components/ui/card";
 import { useHouseListQuery } from "@/react-query/manage/house";
+import { useUserAuthorizedAreasQuery } from "@/react-query/manage/area";
 import type { HouseItem } from "@/api/house/house";
+import type { AreaItem } from "@/api/area/area";
 import type { vehicleItem, newVehicleRequest } from "@/api/vehicle/vehicle";
 import {
   AlertDialog,
@@ -48,6 +50,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useEditVehicleMutation } from "@/react-query/manage/vehicle";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import Pb from "@/api/pocketbase";
 // Import from vehicleUtils
 import {
   VEHICLE_TIERS,
@@ -68,6 +72,7 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
 
 // Schema with validation using vehicleUtils
 const editFormSchema = z.object({
+  // Required fields based on API requirements
   license_plate: z
     .string()
     .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
@@ -76,10 +81,17 @@ const editFormSchema = z.object({
     }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
-  start_time: z.string().optional(),
-  expire_time: z.string().optional(),
-  house_id: z.string().optional(),
-  authorized_area: z.array(z.string()).optional(),
+  start_time: z.string().min(1, { message: "กรุณาระบุวันที่เริ่มมีผล" }),
+  expire_time: z.string().min(1, { message: "กรุณาระบุวันหมดอายุ" }),
+  house_id: z.string().min(1, { message: "กรุณาเลือกบ้าน" }),
+  authorized_area: z
+    .array(z.string())
+    .min(1, { message: "กรุณาเลือกพื้นที่ที่ได้รับอนุญาตอย่างน้อย 1 พื้นที่" }),
+
+  // Optional fields
+  invitation: z.string().optional(),
+  stamper: z.string().optional(),
+  stamped_time: z.string().optional(),
   note: z.string().optional(),
 });
 
@@ -97,6 +109,7 @@ export function EditVehicleDialog({
   onVehicleUpdated,
 }: EditVehicleDialogProps) {
   const { data: houseList } = useHouseListQuery({});
+  const { data: userAuthorizedAreas } = useUserAuthorizedAreasQuery();
   const [isLoading, setIsLoading] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
@@ -113,6 +126,9 @@ export function EditVehicleDialog({
       expire_time: "",
       house_id: "",
       authorized_area: [],
+      invitation: "",
+      stamper: "",
+      stamped_time: "",
       note: "",
     },
   });
@@ -131,6 +147,9 @@ export function EditVehicleDialog({
       expire_time: "",
       house_id: "",
       authorized_area: [],
+      invitation: "",
+      stamper: "",
+      stamped_time: "",
       note: "",
     });
   }, [form]);
@@ -170,6 +189,9 @@ export function EditVehicleDialog({
         expire_time: formatDateTimeForInput(vehicleData.expire_time),
         house_id: vehicleData.house_id || "",
         authorized_area: vehicleData.authorized_area || [],
+        invitation: vehicleData.invitation || "",
+        stamper: vehicleData.stamper || "",
+        stamped_time: formatDateTimeForInput(vehicleData.stamped_time),
         note: vehicleData.note || "",
       };
 
@@ -225,16 +247,28 @@ export function EditVehicleDialog({
   async function onSubmit(values: z.infer<typeof editFormSchema>) {
     setIsLoading(true);
     try {
-      const reqData = values as newVehicleRequest;
-      reqData.id = vehicleData?.id;
+      console.log("Form submission values:", values);
 
-      // แปลงวันที่เป็น ISO string ถ้ามีการกรอก
-      if (values.start_time) {
-        reqData.start_time = new Date(values.start_time).toISOString();
-      }
-      if (values.expire_time) {
-        reqData.expire_time = new Date(values.expire_time).toISOString();
-      }
+      // ข้อมูลเริ่มต้นที่จำเป็น
+      const reqData: newVehicleRequest = {
+        id: vehicleData?.id,
+        license_plate: values.license_plate.trim(),
+        area_code: values.area_code,
+        tier: values.tier,
+        issuer: vehicleData?.issuer || Pb.authStore.record?.id || "",
+        authorized_area: values.authorized_area,
+        house_id: values.house_id,
+        start_time: values.start_time,
+        expire_time: values.expire_time,
+      };
+
+      // ฟิลด์ที่เป็น optional
+      if (values.invitation) reqData.invitation = values.invitation;
+      if (values.stamper) reqData.stamper = values.stamper;
+      if (values.stamped_time) reqData.stamped_time = values.stamped_time;
+      if (values.note) reqData.note = values.note;
+
+      console.log("Sending data to API:", reqData);
 
       await updateVehicle(reqData);
 
@@ -243,7 +277,29 @@ export function EditVehicleDialog({
       onVehicleUpdated();
     } catch (error: any) {
       console.error("Update vehicle failed:", error);
-      toast.error("เกิดข้อผิดพลาดในการอัปเดตข้อมูล");
+
+      // ตรวจสอบรายละเอียดข้อผิดพลาด
+      let errorMessage = "เกิดข้อผิดพลาดในการอัปเดตข้อมูล";
+
+      if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.data?.data) {
+        // แสดง validation errors
+        const validationErrors = error.response.data.data;
+        const errorMessages = Object.entries(validationErrors)
+          .map(([field, error]: [string, any]) => {
+            const message = error.message || error.toString();
+            return `${field}: ${message}`;
+          })
+          .join(", ");
+        errorMessage = errorMessages;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      toast.error("ไม่สามารถอัปเดตข้อมูลได้", {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
@@ -266,192 +322,326 @@ export function EditVehicleDialog({
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
                   className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="license_plate"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ป้ายทะเบียน *</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="เช่น กข 1234 หรือ 1กค234"
-                            {...field}
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          รูปแบบป้ายทะเบียนไทย (เก่า: กข 1234, ใหม่: 1กค234)
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* ข้อมูลหลัก (Required) */}
+                  <div className="space-y-4 border-b pb-4">
+                    <h3 className="text-sm font-medium text-gray-900">
+                      ข้อมูลหลัก (จำเป็น)
+                    </h3>
 
-                  <FormField
-                    control={form.control}
-                    name="area_code"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>จังหวัด *</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={isLoading}>
+                    <FormField
+                      control={form.control}
+                      name="license_plate"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ป้ายทะเบียน *</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="เลือกจังหวัด" />
-                            </SelectTrigger>
+                            <Input
+                              placeholder="เช่น กข 1234 หรือ 1กค234"
+                              {...field}
+                              disabled={isLoading}
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {provinceList.map((province) => (
-                              <SelectItem
-                                key={province.value}
-                                value={province.value}>
-                                {province.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          รหัสจังหวัดตามมาตรฐาน ISO3166-2:TH
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormDescription>
+                            รูปแบบป้ายทะเบียนไทย (เก่า: กข 1234, ใหม่: 1กค234)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="tier"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>ระดับยานพาหนะ *</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={isLoading}>
+                    <FormField
+                      control={form.control}
+                      name="area_code"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>จังหวัด *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={isLoading}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="เลือกจังหวัด" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {provinceList.map((province) => (
+                                <SelectItem
+                                  key={province.value}
+                                  value={province.value}>
+                                  {province.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            รหัสจังหวัดตามมาตรฐาน ISO3166-2:TH
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="tier"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ระดับยานพาหนะ *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={isLoading}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="เลือกระดับ" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {tierSelectList.map((tier) => (
+                                <SelectItem key={tier.value} value={tier.value}>
+                                  {tier.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>ระดับของยานพาหนะ</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="house_id"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>บ้าน *</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            disabled={isLoading}>
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="เลือกบ้าน" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              {houseList?.items.map((house: HouseItem) => (
+                                <SelectItem key={house.id} value={house.id}>
+                                  {house.address}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormDescription>
+                            บ้านที่ยานพาหนะนี้เกี่ยวข้อง
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="authorized_area"
+                      render={() => (
+                        <FormItem>
+                          <FormLabel>พื้นที่ที่ได้รับอนุญาต *</FormLabel>
+                          <FormDescription>
+                            เลือกพื้นที่ที่ยานพาหนะนี้สามารถเข้าถึงได้
+                            (ตามสิทธิ์ของคุณ)
+                          </FormDescription>
+                          <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto border rounded-md p-3">
+                            {userAuthorizedAreas &&
+                            userAuthorizedAreas.length > 0 ? (
+                              userAuthorizedAreas.map((area: AreaItem) => (
+                                <FormField
+                                  key={area.id}
+                                  control={form.control}
+                                  name="authorized_area"
+                                  render={({ field }) => {
+                                    return (
+                                      <FormItem
+                                        key={area.id}
+                                        className="flex flex-row items-start space-x-3 space-y-0">
+                                        <FormControl>
+                                          <Checkbox
+                                            checked={field.value?.includes(
+                                              area.id
+                                            )}
+                                            onCheckedChange={(checked) => {
+                                              return checked
+                                                ? field.onChange([
+                                                    ...field.value,
+                                                    area.id,
+                                                  ])
+                                                : field.onChange(
+                                                    field.value?.filter(
+                                                      (value) =>
+                                                        value !== area.id
+                                                    )
+                                                  );
+                                            }}
+                                          />
+                                        </FormControl>
+                                        <FormLabel className="text-sm font-normal">
+                                          <div className="flex flex-col">
+                                            <span className="font-medium">
+                                              {area.name}
+                                            </span>
+                                            {area.description && (
+                                              <span className="text-xs text-gray-500">
+                                                {area.description}
+                                              </span>
+                                            )}
+                                          </div>
+                                        </FormLabel>
+                                      </FormItem>
+                                    );
+                                  }}
+                                />
+                              ))
+                            ) : (
+                              <div className="text-sm text-gray-500 p-2">
+                                คุณไม่มีสิทธิ์ในการกำหนดพื้นที่ใดๆ
+                                กรุณาติดต่อผู้ดูแลระบบ
+                              </div>
+                            )}
+                          </div>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* DateTime Fields */}
+                  <div className="space-y-4 border-b pb-4">
+                    <h3 className="text-sm font-medium text-gray-900">
+                      ช่วงเวลาที่ใช้งาน (จำเป็น)
+                    </h3>
+
+                    <FormField
+                      control={form.control}
+                      name="start_time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>วันที่เริ่มมีผล *</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="เลือกระดับ" />
-                            </SelectTrigger>
+                            <Input
+                              type="datetime-local"
+                              {...field}
+                              disabled={isLoading}
+                            />
                           </FormControl>
-                          <SelectContent>
-                            {tierSelectList.map((tier) => (
-                              <SelectItem key={tier.value} value={tier.value}>
-                                {tier.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>ระดับของยานพาหนะ</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormDescription>
+                            วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
-                  <FormField
-                    control={form.control}
-                    name="house_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          บ้าน{" "}
-                          <span className="text-muted-foreground text-sm">
-                            ไม่จำเป็น
-                          </span>
-                        </FormLabel>
-                        <Select
-                          onValueChange={(value) => {
-                            // Handle special "none" value
-                            field.onChange(value === "none" ? "" : value);
-                          }}
-                          value={field.value || "none"}
-                          disabled={isLoading}>
+                    <FormField
+                      control={form.control}
+                      name="expire_time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>วันหมดอายุ *</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="เลือกบ้าน" />
-                            </SelectTrigger>
+                            <Input
+                              type="datetime-local"
+                              {...field}
+                              disabled={isLoading}
+                            />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="none">ไม่ระบุ</SelectItem>
-                            {houseList?.items.map((house: HouseItem) => (
-                              <SelectItem key={house.id} value={house.id}>
-                                {house.address}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormDescription>
-                          บ้านที่ยานพาหนะนี้เกี่ยวข้อง
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                          <FormDescription>
+                            วันที่และเวลาที่สิ้นสุดการอนุญาต
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
 
-                  <FormField
-                    control={form.control}
-                    name="start_time"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          วันที่เริ่มมีผล{" "}
-                          <span className="text-muted-foreground text-sm">
-                            ไม่จำเป็น
-                          </span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            {...field}
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  {/* Optional fields */}
+                  <div className="space-y-4 border-b pb-4">
+                    <h3 className="text-sm font-medium text-gray-900">
+                      ข้อมูลเพิ่มเติม (ไม่จำเป็น)
+                    </h3>
 
-                  <FormField
-                    control={form.control}
-                    name="expire_time"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>
-                          วันหมดอายุ{" "}
-                          <span className="text-muted-foreground text-sm">
-                            ไม่จำเป็น
-                          </span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            type="datetime-local"
-                            {...field}
-                            disabled={isLoading}
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          วันที่และเวลาที่สิ้นสุดการอนุญาต
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                    <FormField
+                      control={form.control}
+                      name="invitation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>รหัสคำเชิญ</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Relation record ID สำหรับการนัดหมาย"
+                              {...field}
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            รหัสการนัดหมายที่เกี่ยวข้อง (ถ้ามี)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
 
+                    {/* Approval Fields */}
+                    <FormField
+                      control={form.control}
+                      name="stamper"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ผู้อนุมัติ</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="รหัสผู้อนุมัติ"
+                              {...field}
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            รหัสของผู้ที่อนุมัติการเข้า-ออก
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="stamped_time"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>เวลาอนุมัติ</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="datetime-local"
+                              {...field}
+                              disabled={isLoading}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            วันที่และเวลาที่ทำการอนุมัติ
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  {/* Note Field */}
                   <FormField
                     control={form.control}
                     name="note"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>
-                          หมายเหตุ{" "}
-                          <span className="text-muted-foreground text-sm">
-                            ไม่จำเป็น
-                          </span>
-                        </FormLabel>
+                        <FormLabel>หมายเหตุ</FormLabel>
                         <FormControl>
                           <Textarea
                             placeholder="หมายเหตุเพิ่มเติม..."
