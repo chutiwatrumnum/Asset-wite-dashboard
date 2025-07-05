@@ -70,52 +70,81 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
   label,
 }));
 
-// Schema with validation using vehicleUtils - ปรับให้ start_time และ expire_time เป็น optional
-const editFormSchema = z.object({
-  // Required fields based on API requirements
-  license_plate: z
-    .string()
-    .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
-    .refine(validateLicensePlate, {
-      message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กค234)",
-    }),
-  area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
-  // เปลี่ยนเป็น optional และเพิ่มการตรวจสอบ
-  start_time: z.string().optional(),
-  expire_time: z.string().optional(),
-  house_id: z.string().optional(), // เปลี่ยนเป็น optional
-  authorized_area: z.array(z.string()).optional(), // เปลี่ยนเป็น optional
+// Updated schema with better validation and default handling
+const editFormSchema = z
+  .object({
+    // Required fields based on API requirements
+    license_plate: z
+      .string()
+      .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
+      .refine(validateLicensePlate, {
+        message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กค234)",
+      }),
+    area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
+    tier: z
+      .string()
+      .min(1, { message: "กรุณาเลือกระดับ" })
+      .refine((value) => Object.keys(VEHICLE_TIERS).includes(value), {
+        message: "ระดับยานพาหนะไม่ถูกต้อง",
+      }),
 
-  // Optional fields
-  invitation: z.string().optional(),
-  stamper: z.string().optional(),
-  stamped_time: z.string().optional(),
-  note: z.string().optional(),
-}).refine((data) => {
-  // Custom validation: หาก expire_time มีค่า ต้องมีค่ามากกว่าปัจจุบัน
-  if (data.expire_time && data.expire_time.trim() !== "") {
-    const expireDate = new Date(data.expire_time);
-    const now = new Date();
-    return expireDate > now;
-  }
-  return true;
-}, {
-  message: "วันหมดอายุต้องอยู่ในอนาคต",
-  path: ["expire_time"],
-}).refine((data) => {
-  // Custom validation: หาก start_time และ expire_time มีค่าทั้งคู่ start_time ต้องน้อยกว่า expire_time
-  if (data.start_time && data.expire_time && 
-      data.start_time.trim() !== "" && data.expire_time.trim() !== "") {
-    const startDate = new Date(data.start_time);
-    const expireDate = new Date(data.expire_time);
-    return startDate < expireDate;
-  }
-  return true;
-}, {
-  message: "วันที่เริ่มมีผลต้องน้อยกว่าวันหมดอายุ",
-  path: ["start_time"],
-});
+    // DateTime fields - optional but validated if provided
+    start_time: z.string().optional(),
+    expire_time: z.string().optional(),
+
+    // Relation fields - optional
+    house_id: z.string().optional(),
+    authorized_area: z.array(z.string()).default([]).optional(),
+
+    // Optional fields
+    invitation: z.string().optional(),
+    stamper: z.string().optional(),
+    stamped_time: z.string().optional(),
+    note: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Custom validation: หาก expire_time มีค่า ต้องมีค่ามากกว่าปัจจุบัน
+      if (data.expire_time && data.expire_time.trim() !== "") {
+        try {
+          const expireDate = new Date(data.expire_time);
+          const now = new Date();
+          return expireDate > now;
+        } catch (error) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: "วันหมดอายุต้องอยู่ในอนาคต",
+      path: ["expire_time"],
+    }
+  )
+  .refine(
+    (data) => {
+      // Custom validation: หาก start_time และ expire_time มีค่าทั้งคู่ start_time ต้องน้อยกว่า expire_time
+      if (
+        data.start_time &&
+        data.expire_time &&
+        data.start_time.trim() !== "" &&
+        data.expire_time.trim() !== ""
+      ) {
+        try {
+          const startDate = new Date(data.start_time);
+          const expireDate = new Date(data.expire_time);
+          return startDate < expireDate;
+        } catch (error) {
+          return false;
+        }
+      }
+      return true;
+    },
+    {
+      message: "วันที่เริ่มมีผลต้องน้อยกว่าวันหมดอายุ",
+      path: ["start_time"],
+    }
+  );
 
 interface EditVehicleDialogProps {
   vehicleData: vehicleItem | null;
@@ -190,7 +219,7 @@ export function EditVehicleDialog({
       const date = new Date(dateString);
       // ตรวจสอบว่าเป็น valid date หรือไม่
       if (isNaN(date.getTime())) return "";
-      
+
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
@@ -204,28 +233,84 @@ export function EditVehicleDialog({
     }
   };
 
+  // Safe function to parse array data
+  const safeParseArray = (data: any): string[] => {
+    if (Array.isArray(data)) {
+      return data;
+    }
+    if (typeof data === "string") {
+      try {
+        const parsed = JSON.parse(data);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  // Safe function to validate tier
+  const getValidTier = (tier: string): string => {
+    // If tier is valid, return it
+    if (Object.keys(VEHICLE_TIERS).includes(tier)) {
+      return tier;
+    }
+
+    // If tier is invalid, try to map common invalid values
+    const tierMappings: { [key: string]: string } = {
+      validation_required: "unknown",
+      "": "unknown",
+      null: "unknown",
+      undefined: "unknown",
+    };
+
+    return tierMappings[tier] || "unknown";
+  };
+
   // Populate form when vehicleData changes and drawer opens
   useEffect(() => {
     if (vehicleData && open) {
-      const formData = {
-        license_plate: vehicleData.license_plate || "",
-        area_code: vehicleData.area_code || "",
-        tier: vehicleData.tier || "",
-        start_time: formatDateTimeForInput(vehicleData.start_time),
-        expire_time: formatDateTimeForInput(vehicleData.expire_time),
-        house_id: vehicleData.house_id || "",
-        authorized_area: vehicleData.authorized_area || [],
-        invitation: vehicleData.invitation || "",
-        stamper: vehicleData.stamper || "",
-        stamped_time: formatDateTimeForInput(vehicleData.stamped_time),
-        note: vehicleData.note || "",
-      };
+      console.log("Original vehicleData:", vehicleData);
 
-      console.log("Setting form data:", formData);
-      form.reset(formData);
-      setIsDirty(false);
+      try {
+        // Parse and validate authorized_area
+        const authorizedArea = safeParseArray(vehicleData.authorized_area);
+        console.log("Parsed authorized_area:", authorizedArea);
+
+        // Validate and correct tier
+        const validTier = getValidTier(vehicleData.tier);
+        console.log(
+          "Original tier:",
+          vehicleData.tier,
+          "Valid tier:",
+          validTier
+        );
+
+        const formData = {
+          license_plate: vehicleData.license_plate || "",
+          area_code: vehicleData.area_code || "",
+          tier: validTier,
+          start_time: formatDateTimeForInput(vehicleData.start_time),
+          expire_time: formatDateTimeForInput(vehicleData.expire_time),
+          house_id: vehicleData.house_id || "",
+          authorized_area: authorizedArea,
+          invitation: vehicleData.invitation || "",
+          stamper: vehicleData.stamper || "",
+          stamped_time: formatDateTimeForInput(vehicleData.stamped_time),
+          note: vehicleData.note || "",
+        };
+
+        console.log("Setting form data:", formData);
+        form.reset(formData);
+        setIsDirty(false);
+      } catch (error) {
+        console.error("Error setting form data:", error);
+        toast.error("เกิดข้อผิดพลาดในการโหลดข้อมูล");
+        resetAllStates();
+        onOpenChange(false);
+      }
     }
-  }, [vehicleData, open, form]);
+  }, [vehicleData, open, form, resetAllStates, onOpenChange]);
 
   // Watch for form changes
   useEffect(() => {
@@ -276,7 +361,7 @@ export function EditVehicleDialog({
     if (!dateString || dateString.trim() === "") {
       return "";
     }
-    
+
     try {
       const date = new Date(dateString);
       // ตรวจสอบว่าเป็น valid date หรือไม่
@@ -296,6 +381,19 @@ export function EditVehicleDialog({
     try {
       console.log("Form submission values:", values);
 
+      // Validate required fields before sending
+      if (!values.license_plate?.trim()) {
+        throw new Error("ป้ายทะเบียนไม่สามารถเป็นค่าว่างได้");
+      }
+
+      if (!values.area_code) {
+        throw new Error("กรุณาเลือกจังหวัด");
+      }
+
+      if (!values.tier || !Object.keys(VEHICLE_TIERS).includes(values.tier)) {
+        throw new Error("กรุณาเลือกระดับยานพาหนะที่ถูกต้อง");
+      }
+
       // ข้อมูลเริ่มต้นที่จำเป็น
       const reqData: newVehicleRequest = {
         id: vehicleData?.id,
@@ -308,19 +406,31 @@ export function EditVehicleDialog({
       // ฟิลด์ที่เป็น optional - ส่งเฉพาะที่มีค่า
       if (values.authorized_area && values.authorized_area.length > 0) {
         reqData.authorized_area = values.authorized_area;
+      } else {
+        reqData.authorized_area = [];
       }
 
-      if (values.house_id && values.house_id.trim() !== "") {
+      if (
+        values.house_id &&
+        values.house_id.trim() !== "" &&
+        values.house_id !== "none"
+      ) {
         reqData.house_id = values.house_id;
       }
 
       // DateTime fields - format ให้ถูกต้องก่อนส่ง
       if (values.start_time && values.start_time.trim() !== "") {
-        reqData.start_time = formatDateTimeForAPI(values.start_time);
+        const formattedStartTime = formatDateTimeForAPI(values.start_time);
+        if (formattedStartTime) {
+          reqData.start_time = formattedStartTime;
+        }
       }
 
       if (values.expire_time && values.expire_time.trim() !== "") {
-        reqData.expire_time = formatDateTimeForAPI(values.expire_time);
+        const formattedExpireTime = formatDateTimeForAPI(values.expire_time);
+        if (formattedExpireTime) {
+          reqData.expire_time = formattedExpireTime;
+        }
       }
 
       // ฟิลด์ optional อื่นๆ
@@ -331,7 +441,10 @@ export function EditVehicleDialog({
         reqData.stamper = values.stamper;
       }
       if (values.stamped_time && values.stamped_time.trim() !== "") {
-        reqData.stamped_time = formatDateTimeForAPI(values.stamped_time);
+        const formattedStampedTime = formatDateTimeForAPI(values.stamped_time);
+        if (formattedStampedTime) {
+          reqData.stamped_time = formattedStampedTime;
+        }
       }
       if (values.note && values.note.trim() !== "") {
         reqData.note = values.note;
@@ -533,17 +646,17 @@ export function EditVehicleDialog({
                                   control={form.control}
                                   name="authorized_area"
                                   render={({ field }) => {
+                                    const currentValue = field.value || [];
                                     return (
                                       <FormItem
                                         key={area.id}
                                         className="flex flex-row items-start space-x-3 space-y-0">
                                         <FormControl>
                                           <Checkbox
-                                            checked={field.value?.includes(
+                                            checked={currentValue.includes(
                                               area.id
                                             )}
                                             onCheckedChange={(checked) => {
-                                              const currentValue = field.value || [];
                                               return checked
                                                 ? field.onChange([
                                                     ...currentValue,
@@ -608,7 +721,8 @@ export function EditVehicleDialog({
                             />
                           </FormControl>
                           <FormDescription>
-                            วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน (ไม่ระบุหากต้องการให้เริ่มใช้ได้ทันที)
+                            วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน
+                            (ไม่ระบุหากต้องการให้เริ่มใช้ได้ทันที)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -629,7 +743,8 @@ export function EditVehicleDialog({
                             />
                           </FormControl>
                           <FormDescription>
-                            วันที่และเวลาที่สิ้นสุดการอนุญาต (ต้องอยู่ในอนาคต หากระบุ)
+                            วันที่และเวลาที่สิ้นสุดการอนุญาต (ต้องอยู่ในอนาคต
+                            หากระบุ)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
