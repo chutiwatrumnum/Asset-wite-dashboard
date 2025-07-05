@@ -70,7 +70,7 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
   label,
 }));
 
-// Schema with validation using vehicleUtils
+// Schema with validation using vehicleUtils - ปรับให้ start_time และ expire_time เป็น optional
 const editFormSchema = z.object({
   // Required fields based on API requirements
   license_plate: z
@@ -81,18 +81,40 @@ const editFormSchema = z.object({
     }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
   tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
-  start_time: z.string().min(1, { message: "กรุณาระบุวันที่เริ่มมีผล" }),
-  expire_time: z.string().min(1, { message: "กรุณาระบุวันหมดอายุ" }),
-  house_id: z.string().min(1, { message: "กรุณาเลือกบ้าน" }),
-  authorized_area: z
-    .array(z.string())
-    .min(1, { message: "กรุณาเลือกพื้นที่ที่ได้รับอนุญาตอย่างน้อย 1 พื้นที่" }),
+  // เปลี่ยนเป็น optional และเพิ่มการตรวจสอบ
+  start_time: z.string().optional(),
+  expire_time: z.string().optional(),
+  house_id: z.string().optional(), // เปลี่ยนเป็น optional
+  authorized_area: z.array(z.string()).optional(), // เปลี่ยนเป็น optional
 
   // Optional fields
   invitation: z.string().optional(),
   stamper: z.string().optional(),
   stamped_time: z.string().optional(),
   note: z.string().optional(),
+}).refine((data) => {
+  // Custom validation: หาก expire_time มีค่า ต้องมีค่ามากกว่าปัจจุบัน
+  if (data.expire_time && data.expire_time.trim() !== "") {
+    const expireDate = new Date(data.expire_time);
+    const now = new Date();
+    return expireDate > now;
+  }
+  return true;
+}, {
+  message: "วันหมดอายุต้องอยู่ในอนาคต",
+  path: ["expire_time"],
+}).refine((data) => {
+  // Custom validation: หาก start_time และ expire_time มีค่าทั้งคู่ start_time ต้องน้อยกว่า expire_time
+  if (data.start_time && data.expire_time && 
+      data.start_time.trim() !== "" && data.expire_time.trim() !== "") {
+    const startDate = new Date(data.start_time);
+    const expireDate = new Date(data.expire_time);
+    return startDate < expireDate;
+  }
+  return true;
+}, {
+  message: "วันที่เริ่มมีผลต้องน้อยกว่าวันหมดอายุ",
+  path: ["start_time"],
 });
 
 interface EditVehicleDialogProps {
@@ -161,11 +183,14 @@ export function EditVehicleDialog({
     }
   }, [open, resetAllStates]);
 
-  // Format datetime for input
+  // Format datetime for input - ปรับให้ handle กรณีที่ไม่มีข้อมูล
   const formatDateTimeForInput = (dateString: string) => {
-    if (!dateString) return "";
+    if (!dateString || dateString === "") return "";
     try {
       const date = new Date(dateString);
+      // ตรวจสอบว่าเป็น valid date หรือไม่
+      if (isNaN(date.getTime())) return "";
+      
       const year = date.getFullYear();
       const month = String(date.getMonth() + 1).padStart(2, "0");
       const day = String(date.getDate()).padStart(2, "0");
@@ -173,7 +198,8 @@ export function EditVehicleDialog({
       const minutes = String(date.getMinutes()).padStart(2, "0");
 
       return `${year}-${month}-${day}T${hours}:${minutes}`;
-    } catch {
+    } catch (error) {
+      console.error("Error formatting date:", error);
       return "";
     }
   };
@@ -195,6 +221,7 @@ export function EditVehicleDialog({
         note: vehicleData.note || "",
       };
 
+      console.log("Setting form data:", formData);
       form.reset(formData);
       setIsDirty(false);
     }
@@ -244,6 +271,26 @@ export function EditVehicleDialog({
     }
   };
 
+  // ฟังก์ชันสำหรับ format datetime สำหรับส่งไป API
+  const formatDateTimeForAPI = (dateString: string): string => {
+    if (!dateString || dateString.trim() === "") {
+      return "";
+    }
+    
+    try {
+      const date = new Date(dateString);
+      // ตรวจสอบว่าเป็น valid date หรือไม่
+      if (isNaN(date.getTime())) {
+        return "";
+      }
+      // ส่งในรูปแบบ ISO string ที่ API ต้องการ
+      return date.toISOString();
+    } catch (error) {
+      console.error("Error formatting date for API:", error);
+      return "";
+    }
+  };
+
   async function onSubmit(values: z.infer<typeof editFormSchema>) {
     setIsLoading(true);
     try {
@@ -256,17 +303,39 @@ export function EditVehicleDialog({
         area_code: values.area_code,
         tier: values.tier,
         issuer: vehicleData?.issuer || Pb.authStore.record?.id || "",
-        authorized_area: values.authorized_area,
-        house_id: values.house_id,
-        start_time: values.start_time,
-        expire_time: values.expire_time,
       };
 
-      // ฟิลด์ที่เป็น optional
-      if (values.invitation) reqData.invitation = values.invitation;
-      if (values.stamper) reqData.stamper = values.stamper;
-      if (values.stamped_time) reqData.stamped_time = values.stamped_time;
-      if (values.note) reqData.note = values.note;
+      // ฟิลด์ที่เป็น optional - ส่งเฉพาะที่มีค่า
+      if (values.authorized_area && values.authorized_area.length > 0) {
+        reqData.authorized_area = values.authorized_area;
+      }
+
+      if (values.house_id && values.house_id.trim() !== "") {
+        reqData.house_id = values.house_id;
+      }
+
+      // DateTime fields - format ให้ถูกต้องก่อนส่ง
+      if (values.start_time && values.start_time.trim() !== "") {
+        reqData.start_time = formatDateTimeForAPI(values.start_time);
+      }
+
+      if (values.expire_time && values.expire_time.trim() !== "") {
+        reqData.expire_time = formatDateTimeForAPI(values.expire_time);
+      }
+
+      // ฟิลด์ optional อื่นๆ
+      if (values.invitation && values.invitation.trim() !== "") {
+        reqData.invitation = values.invitation;
+      }
+      if (values.stamper && values.stamper.trim() !== "") {
+        reqData.stamper = values.stamper;
+      }
+      if (values.stamped_time && values.stamped_time.trim() !== "") {
+        reqData.stamped_time = formatDateTimeForAPI(values.stamped_time);
+      }
+      if (values.note && values.note.trim() !== "") {
+        reqData.note = values.note;
+      }
 
       console.log("Sending data to API:", reqData);
 
@@ -416,10 +485,12 @@ export function EditVehicleDialog({
                       name="house_id"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>บ้าน *</FormLabel>
+                          <FormLabel>บ้าน</FormLabel>
                           <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
+                            onValueChange={(value) => {
+                              field.onChange(value === "none" ? "" : value);
+                            }}
+                            value={field.value || "none"}
                             disabled={isLoading}>
                             <FormControl>
                               <SelectTrigger>
@@ -427,6 +498,7 @@ export function EditVehicleDialog({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
+                              <SelectItem value="none">ไม่ระบุ</SelectItem>
                               {houseList?.items.map((house: HouseItem) => (
                                 <SelectItem key={house.id} value={house.id}>
                                   {house.address}
@@ -447,7 +519,7 @@ export function EditVehicleDialog({
                       name="authorized_area"
                       render={() => (
                         <FormItem>
-                          <FormLabel>พื้นที่ที่ได้รับอนุญาต *</FormLabel>
+                          <FormLabel>พื้นที่ที่ได้รับอนุญาต</FormLabel>
                           <FormDescription>
                             เลือกพื้นที่ที่ยานพาหนะนี้สามารถเข้าถึงได้
                             (ตามสิทธิ์ของคุณ)
@@ -471,13 +543,14 @@ export function EditVehicleDialog({
                                               area.id
                                             )}
                                             onCheckedChange={(checked) => {
+                                              const currentValue = field.value || [];
                                               return checked
                                                 ? field.onChange([
-                                                    ...field.value,
+                                                    ...currentValue,
                                                     area.id,
                                                   ])
                                                 : field.onChange(
-                                                    field.value?.filter(
+                                                    currentValue.filter(
                                                       (value) =>
                                                         value !== area.id
                                                     )
@@ -518,7 +591,7 @@ export function EditVehicleDialog({
                   {/* DateTime Fields */}
                   <div className="space-y-4 border-b pb-4">
                     <h3 className="text-sm font-medium text-gray-900">
-                      ช่วงเวลาที่ใช้งาน (จำเป็น)
+                      ช่วงเวลาที่ใช้งาน (ไม่จำเป็น)
                     </h3>
 
                     <FormField
@@ -526,7 +599,7 @@ export function EditVehicleDialog({
                       name="start_time"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>วันที่เริ่มมีผล *</FormLabel>
+                          <FormLabel>วันที่เริ่มมีผล</FormLabel>
                           <FormControl>
                             <Input
                               type="datetime-local"
@@ -535,7 +608,7 @@ export function EditVehicleDialog({
                             />
                           </FormControl>
                           <FormDescription>
-                            วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน
+                            วันที่และเวลาที่อนุญาตให้ยานพาหนะเข้าใช้งาน (ไม่ระบุหากต้องการให้เริ่มใช้ได้ทันที)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
@@ -547,7 +620,7 @@ export function EditVehicleDialog({
                       name="expire_time"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>วันหมดอายุ *</FormLabel>
+                          <FormLabel>วันหมดอายุ</FormLabel>
                           <FormControl>
                             <Input
                               type="datetime-local"
@@ -556,7 +629,7 @@ export function EditVehicleDialog({
                             />
                           </FormControl>
                           <FormDescription>
-                            วันที่และเวลาที่สิ้นสุดการอนุญาต
+                            วันที่และเวลาที่สิ้นสุดการอนุญาต (ต้องอยู่ในอนาคต หากระบุ)
                           </FormDescription>
                           <FormMessage />
                         </FormItem>
