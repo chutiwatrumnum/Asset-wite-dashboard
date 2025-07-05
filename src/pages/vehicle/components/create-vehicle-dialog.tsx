@@ -167,16 +167,19 @@ export function CreateVehicleDrawer({
         license_plate: values.license_plate,
         area_code: values.area_code,
         tier: values.tier,
+        // ส่ง issuer เป็น current user ID เสมอ
+        issuer: Pb.authStore.record?.id || "",
+        // ส่ง authorized_area เป็น empty array เสมอถ้าไม่มีค่า
+        authorized_area: values.authorized_area || [],
+        // DateTime fields - ต้องแปลงเป็น ISO string
         start_time: values.start_time
           ? new Date(values.start_time).toISOString()
           : undefined,
         expire_time: values.expire_time
           ? new Date(values.expire_time).toISOString()
           : undefined,
+        // Optional fields
         house_id: values.house_id || undefined,
-        authorized_area: values.authorized_area?.length
-          ? values.authorized_area
-          : undefined,
         note: values.note || undefined,
       };
 
@@ -201,10 +204,20 @@ export function CreateVehicleDrawer({
         const apiError = error as any;
         console.error("API Error details:", apiError.response?.data);
 
-        // Check for specific tier validation error
-        if (apiError.response?.data?.data?.tier) {
-          toast.error("ข้อผิดพลาดในการเลือกระดับยานพาหนะ", {
-            description: "กรุณาตรวจสอบข้อมูลระดับยานพาหนะ",
+        // Check for specific validation errors
+        if (apiError.response?.data?.data) {
+          const validationErrors = apiError.response.data.data;
+          console.error("Validation errors:", validationErrors);
+
+          // Show specific error messages
+          const errorMessages = Object.entries(validationErrors)
+            .map(
+              ([field, error]: [string, any]) => `${field}: ${error.message}`
+            )
+            .join(", ");
+
+          toast.error("ข้อผิดพลาดในการกรอกข้อมูล", {
+            description: errorMessages,
           });
         } else {
           toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {

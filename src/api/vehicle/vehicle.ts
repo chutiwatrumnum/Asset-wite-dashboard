@@ -6,18 +6,18 @@ const collectionName = "vehicle";
 // Types
 export interface newVehicleRequest {
   id?: string;
-  license_plate: string;
-  area_code: string; // ISO3166-2:TH (e.g., th-BT, th-10, th-11)
-  tier: string; // resident, staff, invited, unknown, blacklisted
-  issuer?: string; // ID of who created this record
-  start_time?: string; // RFC3339 format
-  expire_time?: string; // RFC3339 format
-  invitation?: string; // RELATION_RECORD_ID - สำหรับเชื่อมโยงกับการนัดหมาย
-  house_id?: string; // RELATION_RECORD_ID
-  authorized_area?: string[]; // Array of RELATION_RECORD_ID
-  stamper?: string; // ID of who stamped/approved this record
-  stamped_time?: string; // RFC3339 format - เวลาที่ stamped
-  note?: string;
+  license_plate: string; // Required
+  area_code: string; // Required - ISO3166-2:TH (e.g., th-BT, th-10, th-11)
+  tier: string; // Required - resident, staff, invited, unknown, blacklisted
+  issuer: string; // Required - ID of who created this record
+  start_time?: string; // Optional - RFC3339 format
+  expire_time?: string; // Optional - RFC3339 format
+  invitation?: string; // Optional - RELATION_RECORD_ID สำหรับเชื่อมโยงกับการนัดหมาย
+  house_id?: string; // Optional - RELATION_RECORD_ID
+  authorized_area?: string[]; // Required - Array of RELATION_RECORD_ID (ต้องเป็น array เสมอ)
+  stamper?: string; // Optional - ID of who stamped/approved this record
+  stamped_time?: string; // Optional - RFC3339 format เวลาที่ stamped
+  note?: string; // Optional
 }
 
 export interface vehicleItem {
@@ -189,71 +189,77 @@ const createVehicle = async (
       throw new Error("Tier is required");
     }
 
-    // Create the form data for PocketBase
-    const formData = new FormData();
+    // สร้าง data object ตามรูปแบบ API ที่ถูกต้อง
+    const data: Record<string, any> = {
+      license_plate: newVehicleReq.license_plate,
+      area_code: newVehicleReq.area_code,
+      tier: newVehicleReq.tier,
+      // Required fields ตาม API example
+      issuer: newVehicleReq.issuer || Pb.authStore.record?.id || "",
+      authorized_area: newVehicleReq.authorized_area || [],
+    };
 
-    // Required fields
-    formData.append("license_plate", newVehicleReq.license_plate);
-    formData.append("area_code", newVehicleReq.area_code);
-    formData.append("tier", newVehicleReq.tier);
-
-    // Optional fields - only append if they have values
+    // Handle optional datetime fields - ต้องเป็น ISO string format
     if (newVehicleReq.start_time) {
-      formData.append("start_time", newVehicleReq.start_time);
+      // ถ้าเป็น datetime-local input จะได้รูปแบบ "2023-12-01T10:30"
+      // ต้องแปลงเป็น ISO format "2022-01-01 10:00:00.123Z"
+      const startDate = new Date(newVehicleReq.start_time);
+      data.start_time = startDate.toISOString().replace('T', ' ').replace('Z', 'Z');
     }
+
     if (newVehicleReq.expire_time) {
-      formData.append("expire_time", newVehicleReq.expire_time);
+      const expireDate = new Date(newVehicleReq.expire_time);
+      data.expire_time = expireDate.toISOString().replace('T', ' ').replace('Z', 'Z');
     }
+
+    // Handle optional relation fields
     if (newVehicleReq.invitation) {
-      formData.append("invitation", newVehicleReq.invitation);
+      data.invitation = newVehicleReq.invitation;
     }
+
     if (newVehicleReq.house_id) {
-      formData.append("house_id", newVehicleReq.house_id);
+      data.house_id = newVehicleReq.house_id;
     }
-    if (newVehicleReq.authorized_area && newVehicleReq.authorized_area.length > 0) {
-      formData.append(
-        "authorized_area",
-        JSON.stringify(newVehicleReq.authorized_area)
-      );
-    }
+
+    // Handle optional stamper fields
     if (newVehicleReq.stamper) {
-      formData.append("stamper", newVehicleReq.stamper);
+      data.stamper = newVehicleReq.stamper;
     }
+
     if (newVehicleReq.stamped_time) {
-      formData.append("stamped_time", newVehicleReq.stamped_time);
+      const stampedDate = new Date(newVehicleReq.stamped_time);
+      data.stamped_time = stampedDate.toISOString().replace('T', ' ').replace('Z', 'Z');
     }
+
     if (newVehicleReq.note) {
-      formData.append("note", newVehicleReq.note);
+      data.note = newVehicleReq.note;
     }
 
-    // Set issuer to current user if not provided
-    if (newVehicleReq.issuer) {
-      formData.append("issuer", newVehicleReq.issuer);
-    } else if (Pb.authStore.record?.id) {
-      formData.append("issuer", Pb.authStore.record.id);
-    }
+    console.log("Final data to be sent:", data);
 
-    // Log FormData contents for debugging
-    console.log("FormData contents:");
-    for (const [key, value] of formData.entries()) {
-      console.log(`${key}: ${value}`);
-    }
-
-    const result = await Pb.collection(collectionName).create(formData);
+    // ใช้ .create() แทน FormData
+    const result = await Pb.collection(collectionName).create(data);
     console.log("Vehicle created successfully:", result);
 
     return null;
   } catch (error) {
     console.error("Error creating vehicle:", error);
 
-    // Log the full error details
+    // Enhanced error logging
     if (error && typeof error === 'object') {
       console.error("Full error object:", error);
+
+      // PocketBase specific error handling
       if ('response' in error) {
-        console.error("Error response:", (error as any).response);
-      }
-      if ('data' in error) {
-        console.error("Error data:", (error as any).data);
+        const pbError = error as any;
+        console.error("PocketBase Error response:", pbError.response);
+        console.error("Error status:", pbError.status);
+        console.error("Error data:", pbError.data);
+
+        // ตรวจสอบ validation errors
+        if (pbError.data && pbError.data.data) {
+          console.error("Validation errors:", pbError.data.data);
+        }
       }
     }
 
