@@ -10,13 +10,13 @@ export interface newVehicleRequest {
   area_code: string; // Required - ISO3166-2:TH (e.g., th-BT, th-10, th-11)
   tier: string; // Required - resident, staff, invited, unknown, blacklisted
   issuer: string; // Required - ID of who created this record
-  start_time?: string; // Optional - RFC3339 format
-  expire_time?: string; // Optional - RFC3339 format
+  start_time?: string; // Optional - DateTime string
+  expire_time?: string; // Optional - DateTime string
   invitation?: string; // Optional - RELATION_RECORD_ID สำหรับเชื่อมโยงกับการนัดหมาย
   house_id?: string; // Optional - RELATION_RECORD_ID
   authorized_area?: string[]; // Required - Array of RELATION_RECORD_ID (ต้องเป็น array เสมอ)
   stamper?: string; // Optional - ID of who stamped/approved this record
-  stamped_time?: string; // Optional - RFC3339 format เวลาที่ stamped
+  stamped_time?: string; // Optional - DateTime string เวลาที่ stamped
   note?: string; // Optional
 }
 
@@ -176,10 +176,10 @@ const createVehicle = async (
   newVehicleReq: newVehicleRequest
 ): Promise<null> => {
   try {
-    console.log("Creating vehicle with data:", newVehicleReq);
+    console.log("Creating vehicle with request:", newVehicleReq);
 
-    // Ensure required fields are properly set
-    if (!newVehicleReq.license_plate) {
+    // Validate required fields
+    if (!newVehicleReq.license_plate?.trim()) {
       throw new Error("License plate is required");
     }
     if (!newVehicleReq.area_code) {
@@ -189,55 +189,60 @@ const createVehicle = async (
       throw new Error("Tier is required");
     }
 
-    // สร้าง data object ตามรูปแบบ API ที่ถูกต้อง
+    // สร้าง data object ตามตัวอย่างที่ใช้งานได้
     const data: Record<string, any> = {
-      license_plate: newVehicleReq.license_plate,
+      // Required fields
+      license_plate: newVehicleReq.license_plate.trim(),
       area_code: newVehicleReq.area_code,
       tier: newVehicleReq.tier,
-      // Required fields ตาม API example
       issuer: newVehicleReq.issuer || Pb.authStore.record?.id || "",
-      authorized_area: newVehicleReq.authorized_area || [],
+
+      // authorized_area เป็น array ตามตัวอย่าง ["69imk303pw926ef"]
+      authorized_area: Array.isArray(newVehicleReq.authorized_area)
+        ? newVehicleReq.authorized_area
+        : [],
+
+      // Optional relation fields - ใส่เสมอ แต่อาจเป็น empty string
+      invitation: newVehicleReq.invitation || "",
+      house_id: newVehicleReq.house_id || "",
+      stamper: newVehicleReq.stamper || "",
+      note: newVehicleReq.note || "",
     };
 
-    // Handle optional datetime fields - ต้องเป็น ISO string format
-    if (newVehicleReq.start_time) {
-      // ถ้าเป็น datetime-local input จะได้รูปแบบ "2023-12-01T10:30"
-      // ต้องแปลงเป็น ISO format "2022-01-01 10:00:00.123Z"
+    // DateTime fields - ตามตัวอย่าง format: "2025-05-29 05:14:30.000Z"
+    // ถ้าไม่มีค่า ให้เป็น empty string ตามตัวอย่าง
+
+    if (newVehicleReq.start_time && newVehicleReq.start_time.trim() !== "") {
+      // แปลงจาก datetime-local input เป็น RFC3339 format
       const startDate = new Date(newVehicleReq.start_time);
-      data.start_time = startDate.toISOString().replace('T', ' ').replace('Z', 'Z');
+      // ตัวอย่าง: "2025-05-29 05:14:30.000Z"
+      data.start_time = startDate.toISOString().replace('T', ' ').replace(/Z$/, '.000Z');
+    } else {
+      data.start_time = ""; // Empty string ตามตัวอย่าง
     }
 
-    if (newVehicleReq.expire_time) {
+    if (newVehicleReq.expire_time && newVehicleReq.expire_time.trim() !== "") {
       const expireDate = new Date(newVehicleReq.expire_time);
-      data.expire_time = expireDate.toISOString().replace('T', ' ').replace('Z', 'Z');
+      data.expire_time = expireDate.toISOString().replace('T', ' ').replace(/Z$/, '.000Z');
+    } else {
+      data.expire_time = ""; // Empty string ตามตัวอย่าง
     }
 
-    // Handle optional relation fields
-    if (newVehicleReq.invitation) {
-      data.invitation = newVehicleReq.invitation;
-    }
-
-    if (newVehicleReq.house_id) {
-      data.house_id = newVehicleReq.house_id;
-    }
-
-    // Handle optional stamper fields
-    if (newVehicleReq.stamper) {
-      data.stamper = newVehicleReq.stamper;
-    }
-
-    if (newVehicleReq.stamped_time) {
+    if (newVehicleReq.stamped_time && newVehicleReq.stamped_time.trim() !== "") {
       const stampedDate = new Date(newVehicleReq.stamped_time);
-      data.stamped_time = stampedDate.toISOString().replace('T', ' ').replace('Z', 'Z');
-    }
-
-    if (newVehicleReq.note) {
-      data.note = newVehicleReq.note;
+      data.stamped_time = stampedDate.toISOString().replace('T', ' ').replace(/Z$/, '.000Z');
+    } else {
+      data.stamped_time = ""; // Empty string ตามตัวอย่าง
     }
 
     console.log("Final data to be sent:", data);
 
-    // ใช้ .create() แทน FormData
+    // ตรวจสอบว่า user มี permission
+    if (!Pb.authStore.record?.id) {
+      throw new Error("User not authenticated");
+    }
+
+    // เรียก API
     const result = await Pb.collection(collectionName).create(data);
     console.log("Vehicle created successfully:", result);
 
@@ -245,21 +250,20 @@ const createVehicle = async (
   } catch (error) {
     console.error("Error creating vehicle:", error);
 
-    // Enhanced error logging
+    // แสดง error details สำหรับ debugging
     if (error && typeof error === 'object') {
-      console.error("Full error object:", error);
-
-      // PocketBase specific error handling
       if ('response' in error) {
         const pbError = error as any;
-        console.error("PocketBase Error response:", pbError.response);
-        console.error("Error status:", pbError.status);
-        console.error("Error data:", pbError.data);
+        console.error("Status:", pbError.status);
+        console.error("Response data:", pbError.response?.data);
 
-        // ตรวจสอบ validation errors
-        if (pbError.data && pbError.data.data) {
-          console.error("Validation errors:", pbError.data.data);
+        if (pbError.response?.data?.data) {
+          console.error("Validation errors:", pbError.response.data.data);
         }
+      }
+
+      if ('data' in error) {
+        console.error("Error data:", (error as any).data);
       }
     }
 

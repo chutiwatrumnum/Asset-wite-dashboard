@@ -177,38 +177,42 @@ export function CreateVehicleDrawer({
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true);
+      console.log("Form submission values:", values);
 
-      console.log("Form values before sending:", values);
-
+      // สร้าง data object โดยระวังเรื่อง DateTime fields
       const vehicleData: newVehicleRequest = {
         // Required fields
         license_plate: values.license_plate.trim(),
         area_code: values.area_code,
         tier: values.tier,
-        issuer: Pb.authStore.record?.id || "", // Current user as issuer
-        authorized_area: values.authorized_area || [], // Required array
-
-        // Optional DateTime fields - convert to ISO string if provided
-        start_time: values.start_time
-          ? new Date(values.start_time).toISOString()
-          : undefined,
-        expire_time: values.expire_time
-          ? new Date(values.expire_time).toISOString()
-          : undefined,
-        stamped_time: values.stamped_time
-          ? new Date(values.stamped_time).toISOString()
-          : undefined,
-
-        // Optional relation fields
-        invitation: values.invitation || undefined,
-        house_id: values.house_id || undefined,
-        stamper: values.stamper || undefined,
-
-        // Optional plain text field
-        note: values.note || undefined,
+        issuer: Pb.authStore.record?.id || "",
+        authorized_area: values.authorized_area || [],
       };
 
-      console.log("Vehicle data to be sent:", vehicleData);
+      // Optional string fields
+      if (values.house_id) {
+        vehicleData.house_id = values.house_id;
+      }
+
+      if (values.note) {
+        vehicleData.note = values.note;
+      }
+
+      // *** สำคัญ: DateTime fields - ส่งเฉพาะเมื่อมีค่าจริงๆ ***
+
+      // ตรวจสอบ start_time
+      if (values.start_time && values.start_time.trim() !== "") {
+        vehicleData.start_time = values.start_time;
+      }
+      // ถ้าไม่มีค่า ไม่ต้องใส่ field นี้ใน vehicleData
+
+      // ตรวจสอบ expire_time
+      if (values.expire_time && values.expire_time.trim() !== "") {
+        vehicleData.expire_time = values.expire_time;
+      }
+      // ถ้าไม่มีค่า ไม่ต้องใส่ field นี้ใน vehicleData
+
+      console.log("Final vehicleData to send:", vehicleData);
 
       await createVehicle(vehicleData);
 
@@ -223,35 +227,31 @@ export function CreateVehicleDrawer({
     } catch (error) {
       console.error("Create vehicle failed:", error);
 
-      // Enhanced error handling
-      if (error && typeof error === "object" && "response" in error) {
-        const apiError = error as any;
-        console.error("API Error details:", apiError.response?.data);
+      // Simple error handling
+      let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มข้อมูล";
 
-        if (apiError.response?.data?.data) {
-          const validationErrors = apiError.response.data.data;
-          console.error("Validation errors:", validationErrors);
-
-          const errorMessages = Object.entries(validationErrors)
-            .map(([field, error]: [string, any]) => {
-              const message = error.message || error.toString();
-              return `${field}: ${message}`;
-            })
-            .join(", ");
-
-          toast.error("ข้อผิดพลาดในการกรอกข้อมูล", {
-            description: errorMessages,
-          });
-        } else {
-          toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
-            description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
-          });
+      if (error && typeof error === "object") {
+        if ("response" in error) {
+          const apiError = error as any;
+          if (apiError.response?.data?.message) {
+            errorMessage = apiError.response.data.message;
+          } else if (apiError.response?.data?.data) {
+            // แสดง validation errors
+            const validationErrors = apiError.response.data.data;
+            const errorMessages = Object.entries(validationErrors)
+              .map(([field, error]: [string, any]) => {
+                const message = error.message || error.toString();
+                return `${field}: ${message}`;
+              })
+              .join(", ");
+            errorMessage = errorMessages;
+          }
         }
-      } else {
-        toast.error("เกิดข้อผิดพลาดในการเพิ่มข้อมูล", {
-          description: "กรุณาลองใหม่อีกครั้งหรือติดต่อผู้ดูแลระบบ",
-        });
       }
+
+      toast.error("ไม่สามารถเพิ่มยานพาหนะได้", {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
