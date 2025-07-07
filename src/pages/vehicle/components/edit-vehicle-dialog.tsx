@@ -256,15 +256,17 @@ export function EditVehicleDialog({
       return tier;
     }
 
-    // If tier is invalid, try to map common invalid values
+    // Map invalid values to valid ones
     const tierMappings: { [key: string]: string } = {
-      validation_required: "unknown",
+      validation_required: "unknown", // แก้ไขจาก validation_required เป็น unknown
       "": "unknown",
       null: "unknown",
       undefined: "unknown",
     };
 
-    return tierMappings[tier] || "unknown";
+    const mappedTier = tierMappings[tier] || "unknown";
+    console.warn(`Invalid tier "${tier}" mapped to "${mappedTier}"`);
+    return mappedTier;
   };
 
   // Populate form when vehicleData changes and drawer opens
@@ -286,10 +288,17 @@ export function EditVehicleDialog({
           validTier
         );
 
+        // ถ้า tier ไม่ถูกต้อง ให้แสดง warning
+        if (vehicleData.tier !== validTier) {
+          toast.warning(
+            `ระดับยานพาหนะไม่ถูกต้อง "${vehicleData.tier}" จะถูกเปลี่ยนเป็น "${validTier}"`
+          );
+        }
+
         const formData = {
           license_plate: vehicleData.license_plate || "",
           area_code: vehicleData.area_code || "",
-          tier: validTier,
+          tier: validTier, // ใช้ valid tier
           start_time: formatDateTimeForInput(vehicleData.start_time),
           expire_time: formatDateTimeForInput(vehicleData.expire_time),
           house_id: vehicleData.house_id || "",
@@ -311,6 +320,7 @@ export function EditVehicleDialog({
       }
     }
   }, [vehicleData, open, form, resetAllStates, onOpenChange]);
+  
 
   // Watch for form changes
   useEffect(() => {
@@ -390,6 +400,7 @@ export function EditVehicleDialog({
         throw new Error("กรุณาเลือกจังหวัด");
       }
 
+      // ตรวจสอบ tier ให้แน่ใจว่าถูกต้อง
       if (!values.tier || !Object.keys(VEHICLE_TIERS).includes(values.tier)) {
         throw new Error("กรุณาเลือกระดับยานพาหนะที่ถูกต้อง");
       }
@@ -399,23 +410,35 @@ export function EditVehicleDialog({
         id: vehicleData?.id,
         license_plate: values.license_plate.trim(),
         area_code: values.area_code,
-        tier: values.tier,
+        tier: values.tier, // ต้องแน่ใจว่าเป็น valid tier
         issuer: vehicleData?.issuer || Pb.authStore.record?.id || "",
       };
 
-      // ฟิลด์ที่เป็น optional - ส่งเฉพาะที่มีค่า
-      if (values.authorized_area && values.authorized_area.length > 0) {
-        reqData.authorized_area = values.authorized_area;
-      } else {
-        reqData.authorized_area = [];
-      }
+      // authorized_area - ต้องเป็น array เสมอ
+      reqData.authorized_area =
+        values.authorized_area && values.authorized_area.length > 0
+          ? values.authorized_area
+          : [];
 
+      // Optional fields - ส่งเฉพาะที่มีค่า
       if (
         values.house_id &&
         values.house_id.trim() !== "" &&
         values.house_id !== "none"
       ) {
         reqData.house_id = values.house_id;
+      }
+
+      if (values.note && values.note.trim() !== "") {
+        reqData.note = values.note;
+      }
+
+      if (values.invitation && values.invitation.trim() !== "") {
+        reqData.invitation = values.invitation;
+      }
+
+      if (values.stamper && values.stamper.trim() !== "") {
+        reqData.stamper = values.stamper;
       }
 
       // DateTime fields - format ให้ถูกต้องก่อนส่ง
@@ -433,21 +456,11 @@ export function EditVehicleDialog({
         }
       }
 
-      // ฟิลด์ optional อื่นๆ
-      if (values.invitation && values.invitation.trim() !== "") {
-        reqData.invitation = values.invitation;
-      }
-      if (values.stamper && values.stamper.trim() !== "") {
-        reqData.stamper = values.stamper;
-      }
       if (values.stamped_time && values.stamped_time.trim() !== "") {
         const formattedStampedTime = formatDateTimeForAPI(values.stamped_time);
         if (formattedStampedTime) {
           reqData.stamped_time = formattedStampedTime;
         }
-      }
-      if (values.note && values.note.trim() !== "") {
-        reqData.note = values.note;
       }
 
       console.log("Sending data to API:", reqData);
@@ -460,7 +473,7 @@ export function EditVehicleDialog({
     } catch (error: any) {
       console.error("Update vehicle failed:", error);
 
-      // ตรวจสอบรายละเอียดข้อผิดพลาด
+      // ปรับปรุง error handling
       let errorMessage = "เกิดข้อผิดพลาดในการอัปเดตข้อมูล";
 
       if (error.response?.data?.message) {

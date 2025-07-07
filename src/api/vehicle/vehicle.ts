@@ -173,6 +173,7 @@ const deleteVehicle = async (id: string): Promise<null> => {
   }
 };
 
+// src/api/vehicle/vehicle.ts - ในส่วนของ createVehicle function
 const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<null> => {
   try {
     console.log("Creating vehicle with request:", newVehicleReq);
@@ -188,47 +189,76 @@ const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<null> =>
       throw new Error("Tier is required");
     }
 
-    // Create data object based on working example
+    // ตรวจสอบว่า tier ที่ส่งมาถูกต้องหรือไม่
+    const validTiers = ["resident", "staff", "invited visitor", "unknown visitor", "blacklisted"];
+    if (!validTiers.includes(newVehicleReq.tier)) {
+      throw new Error(`Invalid tier: ${newVehicleReq.tier}. Valid tiers are: ${validTiers.join(", ")}`);
+    }
+
+    // Create data object
     const data: Record<string, any> = {
       // Required fields
       license_plate: newVehicleReq.license_plate.trim(),
       area_code: newVehicleReq.area_code,
-      tier: newVehicleReq.tier,
+      tier: newVehicleReq.tier, // ต้องแน่ใจว่าเป็น valid tier
       issuer: newVehicleReq.issuer || Pb.authStore.record?.id || "",
 
-      // authorized_area as array example ["69imk303pw926ef"]
+      // authorized_area เป็น array
       authorized_area: Array.isArray(newVehicleReq.authorized_area)
         ? newVehicleReq.authorized_area
         : [],
 
-      // Optional relation fields - always include but may be empty string
+      // Optional relation fields - ต้องส่งเป็น empty string ถ้าไม่มีค่า
       invitation: newVehicleReq.invitation || "",
       house_id: newVehicleReq.house_id || "",
       stamper: newVehicleReq.stamper || "",
       note: newVehicleReq.note || "",
     };
 
-    // เพิ่มการตรวจสอบก่อนส่ง
-    const validTiers = Object.keys(VEHICLE_TIERS); // ["resident", "staff", "invited", "unknown", "blacklisted"]
-    if (!validTiers.includes(newVehicleReq.tier)) {
-      throw new Error(`Invalid tier: ${newVehicleReq.tier}. Valid tiers are: ${validTiers.join(", ")}`);
-    }
-
-    // DateTime fields - format: "2025-05-29 05:14:30.000Z"
-    // Only send if they have values
-
+    // DateTime fields - format เป็น ISO string ถ้ามีค่า, ถ้าไม่มีให้เป็น empty string
     if (newVehicleReq.start_time && newVehicleReq.start_time.trim() !== "") {
-      const startDate = new Date(newVehicleReq.start_time);
-      data.start_time = startDate.toISOString(); // รูปแบบ RFC3339 ที่ถูกต้อง
+      try {
+        const startDate = new Date(newVehicleReq.start_time);
+        if (!isNaN(startDate.getTime())) {
+          data.start_time = startDate.toISOString();
+        } else {
+          data.start_time = "";
+        }
+      } catch (error) {
+        data.start_time = "";
+      }
     } else {
       data.start_time = "";
     }
 
     if (newVehicleReq.expire_time && newVehicleReq.expire_time.trim() !== "") {
-      const expireDate = new Date(newVehicleReq.expire_time);
-      data.expire_time = expireDate.toISOString()
+      try {
+        const expireDate = new Date(newVehicleReq.expire_time);
+        if (!isNaN(expireDate.getTime())) {
+          data.expire_time = expireDate.toISOString();
+        } else {
+          data.expire_time = "";
+        }
+      } catch (error) {
+        data.expire_time = "";
+      }
     } else {
-      data.expire_time = ""; // Empty string as in example
+      data.expire_time = "";
+    }
+
+    if (newVehicleReq.stamped_time && newVehicleReq.stamped_time.trim() !== "") {
+      try {
+        const stampedDate = new Date(newVehicleReq.stamped_time);
+        if (!isNaN(stampedDate.getTime())) {
+          data.stamped_time = stampedDate.toISOString();
+        } else {
+          data.stamped_time = "";
+        }
+      } catch (error) {
+        data.stamped_time = "";
+      }
+    } else {
+      data.stamped_time = "";
     }
 
     console.log("Final data to be sent:", data);
@@ -245,7 +275,6 @@ const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<null> =>
     return null;
   } catch (error) {
     console.error("Error creating vehicle:", error);
-    // Detailed error handling...
     throw error;
   }
 };

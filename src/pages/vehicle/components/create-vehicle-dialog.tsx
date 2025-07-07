@@ -1,4 +1,3 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx
 "use client";
 
 import type React from "react";
@@ -61,7 +60,6 @@ import type { newVehicleRequest } from "@/api/vehicle/vehicle";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import Pb from "@/api/pocketbase";
-// Import from vehicleUtils
 import {
   VEHICLE_TIERS,
   THAI_PROVINCES,
@@ -79,8 +77,9 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
   label,
 }));
 
+// แก้ไข form schema
 const formSchema = z.object({
-  // Required fields (ที่มีอยู่แล้ว)
+  // Required fields
   license_plate: z
     .string()
     .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
@@ -88,22 +87,26 @@ const formSchema = z.object({
       message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กค234)",
     }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-  tier: z.string().min(1, { message: "กรุณาเลือกระดับ" }),
+  tier: z
+    .string()
+    .min(1, { message: "กรุณาเลือกระดับ" })
+    .refine((value) => Object.keys(VEHICLE_TIERS).includes(value), {
+      message: "ระดับยานพาหนะไม่ถูกต้อง",
+    }),
 
-  // ต้องเปลี่ยนเป็น Required
-  start_time: z.string().min(1, { message: "กรุณาระบุวันที่เริ่มมีผล" }), // เปลี่ยนจาก optional
-  expire_time: z.string().min(1, { message: "กรุณาระบุวันหมดอายุ" }), // เปลี่ยนจาก optional
-  house_id: z.string().min(1, { message: "กรุณาเลือกบ้าน" }), // เปลี่ยนจาก optional
-  authorized_area: z
-    .array(z.string())
-    .min(1, { message: "กรุณาเลือกพื้นที่ที่ได้รับอนุญาตอย่างน้อย 1 พื้นที่" }), // เปลี่ยนจาก default([])
-
-  // Optional fields (คงเดิม)
+  // Optional fields
+  start_time: z.string().optional(),
+  expire_time: z.string().optional(),
+  house_id: z.string().optional(),
+  authorized_area: z.array(z.string()).default([]),
   invitation: z.string().optional(),
   stamper: z.string().optional(),
   stamped_time: z.string().optional(),
   note: z.string().optional(),
 });
+
+// แก้ไข type definition
+type FormSchema = z.infer<typeof formSchema>;
 
 interface CreateVehicleDrawerProps {
   onVehicleCreated: () => void;
@@ -121,7 +124,8 @@ export function CreateVehicleDrawer({
 
   const { mutateAsync: createVehicle } = useCreateVehicleMutation();
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  // แก้ไข form definition
+  const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       license_plate: "",
@@ -174,10 +178,24 @@ export function CreateVehicleDrawer({
     setConfirmOpen(false);
   };
 
-  async function onSubmit(values: z.infer<typeof formSchema>) {
+  // แก้ไข onSubmit function
+  async function onSubmit(values: FormSchema) {
     try {
       setIsLoading(true);
       console.log("Form submission values:", values);
+
+      // Validate required fields
+      if (!values.license_plate?.trim()) {
+        throw new Error("ป้ายทะเบียนไม่สามารถเป็นค่าว่างได้");
+      }
+
+      if (!values.area_code) {
+        throw new Error("กรุณาเลือกจังหวัด");
+      }
+
+      if (!values.tier || !Object.keys(VEHICLE_TIERS).includes(values.tier)) {
+        throw new Error("กรุณาเลือกระดับยานพาหนะที่ถูกต้อง");
+      }
 
       // Create data object being careful with DateTime fields
       const vehicleData: newVehicleRequest = {
@@ -190,21 +208,37 @@ export function CreateVehicleDrawer({
       };
 
       // Optional string fields
-      if (values.house_id) {
+      if (
+        values.house_id &&
+        values.house_id.trim() !== "" &&
+        values.house_id !== "none"
+      ) {
         vehicleData.house_id = values.house_id;
       }
 
-      if (values.note) {
+      if (values.note && values.note.trim() !== "") {
         vehicleData.note = values.note;
       }
 
-      // DateTime fields - only send when they have values
+      if (values.invitation && values.invitation.trim() !== "") {
+        vehicleData.invitation = values.invitation;
+      }
+
+      if (values.stamper && values.stamper.trim() !== "") {
+        vehicleData.stamper = values.stamper;
+      }
+
+      // DateTime fields - ส่งเฉพาะที่มีค่า
       if (values.start_time && values.start_time.trim() !== "") {
         vehicleData.start_time = values.start_time;
       }
 
       if (values.expire_time && values.expire_time.trim() !== "") {
         vehicleData.expire_time = values.expire_time;
+      }
+
+      if (values.stamped_time && values.stamped_time.trim() !== "") {
+        vehicleData.stamped_time = values.stamped_time;
       }
 
       console.log("Final vehicleData to send:", vehicleData);
@@ -221,24 +255,35 @@ export function CreateVehicleDrawer({
       setOpen(false);
       onVehicleCreated();
     } catch (error) {
-      // Error handling
       console.error("Create vehicle failed:", error);
-      // Detailed error handling...
+
+      let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มข้อมูล";
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (error && typeof error === "object" && "response" in error) {
+        const apiError = error as any;
+        if (apiError.response?.data?.message) {
+          errorMessage = apiError.response.data.message;
+        } else if (apiError.response?.data?.data) {
+          const validationErrors = apiError.response.data.data;
+          const errorMessages = Object.entries(validationErrors)
+            .map(([field, error]: [string, any]) => {
+              const message = error.message || error.toString();
+              return `${field}: ${message}`;
+            })
+            .join(", ");
+          errorMessage = errorMessages;
+        }
+      }
+
+      toast.error("ไม่สามารถเพิ่มข้อมูลได้", {
+        description: errorMessage,
+      });
     } finally {
       setIsLoading(false);
     }
   }
-
-  // Get current datetime for default values
-  const getCurrentDateTime = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    const hours = String(now.getHours()).padStart(2, "0");
-    const minutes = String(now.getMinutes()).padStart(2, "0");
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
-  };
 
   return (
     <>
@@ -405,31 +450,10 @@ export function CreateVehicleDrawer({
 
                     <FormField
                       control={form.control}
-                      name="invitation"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>รหัสคำเชิญ</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Relation record ID สำหรับการนัดหมาย"
-                              {...field}
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            รหัสการนัดหมายที่เกี่ยวข้อง (ถ้ามี)
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
                       name="authorized_area"
                       render={() => (
                         <FormItem>
-                          <FormLabel>พื้นที่ที่ได้รับอนุญาต *</FormLabel>
+                          <FormLabel>พื้นที่ที่ได้รับอนุญาต</FormLabel>
                           <FormDescription>
                             เลือกพื้นที่ที่ยานพาหนะนี้สามารถเข้าถึงได้
                             (ตามสิทธิ์ของคุณ)
@@ -539,55 +563,6 @@ export function CreateVehicleDrawer({
                           </FormControl>
                           <FormDescription>
                             วันที่และเวลาที่สิ้นสุดการอนุญาต
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  {/* Approval Fields */}
-                  <div className="space-y-4 border-b pb-4">
-                    <h3 className="text-sm font-medium text-gray-900">
-                      ข้อมูลการอนุมัติ (ไม่จำเป็น)
-                    </h3>
-
-                    <FormField
-                      control={form.control}
-                      name="stamper"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>ผู้อนุมัติ</FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="รหัสผู้อนุมัติ"
-                              {...field}
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            รหัสของผู้ที่อนุมัติการเข้า-ออก
-                          </FormDescription>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="stamped_time"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>เวลาอนุมัติ</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="datetime-local"
-                              {...field}
-                              disabled={isLoading}
-                            />
-                          </FormControl>
-                          <FormDescription>
-                            วันที่และเวลาที่ทำการอนุมัติ
                           </FormDescription>
                           <FormMessage />
                         </FormItem>

@@ -1,10 +1,32 @@
 export const VEHICLE_TIERS = {
   resident: { label: "ลูกบ้าน", color: "bg-blue-100 text-blue-800" },
   staff: { label: "เจ้าหน้าที่", color: "bg-green-100 text-green-800" },
-  invited: { label: "แขก", color: "bg-yellow-100 text-yellow-800" },
-  unknown: { label: "ไม่ทราบ", color: "bg-gray-100 text-gray-800" },
+  "invited visitor": { label: "แขก", color: "bg-yellow-100 text-yellow-800" },
+  "unknown visitor": { label: "ไม่ทราบ", color: "bg-gray-100 text-gray-800" },
   blacklisted: { label: "บัญชีดำ", color: "bg-red-100 text-red-800" },
 } as const;
+
+export const isValidTier = (tier: string): boolean => {
+  return Object.keys(VEHICLE_TIERS).includes(tier);
+};
+
+// เพิ่มฟังก์ชันสำหรับ normalize tier
+export const normalizeTier = (tier: string): string => {
+  if (isValidTier(tier)) {
+    return tier;
+  }
+
+  // Map common invalid values
+  const tierMappings: { [key: string]: string } = {
+    validation_required: "unknown",
+    invalid: "unknown",
+    "": "unknown",
+    null: "unknown",
+    undefined: "unknown",
+  };
+
+  return tierMappings[tier.toLowerCase()] || "unknown";
+};
 
 export const THAI_PROVINCES = {
   "th-10": "กรุงเทพมหานคร",
@@ -83,9 +105,8 @@ export const THAI_PROVINCES = {
 
 // ตรวจสอบว่ามีฟังก์ชันเหล่านี้ครบหรือไม่
 export const getTierInfo = (tier: string) => {
-  return (
-    VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS] || VEHICLE_TIERS.unknown
-  );
+  const normalizedTier = normalizeTier(tier);
+  return VEHICLE_TIERS[normalizedTier as keyof typeof VEHICLE_TIERS];
 };
 
 export const getProvinceName = (areaCode: string) => {
@@ -146,9 +167,10 @@ export const getVehicleDisplayStatus = (vehicle: {
   start_time?: string;
 }) => {
   const now = new Date();
+  const normalizedTier = normalizeTier(vehicle.tier);
 
   // Check if blacklisted
-  if (vehicle.tier === "blacklisted") {
+  if (normalizedTier === "blacklisted") {
     return {
       status: "blocked",
       label: "ถูกระงับ",
@@ -202,7 +224,6 @@ export const getVehicleDisplayStatus = (vehicle: {
     priority: 5,
   };
 };
-
 // Search helper function
 export const searchVehicles = (
   vehicles: any[],
