@@ -77,7 +77,7 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
   label,
 }));
 
-// แก้ไข form schema
+// แก้ไข form schema ให้ authorized_area เป็น required array เสมอ
 const formSchema = z.object({
   // Required fields
   license_plate: z
@@ -94,18 +94,20 @@ const formSchema = z.object({
       message: "ระดับยานพาหนะไม่ถูกต้อง",
     }),
 
+  // ให้ authorized_area เป็น required array แต่สามารถเป็น empty array ได้
+  authorized_area: z.array(z.string()),
+
   // Optional fields
   start_time: z.string().optional(),
   expire_time: z.string().optional(),
   house_id: z.string().optional(),
-  authorized_area: z.array(z.string()).default([]),
   invitation: z.string().optional(),
   stamper: z.string().optional(),
   stamped_time: z.string().optional(),
   note: z.string().optional(),
 });
 
-// แก้ไข type definition
+// แก้ไข type definition ให้ตรงกับ schema
 type FormSchema = z.infer<typeof formSchema>;
 
 interface CreateVehicleDrawerProps {
@@ -124,18 +126,18 @@ export function CreateVehicleDrawer({
 
   const { mutateAsync: createVehicle } = useCreateVehicleMutation();
 
-  // แก้ไข form definition
+  // แก้ไข form definition โดยกำหนด default values ให้ถูกต้อง
   const form = useForm<FormSchema>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       license_plate: "",
       area_code: "",
       tier: "",
+      authorized_area: [], // เป็น empty array เสมอ
       start_time: "",
       expire_time: "",
       invitation: "",
       house_id: "",
-      authorized_area: [],
       stamper: "",
       stamped_time: "",
       note: "",
@@ -204,7 +206,8 @@ export function CreateVehicleDrawer({
         area_code: values.area_code,
         tier: values.tier,
         issuer: Pb.authStore.record?.id || "",
-        authorized_area: values.authorized_area || [],
+        // authorized_area จะเป็น array เสมอ ไม่ใช่ optional
+        authorized_area: values.authorized_area,
       };
 
       // Optional string fields

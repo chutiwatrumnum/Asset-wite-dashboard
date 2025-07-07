@@ -18,14 +18,15 @@ export const normalizeTier = (tier: string): string => {
 
   // Map common invalid values
   const tierMappings: { [key: string]: string } = {
-    validation_required: "unknown",
-    invalid: "unknown",
-    "": "unknown",
-    null: "unknown",
-    undefined: "unknown",
+    validation_required: "unknown visitor",
+    invalid: "unknown visitor",
+    unknown: "unknown visitor", // เพิ่ม mapping สำหรับ "unknown"
+    "": "unknown visitor",
+    null: "unknown visitor",
+    undefined: "unknown visitor",
   };
 
-  return tierMappings[tier.toLowerCase()] || "unknown";
+  return tierMappings[tier.toLowerCase()] || "unknown visitor";
 };
 
 export const THAI_PROVINCES = {
@@ -224,6 +225,7 @@ export const getVehicleDisplayStatus = (vehicle: {
     priority: 5,
   };
 };
+
 // Search helper function
 export const searchVehicles = (
   vehicles: any[],

@@ -70,7 +70,7 @@ const provinceList = Object.entries(THAI_PROVINCES).map(([value, label]) => ({
   label,
 }));
 
-// Updated schema with better validation and default handling
+// แก้ไข schema ให้ authorized_area เป็น required array
 const editFormSchema = z
   .object({
     // Required fields based on API requirements
@@ -88,13 +88,15 @@ const editFormSchema = z
         message: "ระดับยานพาหนะไม่ถูกต้อง",
       }),
 
+    // ให้ authorized_area เป็น required array
+    authorized_area: z.array(z.string()),
+
     // DateTime fields - optional but validated if provided
     start_time: z.string().optional(),
     expire_time: z.string().optional(),
 
     // Relation fields - optional
     house_id: z.string().optional(),
-    authorized_area: z.array(z.string()).default([]).optional(),
 
     // Optional fields
     invitation: z.string().optional(),
@@ -146,6 +148,9 @@ const editFormSchema = z
     }
   );
 
+// แก้ไข type definition
+type EditFormSchema = z.infer<typeof editFormSchema>;
+
 interface EditVehicleDialogProps {
   vehicleData: vehicleItem | null;
   open: boolean;
@@ -167,16 +172,16 @@ export function EditVehicleDialog({
 
   const { mutateAsync: updateVehicle } = useEditVehicleMutation();
 
-  const form = useForm<z.infer<typeof editFormSchema>>({
+  const form = useForm<EditFormSchema>({
     resolver: zodResolver(editFormSchema),
     defaultValues: {
       license_plate: "",
       area_code: "",
       tier: "",
+      authorized_area: [], // เป็น empty array เสมอ
       start_time: "",
       expire_time: "",
       house_id: "",
-      authorized_area: [],
       invitation: "",
       stamper: "",
       stamped_time: "",
@@ -194,10 +199,10 @@ export function EditVehicleDialog({
       license_plate: "",
       area_code: "",
       tier: "",
+      authorized_area: [], // เป็น empty array เสมอ
       start_time: "",
       expire_time: "",
       house_id: "",
-      authorized_area: [],
       invitation: "",
       stamper: "",
       stamped_time: "",
@@ -258,13 +263,13 @@ export function EditVehicleDialog({
 
     // Map invalid values to valid ones
     const tierMappings: { [key: string]: string } = {
-      validation_required: "unknown", // แก้ไขจาก validation_required เป็น unknown
-      "": "unknown",
-      null: "unknown",
-      undefined: "unknown",
+      validation_required: "unknown visitor", // แก้ไขจาก validation_required เป็น unknown visitor
+      "": "unknown visitor",
+      null: "unknown visitor",
+      undefined: "unknown visitor",
     };
 
-    const mappedTier = tierMappings[tier] || "unknown";
+    const mappedTier = tierMappings[tier] || "unknown visitor";
     console.warn(`Invalid tier "${tier}" mapped to "${mappedTier}"`);
     return mappedTier;
   };
@@ -299,10 +304,10 @@ export function EditVehicleDialog({
           license_plate: vehicleData.license_plate || "",
           area_code: vehicleData.area_code || "",
           tier: validTier, // ใช้ valid tier
+          authorized_area: authorizedArea, // เป็น array เสมอ
           start_time: formatDateTimeForInput(vehicleData.start_time),
           expire_time: formatDateTimeForInput(vehicleData.expire_time),
           house_id: vehicleData.house_id || "",
-          authorized_area: authorizedArea,
           invitation: vehicleData.invitation || "",
           stamper: vehicleData.stamper || "",
           stamped_time: formatDateTimeForInput(vehicleData.stamped_time),
@@ -320,7 +325,6 @@ export function EditVehicleDialog({
       }
     }
   }, [vehicleData, open, form, resetAllStates, onOpenChange]);
-  
 
   // Watch for form changes
   useEffect(() => {
@@ -386,7 +390,7 @@ export function EditVehicleDialog({
     }
   };
 
-  async function onSubmit(values: z.infer<typeof editFormSchema>) {
+  async function onSubmit(values: EditFormSchema) {
     setIsLoading(true);
     try {
       console.log("Form submission values:", values);
@@ -412,13 +416,8 @@ export function EditVehicleDialog({
         area_code: values.area_code,
         tier: values.tier, // ต้องแน่ใจว่าเป็น valid tier
         issuer: vehicleData?.issuer || Pb.authStore.record?.id || "",
+        authorized_area: values.authorized_area, // เป็น array เสมอ
       };
-
-      // authorized_area - ต้องเป็น array เสมอ
-      reqData.authorized_area =
-        values.authorized_area && values.authorized_area.length > 0
-          ? values.authorized_area
-          : [];
 
       // Optional fields - ส่งเฉพาะที่มีค่า
       if (
