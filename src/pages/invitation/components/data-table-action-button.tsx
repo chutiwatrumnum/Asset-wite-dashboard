@@ -40,235 +40,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getInvitationDisplayStatus } from "@/utils/invitationUtils";
 import { EditInvitationDialog } from "./edit-invitation-dialog";
-
-// Function to generate detailed QR Code data
-const generateQRData = (invitationData: InvitationItem) => {
-  // Format dates for display
-  const formatDateTime = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleString("th-TH", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        timeZone: "Asia/Bangkok",
-      });
-    } catch {
-      return dateString;
-    }
-  };
-
-  // Get house name from expand data or fallback
-  const getHouseName = () => {
-    if (invitationData.expand?.house_id?.address) {
-      return invitationData.expand.house_id.address;
-    }
-    if (invitationData.expand?.house_id?.name) {
-      return invitationData.expand.house_id.name;
-    }
-    // Fallback for known house IDs
-    const houseMap: { [key: string]: string } = {
-      st393sf218f361f: "Office",
-      x2ya432jpgeluxl: "James home",
-      "3r0sy967yth90f6": "103/99",
-    };
-    return houseMap[invitationData.house_id] || "บ้าน";
-  };
-
-  // Get area names from expand data
-  const getAreaNames = () => {
-    if (
-      invitationData.expand?.authorized_area &&
-      invitationData.expand.authorized_area.length > 0
-    ) {
-      return invitationData.expand.authorized_area
-        .map((area: any) => area.name)
-        .join(", ");
-    }
-    return `${invitationData.authorized_area.length} พื้นที่`;
-  };
-
-  // Create comprehensive invitation data object
-  const qrData = {
-    code: invitationData.code,
-    visitor: invitationData.visitor_name,
-    house: getHouseName(),
-    areas: getAreaNames(),
-    startTime: formatDateTime(invitationData.start_time),
-    endTime: formatDateTime(invitationData.expire_time),
-    active: invitationData.active,
-    note: invitationData.note || "",
-    issuer: invitationData.expand?.issuer
-      ? `${invitationData.expand.issuer.first_name || ""} ${invitationData.expand.issuer.last_name || ""}`.trim()
-      : "ระบบ",
-  };
-
-  // Convert to JSON string for QR code
-  return JSON.stringify(qrData, null, 2);
-};
-
-// Function to generate QR Code with invitation details and download
-const generateAndDownloadQR = async (invitationData: InvitationItem) => {
-  try {
-    // Import QR code library dynamically
-    const QRCode = await import("qrcode");
-
-    // Generate comprehensive QR data
-    const qrData = generateQRData(invitationData);
-
-    console.log("QR Data:", qrData); // For debugging
-
-    // Generate QR code as data URL with higher resolution
-    const qrDataURL = await QRCode.toDataURL(qrData, {
-      width: 400,
-      margin: 3,
-      color: {
-        dark: "#000000",
-        light: "#FFFFFF",
-      },
-      errorCorrectionLevel: "M", // Medium error correction for better readability
-    });
-
-    // Create canvas to add text information below QR code
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d")!;
-
-    // Calculate required height based on area count
-    const areaCount =
-      invitationData.expand?.authorized_area?.length ||
-      invitationData.authorized_area.length;
-    const maxAreasPerLine = 2;
-    const areaLines = Math.ceil(areaCount / maxAreasPerLine);
-    const extraHeight = Math.max(0, (areaLines - 1) * 16); // Extra space for multiple area lines
-
-    // Set canvas size (QR code + text area + dynamic height)
-    canvas.width = 450;
-    canvas.height = 580 + extraHeight; // Extra space for text + dynamic area space
-
-    // Fill white background
-    ctx.fillStyle = "#FFFFFF";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Load and draw QR code
-    const img = new Image();
-    img.onload = () => {
-      // Draw QR code centered
-      const qrSize = 380;
-      const qrX = (canvas.width - qrSize) / 2;
-      ctx.drawImage(img, qrX, 10, qrSize, qrSize);
-
-      // Add text information below QR code
-      ctx.fillStyle = "#000000";
-      ctx.font = "bold 16px Arial";
-      ctx.textAlign = "center";
-
-      let currentY = qrSize + 30;
-      const lineHeight = 20;
-
-      // Add invitation details with better formatting
-      ctx.fillText(
-        `ผู้เยี่ยม: ${invitationData.visitor_name}`,
-        canvas.width / 2,
-        currentY
-      );
-      currentY += lineHeight;
-
-      // House information
-      const houseName =
-        invitationData.expand?.house_id?.address ||
-        invitationData.expand?.house_id?.name ||
-        (invitationData.house_id === "3r0sy967yth90f6" ? "103/99" : "บ้าน");
-      ctx.fillText(`บ้าน: ${houseName}`, canvas.width / 2, currentY);
-      currentY += lineHeight;
-
-      // Area information - handle multiple areas properly
-      ctx.font = "14px Arial";
-      if (
-        invitationData.expand?.authorized_area &&
-        invitationData.expand.authorized_area.length > 0
-      ) {
-        const areas = invitationData.expand.authorized_area;
-        ctx.fillText(`พื้นที่ที่อนุญาต:`, canvas.width / 2, currentY);
-        currentY += lineHeight - 2;
-
-        // Display areas in multiple lines if needed
-        for (let i = 0; i < areas.length; i += maxAreasPerLine) {
-          const areaChunk = areas.slice(i, i + maxAreasPerLine);
-          const areaText = areaChunk.map((area: any) => area.name).join(", ");
-          ctx.fillText(areaText, canvas.width / 2, currentY);
-          currentY += 16; // Smaller line height for areas
-        }
-      } else {
-        ctx.fillText(
-          `พื้นที่: ${invitationData.authorized_area.length} พื้นที่`,
-          canvas.width / 2,
-          currentY
-        );
-        currentY += lineHeight;
-      }
-
-      // Time information
-      currentY += 5; // Extra space before time
-      const startTime = new Date(invitationData.start_time).toLocaleString(
-        "th-TH",
-        {
-          timeZone: "Asia/Bangkok",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        }
-      );
-      const endTime = new Date(invitationData.expire_time).toLocaleString(
-        "th-TH",
-        {
-          timeZone: "Asia/Bangkok",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-        }
-      );
-
-      ctx.font = "13px Arial";
-      ctx.fillText(`เริ่ม: ${startTime}`, canvas.width / 2, currentY);
-      currentY += lineHeight - 2;
-      ctx.fillText(`สิ้นสุด: ${endTime}`, canvas.width / 2, currentY);
-
-      // Convert canvas to blob and download
-      canvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const link = document.createElement("a");
-          link.href = url;
-          link.download = `invitation-qr-${invitationData.visitor_name}-${new Date().toISOString().split("T")[0]}.png`;
-
-          // Trigger download
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
-
-          // Clean up
-          URL.revokeObjectURL(url);
-
-          toast.success("ดาวน์โหลด QR Code สำเร็จ", {
-            description: `QR Code พร้อมข้อมูลสำหรับ ${invitationData.visitor_name} ถูกดาวน์โหลดแล้ว`,
-          });
-        }
-      }, "image/png");
-    };
-
-    img.src = qrDataURL;
-  } catch (error) {
-    console.error("Error generating QR code:", error);
-    toast.error("เกิดข้อผิดพลาดในการสร้าง QR Code", {
-      description: "กรุณาลองใหม่อีกครั้ง",
-    });
-  }
-};
+import {
+  generateAndDownloadQRCode,
+  hasValidQRCode,
+} from "@/components/ui/qr-code-generator";
 
 function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const { mutateAsync: deleteInvitation } = useDeleteInvitationMutation();
@@ -298,18 +73,11 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const invitationData = info.row.original as InvitationItem;
   const status = getInvitationDisplayStatus(invitationData);
 
-  // แก้ไข handleViewClick เป็น handleDownloadQR
+  // Handle QR Code download using the new component
   const handleDownloadQR = async () => {
     try {
       setDropdownOpen(false);
-
-      // Check if required data exists
-      if (!invitationData.code) {
-        toast.warning("ไม่พบรหัส QR Code สำหรับบัตรเชิญนี้");
-        return;
-      }
-
-      await generateAndDownloadQR(invitationData);
+      await generateAndDownloadQRCode(invitationData);
     } catch (error) {
       console.error("Error downloading QR code:", error);
       toast.error("เกิดข้อผิดพลาดในการดาวน์โหลด QR Code");
@@ -456,7 +224,7 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const canDelete = true;
   const canActivate = !invitationData.active;
   const canDeactivate = invitationData.active;
-  const hasQRCode = !!invitationData.code; // Check if QR code exists
+  const hasQRCode = hasValidQRCode(invitationData);
 
   return (
     <>
@@ -471,7 +239,7 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
         </DropdownMenuTrigger>
 
         <DropdownMenuContent align="end" className="w-[200px]">
-          {/* แทนที่ "ดูรายละเอียด" ด้วย "Download QR Code" */}
+          {/* Download QR Code - now using the new component */}
           {hasQRCode && (
             <DropdownMenuItem
               className="w-[190px] font-anuphan cursor-pointer"
