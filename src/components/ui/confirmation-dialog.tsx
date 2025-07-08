@@ -1,4 +1,5 @@
-// src/components/ui/confirmation-dialog.tsx
+// src/components/ui/confirmation-dialog.tsx - แก้ไข import
+import { useState } from "react"; // เพิ่มบรรทัดนี้
 import {
   AlertDialog,
   AlertDialogAction,
@@ -14,7 +15,6 @@ import {
   AlertTriangle,
   Trash2,
   CheckCircle,
-  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 

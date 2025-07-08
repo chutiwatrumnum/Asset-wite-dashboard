@@ -1,7 +1,7 @@
-// src/pages/invitation/index.tsx - ตัวอย่างการใช้งาน components ใหม่
+// src/pages/invitation/index.tsx - แก้ไขส่วนปุ่มสร้างบัตรเชิญ
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react"; // เพิ่ม useRef
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -14,7 +14,7 @@ import {
   Search,
 } from "lucide-react";
 
-// Import new reusable components
+// Import new reusable components - ใช้แทนการเขียน inline
 import { PageHeader } from "@/components/ui/page-header";
 import {
   StatisticsCards,
@@ -87,6 +87,9 @@ export default function Invitations() {
     {}
   );
   const [searchTerm, setSearchTerm] = useState("");
+
+  // เพิ่ม ref สำหรับเรียก CreateInvitationDrawer
+  const createInvitationRef = useRef<{ openDialog: () => void }>(null);
 
   // React Query hooks
   const {
@@ -305,6 +308,11 @@ export default function Invitations() {
     }
   };
 
+  // เพิ่มฟังก์ชันสำหรับเปิด CreateInvitationDrawer
+  const handleCreateInvitation = () => {
+    createInvitationRef.current?.openDialog();
+  };
+
   const handleBulkDelete = async () => {
     try {
       const selectedIds = Object.keys(rowSelection);
@@ -485,7 +493,7 @@ export default function Invitations() {
     state: { pagination, sorting, rowSelection },
   });
 
-  // Show error state
+  // Show error state - ใช้ ErrorState component
   if (isError || error) {
     return (
       <div className="w-full pl-10 pr-10">
@@ -503,7 +511,7 @@ export default function Invitations() {
 
   return (
     <div className="w-full pl-10 pr-10">
-      {/* Page Header with Statistics */}
+      {/* Page Header with Statistics - ใช้ PageHeader และ StatisticsCards component */}
       <PageHeader
         title="จัดการบัตรเชิญ (E-invitation)"
         description="จัดการบัตรเชิญสำหรับผู้เยี่ยมทั้งหมดในระบบ สร้าง แก้ไข หรือลบบัตรเชิญ"
@@ -520,7 +528,7 @@ export default function Invitations() {
             key: "create",
             label: "สร้างบัตรเชิญ",
             icon: UserPlus,
-            onClick: () => {}, // Will be handled by CreateInvitationDrawer
+            onClick: handleCreateInvitation, // แก้ไขให้เรียกฟังก์ชันที่ถูกต้อง
             variant: "default",
           },
         ]}
@@ -547,7 +555,7 @@ export default function Invitations() {
       {/* Search Component */}
       <InvitationSearch onSearch={setSearchFilters} />
 
-      {/* Search Results Summary */}
+      {/* Search Results Summary - ใช้ SearchResultsSummary component */}
       <SearchResultsSummary
         isVisible={hasActiveFilters}
         resultCount={processedData.length}
@@ -560,7 +568,7 @@ export default function Invitations() {
       />
 
       <div className="rounded-md border">
-        {/* Data Table Toolbar */}
+        {/* Data Table Toolbar - ใช้ DataTableToolbar component */}
         <DataTableToolbar
           table={table}
           totalRows={processedData.length}
@@ -569,11 +577,11 @@ export default function Invitations() {
           onRefresh={handleRefresh}
           onExportAll={handleExportCSV}
           onExportSelected={handleExportSelected}
-          onCreate={() => {}} // Handle by CreateInvitationDrawer
+          onCreate={handleCreateInvitation} // แก้ไขให้เรียกฟังก์ชันที่ถูกต้อง
           showCreate={false} // Already in header
         />
 
-        {/* Data Table Body or Empty States */}
+        {/* Data Table Body or Empty States - ใช้ EmptyState component */}
         {isLoading ? (
           <div className="p-4 space-y-4">
             {Array.from({ length: 5 }).map((_, index) => (
@@ -592,7 +600,7 @@ export default function Invitations() {
               {
                 key: "create",
                 label: "สร้างบัตรเชิญ",
-                onClick: () => {}, // Handle by CreateInvitationDrawer
+                onClick: handleCreateInvitation, // แก้ไขให้เรียกฟังก์ชันที่ถูกต้อง
                 icon: UserPlus,
               },
             ]}
@@ -625,7 +633,7 @@ export default function Invitations() {
         />
       </div>
 
-      {/* Bulk Action Bar */}
+      {/* Bulk Action Bar - ใช้ BulkActionBar component */}
       <BulkActionBar
         selectedCount={Object.keys(rowSelection).length}
         isVisible={Object.keys(rowSelection).length > 0}
@@ -635,10 +643,11 @@ export default function Invitations() {
         onDelete={handleBulkDelete}
       />
 
-      {/* Hidden CreateInvitationDrawer - will show when needed */}
-      <div className="hidden">
-        <CreateInvitationDrawer onInvitationCreated={refetch} />
-      </div>
+      {/* CreateInvitationDrawer - แก้ไขให้ใช้ ref */}
+      <CreateInvitationDrawer
+        ref={createInvitationRef}
+        onInvitationCreated={refetch}
+      />
 
       <Toaster />
     </div>

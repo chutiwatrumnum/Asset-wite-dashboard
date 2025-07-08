@@ -1,4 +1,4 @@
-// src/pages/invitation/components/data-table-action-button.tsx
+// src/pages/invitation/components/data-table-action-button.tsx - ใช้ ConfirmationDialog component
 "use client";
 
 import { Button } from "@/components/ui/button";
@@ -26,16 +26,6 @@ import {
 } from "@/react-query/manage/invitation";
 import { MessageDialog } from "@/components/modal";
 import { useState } from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getInvitationDisplayStatus } from "@/utils/invitationUtils";
@@ -44,6 +34,9 @@ import {
   generateAndDownloadQRCode,
   hasValidQRCode,
 } from "@/components/ui/qr-code-generator";
+
+// ใช้ ConfirmationDialog component แทน AlertDialog
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 
 function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const { mutateAsync: deleteInvitation } = useDeleteInvitationMutation();
@@ -178,8 +171,10 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
       await activateInvitation(rowId as string);
 
       queryClient.invalidateQueries({ queryKey: ["invitationList"] });
+      toast.success("เปิดใช้งานบัตรเชิญสำเร็จ");
     } catch (error) {
       console.error("Error activating invitation:", error);
+      toast.error("เกิดข้อผิดพลาดในการเปิดใช้งาน");
     } finally {
       setIsLoading(false);
       setShowActivateDialog(false);
@@ -198,8 +193,10 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
       await deactivateInvitation(rowId as string);
 
       queryClient.invalidateQueries({ queryKey: ["invitationList"] });
+      toast.success("ปิดใช้งานบัตรเชิญสำเร็จ");
     } catch (error) {
       console.error("Error deactivating invitation:", error);
+      toast.error("เกิดข้อผิดพลาดในการปิดใช้งาน");
     } finally {
       setIsLoading(false);
       setShowDeactivateDialog(false);
@@ -323,78 +320,53 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
         onInvitationUpdated={handleEditDialogUpdate}
       />
 
-      {/* Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบ</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ที่จะลบบัตรเชิญของ "{invitationData.visitor_name}"?
-              การดำเนินการนี้ไม่สามารถยกเลิกได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => setShowDeleteDialog(false)}
-              disabled={isLoading}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={isLoading}>
-              {isLoading ? "กำลังลบ..." : "ลบ"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Delete Confirmation Dialog - ใช้ ConfirmationDialog component */}
+      <ConfirmationDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        title="ยืนยันการลบ"
+        description={`คุณแน่ใจหรือไม่ที่จะลบบัตรเชิญของ "${invitationData.visitor_name}"? การดำเนินการนี้ไม่สามารถยกเลิกได้`}
+        confirmLabel={isLoading ? "กำลังลบ..." : "ลบ"}
+        cancelLabel="ยกเลิก"
+        onConfirm={handleDelete}
+        onCancel={() => setShowDeleteDialog(false)}
+        isLoading={isLoading}
+        variant="destructive"
+        showIcon={true}
+        disabled={isLoading}
+      />
 
-      {/* Activate Confirmation Dialog */}
-      <AlertDialog
+      {/* Activate Confirmation Dialog - ใช้ ConfirmationDialog component */}
+      <ConfirmationDialog
         open={showActivateDialog}
-        onOpenChange={setShowActivateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการเปิดใช้งาน</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณต้องการเปิดใช้งานบัตรเชิญของ "{invitationData.visitor_name}"
-              หรือไม่?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => setShowActivateDialog(false)}
-              disabled={isLoading}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleActivate} disabled={isLoading}>
-              {isLoading ? "กำลังเปิดใช้งาน..." : "เปิดใช้งาน"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setShowActivateDialog}
+        title="ยืนยันการเปิดใช้งาน"
+        description={`คุณต้องการเปิดใช้งานบัตรเชิญของ "${invitationData.visitor_name}" หรือไม่?`}
+        confirmLabel={isLoading ? "กำลังเปิดใช้งาน..." : "เปิดใช้งาน"}
+        cancelLabel="ยกเลิก"
+        onConfirm={handleActivate}
+        onCancel={() => setShowActivateDialog(false)}
+        isLoading={isLoading}
+        variant="success"
+        showIcon={true}
+        disabled={isLoading}
+      />
 
-      {/* Deactivate Confirmation Dialog */}
-      <AlertDialog
+      {/* Deactivate Confirmation Dialog - ใช้ ConfirmationDialog component */}
+      <ConfirmationDialog
         open={showDeactivateDialog}
-        onOpenChange={setShowDeactivateDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการปิดใช้งาน</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณต้องการปิดใช้งานบัตรเชิญของ "{invitationData.visitor_name}"
-              หรือไม่?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => setShowDeactivateDialog(false)}
-              disabled={isLoading}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeactivate} disabled={isLoading}>
-              {isLoading ? "กำลังปิดใช้งาน..." : "ปิดใช้งาน"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+        onOpenChange={setShowDeactivateDialog}
+        title="ยืนยันการปิดใช้งาน"
+        description={`คุณต้องการปิดใช้งานบัตรเชิญของ "${invitationData.visitor_name}" หรือไม่?`}
+        confirmLabel={isLoading ? "กำลังปิดใช้งาน..." : "ปิดใช้งาน"}
+        cancelLabel="ยกเลิก"
+        onConfirm={handleDeactivate}
+        onCancel={() => setShowDeactivateDialog(false)}
+        isLoading={isLoading}
+        variant="warning"
+        showIcon={true}
+        disabled={isLoading}
+      />
     </>
   );
 }
