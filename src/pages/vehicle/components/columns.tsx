@@ -67,7 +67,7 @@ export const columns = [
     },
   }),
 
-  // บ้าน - แสดงชื่อแทนรหัส
+  // บ้าน - แสดงเฉพาะชื่อบ้าน ไม่แสดง ID
   columnHelper.accessor("house_id", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -94,16 +94,13 @@ export const columns = [
           {houseData ? (
             <div className="text-center">
               <div className="text-sm font-medium">
-                {houseData.address || houseData.house_number || "บ้านไม่ระบุ"}
+                {houseData.address || houseData.house_number || "บ้าน"}
               </div>
-              {houseData.area && (
-                <div className="text-xs text-gray-500">{houseData.area}</div>
-              )}
+              {/* ลบการแสดง area และ ID ออก */}
             </div>
           ) : (
-            <span className="text-xs text-gray-500">
-              รหัส: {houseId.substring(0, 8)}...
-            </span>
+            /* แสดงเฉพาะคำว่า "บ้าน" ไม่แสดง ID */
+            <span className="text-sm text-gray-500">บ้าน</span>
           )}
         </div>
       );
@@ -111,7 +108,7 @@ export const columns = [
     enableSorting: true,
   }),
 
-  // พื้นที่ที่ได้รับอนุญาต - เพิ่มใหม่
+  // พื้นที่ที่ได้รับอนุญาต
   columnHelper.accessor("authorized_area", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -195,7 +192,7 @@ export const columns = [
     },
   }),
 
-  // การอนุมัติ - เพิ่มใหม่
+  // การอนุมัติ
   columnHelper.accessor("stamper", {
     header: () => (
       <div className="flex justify-center items-center">

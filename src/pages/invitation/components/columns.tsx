@@ -9,7 +9,7 @@ import {
   getInvitationDuration,
   isInvitationActive,
 } from "@/utils/invitationUtils";
-import { CheckCircle, XCircle, Clock, MapPin, User, Home } from "lucide-react";
+import { CheckCircle, XCircle, MapPin, User, Home } from "lucide-react";
 
 const TimeZone = "Asia/Bangkok";
 const columnHelper = createColumnHelper<InvitationItem>();
@@ -20,7 +20,7 @@ export const columns = [
     enableHiding: false,
   }),
 
-  // 1. ปรับปรุงคอลัมน์ชื่อผู้เยี่ยม - ย้ายสถานะมารวมกับสถานะการใช้งาน
+  // 1. ชื่อผู้เยี่ยม
   columnHelper.accessor("visitor_name", {
     header: () => <DataTableColumnHeader title="ชื่อผู้เยี่ยม" />,
     cell: (info) => {
@@ -71,7 +71,6 @@ export const columns = [
                   "บ้าน"}
               </span>
             </div>
-            {/* ลบส่วนแสดง area และ ID ออกทั้งหมด */}
           </div>
         </div>
       );
@@ -79,6 +78,7 @@ export const columns = [
     enableSorting: true,
   }),
 
+  // 3. พื้นที่อนุญาต
   columnHelper.accessor("authorized_area", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -121,6 +121,7 @@ export const columns = [
     enableSorting: true,
   }),
 
+  // 4. เวลาเริ่มต้น
   columnHelper.accessor("start_time", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -149,6 +150,7 @@ export const columns = [
     },
   }),
 
+  // 5. เวลาสิ้นสุด
   columnHelper.accessor("expire_time", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -182,6 +184,7 @@ export const columns = [
     },
   }),
 
+  // 6. ระยะเวลา
   columnHelper.display({
     id: "duration",
     header: () => (
@@ -206,7 +209,7 @@ export const columns = [
     },
   }),
 
-  // 1. รวมสถานะทั้งหมดไว้ในคอลัมน์เดียว
+  // 7. สถานะการใช้งาน (รวมสถานะทั้งหมด)
   columnHelper.display({
     id: "combined_status",
     header: () => (
@@ -252,73 +255,7 @@ export const columns = [
     enableSorting: true,
   }),
 
-  // 3. ปรับปรุงคอลัมน์ผู้สร้าง - ซ่อน ID ชั่วคราว
-  columnHelper.accessor("issuer", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="ผู้สร้าง" />
-      </div>
-    ),
-    cell: (info) => {
-      const issuerId = info.getValue();
-      const issuerData = info.row.original.expand?.issuer;
-
-      return (
-        <div className="flex justify-center items-center min-w-[100px]">
-          <div className="text-center">
-            {issuerData ? (
-              <div>
-                {/* แสดงชื่อเต็มหรือ email */}
-                <div className="text-sm font-medium">
-                  {issuerData.first_name || issuerData.last_name
-                    ? `${issuerData.first_name || ""} ${issuerData.last_name || ""}`.trim()
-                    : issuerData.email || "ผู้ใช้"}
-                </div>
-                {issuerData.role && (
-                  <div className="text-xs text-gray-500 capitalize">
-                    {issuerData.role}
-                  </div>
-                )}
-              </div>
-            ) : (
-              /* ถ้าไม่มี expand data ให้แสดงแค่ "ผู้ใช้" ไม่แสดง ID */
-              <span className="text-sm font-medium">ผู้ใช้</span>
-            )}
-          </div>
-        </div>
-      );
-    },
-    enableSorting: true,
-  }),
-
-  columnHelper.accessor("note", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="หมายเหตุ" />
-      </div>
-    ),
-    cell: (info) => {
-      const note = info.getValue();
-
-      if (!note || note.trim() === "") {
-        return (
-          <div className="flex justify-center items-center">
-            <span className="text-xs text-gray-400">-</span>
-          </div>
-        );
-      }
-
-      return (
-        <div className="flex justify-center items-center max-w-[120px]">
-          <div className="text-xs text-gray-600 truncate" title={note}>
-            {note}
-          </div>
-        </div>
-      );
-    },
-    enableSorting: false,
-  }),
-
+  // 8. วันที่สร้าง
   columnHelper.accessor("created", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -341,4 +278,6 @@ export const columns = [
       );
     },
   }),
+
+  // ลบคอลัมน์ "ผู้สร้าง" และ "หมายเหตุ" ออก
 ];

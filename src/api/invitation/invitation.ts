@@ -3,7 +3,6 @@ import Pb from "../pocketbase";
 
 const collectionName = "invitation";
 
-// Types
 export interface InvitationItem {
     collectionId: string;
     collectionName: string;
@@ -16,6 +15,7 @@ export interface InvitationItem {
     note?: string;
     active: boolean;
     issuer: string; // ID of who created this record
+    code: string; // เพิ่มฟิลด์ code สำหรับ QR Code
     created: string;
     updated: string;
     // Expanded relation fields
