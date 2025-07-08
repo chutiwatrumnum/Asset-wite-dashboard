@@ -20,22 +20,15 @@ export const columns = [
     enableHiding: false,
   }),
 
+  // 1. ปรับปรุงคอลัมน์ชื่อผู้เยี่ยม - ย้ายสถานะมารวมกับสถานะการใช้งาน
   columnHelper.accessor("visitor_name", {
     header: () => <DataTableColumnHeader title="ชื่อผู้เยี่ยม" />,
     cell: (info) => {
-      const rowData = info.row.original;
-      const status = getInvitationDisplayStatus(rowData);
-
       return (
         <div className="min-w-[150px]">
           <div className="flex items-center gap-2">
             <User className="h-4 w-4 text-gray-500" />
             <span className="font-semibold">{info.getValue()}</span>
-          </div>
-          <div className="text-xs text-gray-500 mt-1">
-            <Badge variant="outline" className={`text-xs ${status.color}`}>
-              {status.label}
-            </Badge>
           </div>
         </div>
       );
@@ -43,6 +36,7 @@ export const columns = [
     enableHiding: true,
   }),
 
+  // 2. คอลัมน์บ้าน - แสดงแค่ชื่อ ไม่แสดง ID
   columnHelper.accessor("house_id", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -64,23 +58,21 @@ export const columns = [
 
       return (
         <div className="flex justify-center items-center min-w-[120px]">
-          {houseData ? (
-            <div className="text-center">
-              <div className="flex items-center gap-1 justify-center">
-                <Home className="h-3 w-3 text-gray-500" />
-                <span className="text-sm font-medium">
-                  {houseData.address || "บ้านไม่ระบุ"}
-                </span>
-              </div>
-              {houseData.area && (
-                <div className="text-xs text-gray-500">{houseData.area}</div>
-              )}
+          <div className="text-center">
+            <div className="flex items-center gap-1 justify-center">
+              <Home className="h-3 w-3 text-gray-500" />
+              <span className="text-sm font-medium">
+                {/* แสดงแค่ชื่อบ้าน ไม่แสดง ID */}
+                {houseData?.address ||
+                  houseData?.name ||
+                  (houseId === "st393sf218f361f" && "Office") ||
+                  (houseId === "x2ya432jpgeluxl" && "James home") ||
+                  (houseId === "3r0sy967yth90f6" && "103/99") ||
+                  "บ้าน"}
+              </span>
             </div>
-          ) : (
-            <span className="text-xs text-gray-500">
-              รหัส: {houseId.substring(0, 8)}...
-            </span>
-          )}
+            {/* ลบส่วนแสดง area และ ID ออกทั้งหมด */}
+          </div>
         </div>
       );
     },
@@ -214,34 +206,45 @@ export const columns = [
     },
   }),
 
-  columnHelper.accessor("active", {
+  // 1. รวมสถานะทั้งหมดไว้ในคอลัมน์เดียว
+  columnHelper.display({
+    id: "combined_status",
     header: () => (
       <div className="flex justify-center items-center">
         <DataTableColumnHeader title="สถานะการใช้งาน" />
       </div>
     ),
     cell: (info) => {
-      const isActive = info.getValue();
       const rowData = info.row.original;
+      const status = getInvitationDisplayStatus(rowData);
       const canUse = isInvitationActive(rowData);
+      const isActive = rowData.active;
 
       return (
         <div className="flex justify-center items-center">
-          <div className="text-center">
-            <Badge
-              variant="outline"
-              className={`gap-1 ${
-                isActive && canUse
-                  ? "bg-green-50 text-green-700 border-green-200"
-                  : "bg-gray-50 text-gray-700 border-gray-200"
-              }`}>
-              {isActive && canUse ? (
-                <CheckCircle className="h-3 w-3" />
-              ) : (
-                <XCircle className="h-3 w-3" />
-              )}
-              {isActive && canUse ? "ใช้งานได้" : "ไม่สามารถใช้"}
+          <div className="text-center space-y-1">
+            {/* สถานะหลัก */}
+            <Badge variant="outline" className={`text-xs ${status.color}`}>
+              {status.label}
             </Badge>
+
+            {/* สถานะการใช้งาน */}
+            <div>
+              <Badge
+                variant="outline"
+                className={`gap-1 text-xs ${
+                  isActive && canUse
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : "bg-gray-50 text-gray-700 border-gray-200"
+                }`}>
+                {isActive && canUse ? (
+                  <CheckCircle className="h-3 w-3" />
+                ) : (
+                  <XCircle className="h-3 w-3" />
+                )}
+                {isActive && canUse ? "ใช้งานได้" : "ไม่สามารถใช้"}
+              </Badge>
+            </div>
           </div>
         </div>
       );
@@ -249,6 +252,7 @@ export const columns = [
     enableSorting: true,
   }),
 
+  // 3. ปรับปรุงคอลัมน์ผู้สร้าง - ซ่อน ID ชั่วคราว
   columnHelper.accessor("issuer", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -264,15 +268,21 @@ export const columns = [
           <div className="text-center">
             {issuerData ? (
               <div>
+                {/* แสดงชื่อเต็มหรือ email */}
                 <div className="text-sm font-medium">
-                  {issuerData.first_name} {issuerData.last_name}
+                  {issuerData.first_name || issuerData.last_name
+                    ? `${issuerData.first_name || ""} ${issuerData.last_name || ""}`.trim()
+                    : issuerData.email || "ผู้ใช้"}
                 </div>
-                <div className="text-xs text-gray-500">{issuerData.role}</div>
+                {issuerData.role && (
+                  <div className="text-xs text-gray-500 capitalize">
+                    {issuerData.role}
+                  </div>
+                )}
               </div>
             ) : (
-              <span className="text-xs text-gray-500">
-                รหัส: {issuerId?.substring(0, 8)}...
-              </span>
+              /* ถ้าไม่มี expand data ให้แสดงแค่ "ผู้ใช้" ไม่แสดง ID */
+              <span className="text-sm font-medium">ผู้ใช้</span>
             )}
           </div>
         </div>

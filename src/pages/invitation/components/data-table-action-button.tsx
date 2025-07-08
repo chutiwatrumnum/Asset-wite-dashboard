@@ -38,6 +38,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getInvitationDisplayStatus } from "@/utils/invitationUtils";
+import { EditInvitationDialog } from "./edit-invitation-dialog"; // เพิ่ม import
 
 function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const { mutateAsync: deleteInvitation } = useDeleteInvitationMutation();
@@ -58,6 +59,10 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  // เพิ่ม state สำหรับ edit dialog
+  const [showEditDialog, setShowEditDialog] = useState(false);
+
   const queryClient = useQueryClient();
 
   const invitationData = info.row.original as InvitationItem;
@@ -66,7 +71,6 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   const handleViewClick = () => {
     try {
       setDropdownOpen(false);
-      // TODO: Implement view invitation detail
       toast.info("ฟีเจอร์ดูรายละเอียดจะพัฒนาต่อไป");
     } catch (error) {
       console.error("Error opening view:", error);
@@ -74,15 +78,26 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
     }
   };
 
+  // แก้ไข handleEditClick ให้เปิด dialog จริงๆ
   const handleEditClick = () => {
     try {
       setDropdownOpen(false);
-      // TODO: Implement edit invitation
-      toast.info("ฟีเจอร์แก้ไขจะพัฒนาต่อไป");
+      setShowEditDialog(true); // เปิด edit dialog
     } catch (error) {
       console.error("Error opening edit:", error);
       toast.error("เกิดข้อผิดพลาดในการเปิดหน้าแก้ไข");
     }
+  };
+
+  const handleEditDialogClose = () => {
+    setShowEditDialog(false);
+  };
+
+  const handleEditDialogUpdate = () => {
+    setShowEditDialog(false);
+    // Refresh data
+    queryClient.invalidateQueries({ queryKey: ["invitationList"] });
+    toast.success("อัปเดตบัตรเชิญสำเร็จ");
   };
 
   const handleDeleteClick = () => {
@@ -189,15 +204,20 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
   };
 
   const handleDropdownOpenChange = (open: boolean) => {
-    if (!showDeleteDialog && !showActivateDialog && !showDeactivateDialog) {
+    if (
+      !showDeleteDialog &&
+      !showActivateDialog &&
+      !showDeactivateDialog &&
+      !showEditDialog
+    ) {
       setDropdownOpen(open);
     } else if (!open) {
       setDropdownOpen(false);
     }
   };
 
-  const canEdit = true; // TODO: Implement permission check
-  const canDelete = true; // TODO: Implement permission check
+  const canEdit = true;
+  const canDelete = true;
   const canActivate = !invitationData.active;
   const canDeactivate = invitationData.active;
 
@@ -286,6 +306,14 @@ function InvitationActionButton({ info }: { info: Cell<InvitationItem, any> }) {
       </DropdownMenu>
 
       <MessageDialog Message={MessageDialogState} />
+
+      {/* Edit Dialog */}
+      <EditInvitationDialog
+        invitationData={invitationData}
+        open={showEditDialog}
+        onOpenChange={setShowEditDialog}
+        onInvitationUpdated={handleEditDialogUpdate}
+      />
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
