@@ -1,3 +1,4 @@
+// src/react-query/manage/vehicle/index.ts
 import {
     useVehicleListQuery,
     useCreateVehicleMutation,
@@ -7,8 +8,14 @@ import {
     useVehicleByIdQuery,
     useVehicleByLicensePlateQuery,
     useVehiclesByTierQuery,
+    useVehiclesByTiersQuery,
     useVehiclesByHouseQuery,
+    useVehiclesByAreaQuery,
     useActiveVehiclesQuery,
+    useExpiringVehiclesQuery,
+    useSearchVehiclesQuery,
+    usePatchVehicleMutation,
+    useStampVehicleMutation,
     useBulkDeleteVehicleMutation
 } from './vehicle'
 
@@ -21,7 +28,13 @@ export {
     useVehicleByIdQuery,
     useVehicleByLicensePlateQuery,
     useVehiclesByTierQuery,
+    useVehiclesByTiersQuery,
     useVehiclesByHouseQuery,
+    useVehiclesByAreaQuery,
     useActiveVehiclesQuery,
+    useExpiringVehiclesQuery,
+    useSearchVehiclesQuery,
+    usePatchVehicleMutation,
+    useStampVehicleMutation,
     useBulkDeleteVehicleMutation
 }
