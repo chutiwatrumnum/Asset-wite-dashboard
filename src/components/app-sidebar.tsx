@@ -57,6 +57,25 @@ const data = {
       icon: LucideUserRound,
     },
     {
+      title: "บัตรเชิญ (E-invitation)",
+      url: "/invitations",
+      icon: LucideCalendar,
+      items: [
+        {
+          title: "บัตรเชิญทั้งหมด",
+          url: "/invitations",
+        },
+        {
+          title: "บัตรเชิญที่ใช้งานได้",
+          url: "/invitations?status=active",
+        },
+        {
+          title: "บัตรเชิญที่หมดอายุ",
+          url: "/invitations?status=expired",
+        },
+      ],
+    },
+    {
       title: "นัดหมาย",
       url: "/appointments",
       icon: LucideCalendar,
@@ -92,6 +111,10 @@ const data = {
         {
           title: "ยานพาหนะ",
           url: "/vehicle-history",
+        },
+        {
+          title: "บัตรเชิญ",
+          url: "/invitation-history",
         },
       ],
     },
