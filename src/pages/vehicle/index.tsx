@@ -1,4 +1,4 @@
-// src/pages/vehicle/index.tsx - ปรับปรุงให้ใช้ UI components แทนการเขียนซ้ำ
+// src/pages/vehicle/index.tsx - ปรับปรุงให้ใช้ shared UI components
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -13,18 +13,8 @@ import {
   Car,
   Search,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import { LucideSettings2 } from "lucide-react";
 
-// ใช้ UI components แทนการเขียนซ้ำ
+// ใช้ Shared UI Components แทน
 import { PageHeader } from "@/components/ui/page-header";
 import {
   StatisticsCards,
@@ -37,13 +27,17 @@ import {
 } from "@/components/ui/search-results-summary";
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
-
-// Vehicle specific components ที่ยังคงใช้
-import DataTableBody from "./components/data-table-body";
-import DataTablePagination from "./components/data-table-pagination";
+import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { VehicleSearch } from "@/components/ui/vehicle-search";
 
-// React Table and other imports
+// เฉพาะ Vehicle components ที่จำเป็น
+import DataTableBody from "./components/data-table-body";
+import DataTablePagination from "./components/data-table-pagination";
+import VehicleActionButton from "./components/data-table-action-button";
+import DataTableColumnHeader from "./components/data-table-column-header";
+import { CreateVehicleDrawer } from "./components/create-vehicle-dialog";
+
+// React Table และอื่นๆ
 import {
   getCoreRowModel,
   getFilteredRowModel,
@@ -61,85 +55,14 @@ import {
   useExpiringVehiclesQuery,
 } from "@/react-query/manage/vehicle";
 import { Checkbox } from "@/components/ui/checkbox";
-import DataTableColumnHeader from "./components/data-table-column-header";
-import VehicleActionButton from "./components/data-table-action-button";
 
-// Vehicle utilities - เพิ่ม fallback functions หากไม่มี utils
-const searchVehicleData = (vehicles: any[], filters: any) => {
-  // ถ้าไม่มี vehicleUtils ให้ใช้ function นี้แทน
-  if (!vehicles || !Array.isArray(vehicles)) return [];
-
-  return vehicles.filter((vehicle) => {
-    if (filters.licensePlate) {
-      return vehicle.license_plate
-        ?.toLowerCase()
-        .includes(filters.licensePlate.toLowerCase());
-    }
-    return true;
-  });
-};
-
-const getVehicleStatistics = (vehicles: any[]) => {
-  if (!vehicles || !Array.isArray(vehicles)) {
-    return {
-      total: 0,
-      resident: 0,
-      staff: 0,
-      guest: 0,
-      expiring: 0,
-      expired: 0,
-    };
-  }
-
-  return {
-    total: vehicles.length,
-    resident: vehicles.filter((v) => v.tier === "resident").length,
-    staff: vehicles.filter((v) => v.tier === "staff").length,
-    guest: vehicles.filter((v) => v.tier === "guest").length,
-    expiring: 0, // TODO: implement logic
-    expired: 0, // TODO: implement logic
-  };
-};
-
-const prepareVehicleDataForExport = (vehicles: any[]) => {
-  if (!vehicles || !Array.isArray(vehicles)) return [];
-
-  return vehicles.map((vehicle) => ({
-    ป้ายทะเบียน: vehicle.license_plate || "",
-    ระดับ: vehicle.tier || "",
-    จังหวัด: vehicle.area_code || "",
-    สถานะ: vehicle.status || "",
-    วันที่สร้าง: vehicle.created
-      ? new Date(vehicle.created).toLocaleDateString("th-TH")
-      : "",
-  }));
-};
-
-const sortVehicles = (
-  vehicles: any[],
-  sortBy: string,
-  order: "asc" | "desc"
-) => {
-  if (!vehicles || !Array.isArray(vehicles)) return [];
-
-  return [...vehicles].sort((a, b) => {
-    const aVal = a[sortBy];
-    const bVal = b[sortBy];
-
-    if (order === "desc") {
-      return aVal > bVal ? -1 : 1;
-    }
-    return aVal > bVal ? 1 : -1;
-  });
-};
-
-// แทนที่ import จาก utils
-// import {
-//   searchVehicles as searchVehicleData,
-//   getVehicleStatistics,
-//   prepareVehicleDataForExport,
-//   sortVehicles,
-// } from "@/utils/vehicleUtils";
+// Vehicle utilities
+import {
+  searchVehicles as searchVehicleData,
+  getVehicleStatistics,
+  prepareVehicleDataForExport,
+  sortVehicles,
+} from "@/utils/vehicleUtils";
 
 interface VehicleSearchFilters {
   licensePlate?: string;
@@ -178,7 +101,7 @@ export default function Vehicles() {
     data: expiringVehicles,
     isLoading: isLoadingExpiring,
     error: expiringError,
-  } = useExpiringVehiclesQuery(7); // 7 days
+  } = useExpiringVehiclesQuery(7);
 
   const { mutateAsync: bulkDeleteVehicle, isPending: isDeleting } =
     useBulkDeleteVehicleMutation();
@@ -195,7 +118,6 @@ export default function Vehicles() {
 
   // Memoized filtered and sorted data
   const processedData = useMemo(() => {
-    // เพิ่มการตรวจสอบที่เข้มงวดขึ้น
     if (
       !allVehicles ||
       !Array.isArray(allVehicles) ||
@@ -231,7 +153,6 @@ export default function Vehicles() {
 
   // Calculate statistics for StatisticsCards
   const statisticsCards: StatisticCard[] = useMemo(() => {
-    // สร้าง default stats ก่อน
     const defaultStats = [
       {
         key: "total",
@@ -298,21 +219,21 @@ export default function Vehicles() {
         {
           key: "resident",
           label: "ลูกบ้าน",
-          value: stats.resident || 0,
+          value: stats.byTier["ลูกบ้าน"] || 0,
           icon: Car,
           color: "green" as const,
         },
         {
           key: "staff",
           label: "เจ้าหน้าที่",
-          value: stats.staff || 0,
+          value: stats.byTier["เจ้าหน้าที่"] || 0,
           icon: Car,
           color: "blue" as const,
         },
         {
           key: "guest",
           label: "แขก",
-          value: stats.guest || 0,
+          value: stats.byTier["แขก"] || 0,
           icon: Car,
           color: "yellow" as const,
         },
@@ -351,22 +272,13 @@ export default function Vehicles() {
   };
 
   const handleCreateVehicle = () => {
-    console.log("handleCreateVehicle called"); // debug log
-    console.log("Current createDialogOpen:", createDialogOpen); // debug log
-    // setCreateDialogOpen(true); // ปิดชั่วคราว
-    toast.info("ฟีเจอร์เพิ่มยานพาหนะจะเปิดใช้งานเร็วๆ นี้"); // แสดง message แทน
-    console.log("setCreateDialogOpen(true) called"); // debug log
+    setCreateDialogOpen(true);
   };
 
   const handleVehicleCreated = () => {
     refetch();
     setCreateDialogOpen(false);
   };
-
-  // Debug log for createDialogOpen state
-  useEffect(() => {
-    console.log("createDialogOpen changed to:", createDialogOpen);
-  }, [createDialogOpen]);
 
   const handleBulkDelete = async () => {
     try {
@@ -503,7 +415,7 @@ export default function Vehicles() {
   // Table configuration
   const table = useReactTable({
     initialState: { columnVisibility: { id: false } },
-    data: processedData || [], // เพิ่ม fallback เป็น empty array
+    data: processedData || [],
     columns: [
       {
         id: "select",
@@ -638,50 +550,23 @@ export default function Vehicles() {
         }}
       />
 
+      {/* Data Table Toolbar */}
+      <DataTableToolbar
+        table={table}
+        totalRows={processedData?.length || 0}
+        selectedCount={Object.keys(rowSelection).length}
+        isLoading={isFetching}
+        showColumnToggle={true}
+        showExport={true}
+        showRefresh={true}
+        showCreate={true}
+        onRefresh={handleRefresh}
+        onExportAll={handleExportCSV}
+        onExportSelected={handleExportSelected}
+        onCreate={handleCreateVehicle}
+      />
+
       <div className="rounded-md border">
-        {/* แสดงข้อมูลสรุปและการจัดการคอลัมน์ */}
-        <div className="flex items-center justify-between py-4 px-4 border-b">
-          <div className="text-sm text-muted-foreground">
-            แสดง {(processedData?.length || 0).toLocaleString()} รายการ
-            {Object.keys(rowSelection).length > 0 && (
-              <span className="ml-2 text-blue-600">
-                (เลือก {Object.keys(rowSelection).length.toLocaleString()}{" "}
-                รายการ)
-              </span>
-            )}
-          </div>
-
-          {/* การจัดการคอลัมน์ */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <LucideSettings2 className="h-4 w-4" />
-                จัดการคอลัมน์
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>แสดง/ซ่อนคอลัมน์</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {table
-                .getAllColumns()
-                .filter((column) => column.getCanHide())
-                .map((column) => {
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={column.id}
-                      className="capitalize"
-                      checked={column.getIsVisible()}
-                      onCheckedChange={(value) =>
-                        column.toggleVisibility(value)
-                      }>
-                      {getVehicleColumnDisplayName(column.id)}
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-
         {/* Data Table Body or Empty States */}
         {isLoading ? (
           <div className="p-4 space-y-4">
@@ -746,44 +631,15 @@ export default function Vehicles() {
         onDelete={handleBulkDelete}
       />
 
-      {/* Create Vehicle Dialog - ปิดชั่วคราวจนกว่าจะสร้างไฟล์ */}
-      {/* <CreateVehicleDrawer
+      {/* Create Vehicle Dialog */}
+      <CreateVehicleDrawer
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
         onVehicleCreated={handleVehicleCreated}
         showTriggerButton={false}
-      /> */}
+      />
 
       <Toaster />
     </div>
   );
-}
-
-// Helper function to convert column IDs to Thai display names for vehicles
-function getVehicleColumnDisplayName(columnId: string): string {
-  const columnNames: Record<string, string> = {
-    // Common columns
-    id: "รหัส",
-    created: "วันที่สร้าง",
-    updated: "อัปเดตล่าสุด",
-
-    // Vehicle columns
-    license_plate: "ป้ายทะเบียน",
-    tier: "ระดับ",
-    area_code: "จังหวัด",
-    status: "สถานะ",
-    house_id: "บ้าน",
-    authorized_area: "พื้นที่อนุญาต",
-    issuer: "ผู้สร้าง",
-    stamper: "ผู้ประทับตรา",
-    stamped_time: "เวลาประทับตรา",
-    expire_time: "เวลาหมดอายุ",
-    note: "หมายเหตุ",
-
-    // Actions
-    action: "การดำเนินการ",
-    select: "เลือก",
-  };
-
-  return columnNames[columnId] || columnId.replace(/_/g, " ");
 }
