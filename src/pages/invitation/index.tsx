@@ -1,7 +1,7 @@
-// src/pages/invitation/index.tsx - แก้ไขส่วนปุ่มสร้างบัตรเชิญ
+// src/pages/invitation/index.tsx - โค้ดสมบูรณ์
 "use client";
 
-import { useEffect, useState, useMemo, useRef } from "react"; // เพิ่ม useRef
+import { useEffect, useState, useMemo } from "react";
 import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
@@ -13,14 +13,23 @@ import {
   UserCheck,
   Search,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { LucideSettings2 } from "lucide-react";
 
-// Import new reusable components - ใช้แทนการเขียน inline
+// Import new reusable components
 import { PageHeader } from "@/components/ui/page-header";
 import {
   StatisticsCards,
   StatisticCard,
 } from "@/components/ui/statistics-cards";
-import { DataTableToolbar } from "@/components/ui/data-table-toolbar";
 import { BulkActionBar } from "@/components/ui/bulk-action-bar";
 import {
   SearchResultsSummary,
@@ -73,6 +82,7 @@ interface InvitationSearchFilters {
 }
 
 export default function Invitations() {
+  // State declarations
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -87,9 +97,7 @@ export default function Invitations() {
     {}
   );
   const [searchTerm, setSearchTerm] = useState("");
-
-  // เพิ่ม ref สำหรับเรียก CreateInvitationDrawer
-  const createInvitationRef = useRef<{ openDialog: () => void }>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // React Query hooks
   const {
@@ -308,9 +316,16 @@ export default function Invitations() {
     }
   };
 
-  // เพิ่มฟังก์ชันสำหรับเปิด CreateInvitationDrawer
   const handleCreateInvitation = () => {
-    createInvitationRef.current?.openDialog();
+    console.log("handleCreateInvitation called");
+    console.log("Current createDialogOpen:", createDialogOpen);
+    setCreateDialogOpen(true);
+    console.log("setCreateDialogOpen(true) called");
+  };
+
+  const handleInvitationCreated = () => {
+    refetch();
+    setCreateDialogOpen(false);
   };
 
   const handleBulkDelete = async () => {
@@ -429,6 +444,11 @@ export default function Invitations() {
 
   const hasActiveFilters = activeFilters.length > 0;
 
+  // Debug log for createDialogOpen state
+  useEffect(() => {
+    console.log("createDialogOpen changed to:", createDialogOpen);
+  }, [createDialogOpen]);
+
   // Table configuration
   const table = useReactTable({
     initialState: { columnVisibility: { id: false } },
@@ -493,7 +513,7 @@ export default function Invitations() {
     state: { pagination, sorting, rowSelection },
   });
 
-  // Show error state - ใช้ ErrorState component
+  // Show error state
   if (isError || error) {
     return (
       <div className="w-full pl-10 pr-10">
@@ -511,7 +531,7 @@ export default function Invitations() {
 
   return (
     <div className="w-full pl-10 pr-10">
-      {/* Page Header with Statistics - ใช้ PageHeader และ StatisticsCards component */}
+      {/* Page Header with Statistics */}
       <PageHeader
         title="จัดการบัตรเชิญ (E-invitation)"
         description="จัดการบัตรเชิญสำหรับผู้เยี่ยมทั้งหมดในระบบ สร้าง แก้ไข หรือลบบัตรเชิญ"
@@ -528,7 +548,7 @@ export default function Invitations() {
             key: "create",
             label: "สร้างบัตรเชิญ",
             icon: UserPlus,
-            onClick: handleCreateInvitation, // แก้ไขให้เรียกฟังก์ชันที่ถูกต้อง
+            onClick: handleCreateInvitation,
             variant: "default",
           },
         ]}
@@ -555,7 +575,7 @@ export default function Invitations() {
       {/* Search Component */}
       <InvitationSearch onSearch={setSearchFilters} />
 
-      {/* Search Results Summary - ใช้ SearchResultsSummary component */}
+      {/* Search Results Summary */}
       <SearchResultsSummary
         isVisible={hasActiveFilters}
         resultCount={processedData.length}
@@ -568,20 +588,50 @@ export default function Invitations() {
       />
 
       <div className="rounded-md border">
-        {/* Data Table Toolbar - ใช้ DataTableToolbar component */}
-        <DataTableToolbar
-          table={table}
-          totalRows={processedData.length}
-          selectedCount={Object.keys(rowSelection).length}
-          isLoading={isLoading}
-          onRefresh={handleRefresh}
-          onExportAll={handleExportCSV}
-          onExportSelected={handleExportSelected}
-          onCreate={handleCreateInvitation} // แก้ไขให้เรียกฟังก์ชันที่ถูกต้อง
-          showCreate={false} // Already in header
-        />
+        {/* แสดงข้อมูลสรุปและการจัดการคอลัมน์ */}
+        <div className="flex items-center justify-between py-4 px-4 border-b">
+          <div className="text-sm text-muted-foreground">
+            แสดง {processedData.length.toLocaleString()} รายการ
+            {Object.keys(rowSelection).length > 0 && (
+              <span className="ml-2 text-blue-600">
+                (เลือก {Object.keys(rowSelection).length.toLocaleString()}{" "}
+                รายการ)
+              </span>
+            )}
+          </div>
 
-        {/* Data Table Body or Empty States - ใช้ EmptyState component */}
+          {/* การจัดการคอลัมน์ */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <LucideSettings2 className="h-4 w-4" />
+                จัดการคอลัมน์
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>แสดง/ซ่อนคอลัมน์</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(value)
+                      }>
+                      {getColumnDisplayName(column.id)}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+
+        {/* Data Table Body or Empty States */}
         {isLoading ? (
           <div className="p-4 space-y-4">
             {Array.from({ length: 5 }).map((_, index) => (
@@ -600,7 +650,7 @@ export default function Invitations() {
               {
                 key: "create",
                 label: "สร้างบัตรเชิญ",
-                onClick: handleCreateInvitation, // แก้ไขให้เรียกฟังก์ชันที่ถูกต้อง
+                onClick: handleCreateInvitation,
                 icon: UserPlus,
               },
             ]}
@@ -633,7 +683,7 @@ export default function Invitations() {
         />
       </div>
 
-      {/* Bulk Action Bar - ใช้ BulkActionBar component */}
+      {/* Bulk Action Bar */}
       <BulkActionBar
         selectedCount={Object.keys(rowSelection).length}
         isVisible={Object.keys(rowSelection).length > 0}
@@ -643,13 +693,42 @@ export default function Invitations() {
         onDelete={handleBulkDelete}
       />
 
-      {/* CreateInvitationDrawer - แก้ไขให้ใช้ ref */}
+      {/* CreateInvitationDrawer */}
       <CreateInvitationDrawer
-        ref={createInvitationRef}
-        onInvitationCreated={refetch}
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onInvitationCreated={handleInvitationCreated}
+        showTriggerButton={false}
       />
 
       <Toaster />
     </div>
   );
+}
+
+// Helper function to convert column IDs to Thai display names
+function getColumnDisplayName(columnId: string): string {
+  const columnNames: Record<string, string> = {
+    // Common columns
+    id: "รหัส",
+    created: "วันที่สร้าง",
+    updated: "อัปเดตล่าสุด",
+
+    // Invitation columns
+    visitor_name: "ชื่อผู้เยี่ยม",
+    house_id: "บ้าน",
+    authorized_area: "พื้นที่อนุญาต",
+    start_time: "เวลาเริ่มต้น",
+    expire_time: "เวลาสิ้นสุด",
+    duration: "ระยะเวลา",
+    combined_status: "สถานะการใช้งาน",
+    issuer: "ผู้สร้าง",
+    note: "หมายเหตุ",
+
+    // Actions
+    action: "การดำเนินการ",
+    select: "เลือก",
+  };
+
+  return columnNames[columnId] || columnId.replace(/_/g, " ");
 }

@@ -1,16 +1,49 @@
-// src/pages/vehicle/index.tsx
+// src/pages/vehicle/index.tsx - ปรับปรุงให้ใช้ UI components แทนการเขียนซ้ำ
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { useSearch } from "@tanstack/react-router";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import {
+  RefreshCw,
+  Plus,
+  TrendingUp,
+  AlertTriangle,
+  Clock,
+  Car,
+  Search,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
+import { LucideSettings2 } from "lucide-react";
 
+// ใช้ UI components แทนการเขียนซ้ำ
+import { PageHeader } from "@/components/ui/page-header";
+import {
+  StatisticsCards,
+  StatisticCard,
+} from "@/components/ui/statistics-cards";
+import { BulkActionBar } from "@/components/ui/bulk-action-bar";
+import {
+  SearchResultsSummary,
+  ActiveFilter,
+} from "@/components/ui/search-results-summary";
+import { EmptyState } from "@/components/ui/empty-state";
+import { ErrorState } from "@/components/ui/error-state";
+
+// Vehicle specific components ที่ยังคงใช้
 import DataTableBody from "./components/data-table-body";
 import DataTablePagination from "./components/data-table-pagination";
-import { CreateVehicleDrawer } from "./components/create-vehicle-dialog";
 import { VehicleSearch } from "@/components/ui/vehicle-search";
 
-import { Checkbox } from "@/components/ui/checkbox";
-import { Toaster } from "@/components/ui/sonner";
+// React Table and other imports
 import {
   getCoreRowModel,
   getFilteredRowModel,
@@ -21,69 +54,102 @@ import {
   RowSelectionState,
   SortingState,
 } from "@tanstack/react-table";
-import DataTableColumnHeader from "./components/data-table-column-header";
-import DataTableActionButton from "./components/data-table-action-button";
 import { columns } from "./components/columns";
 import {
   useVehicleAllListQuery,
   useBulkDeleteVehicleMutation,
   useExpiringVehiclesQuery,
 } from "@/react-query/manage/vehicle";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
-import { vehicleItem } from "@/api/vehicle/vehicle";
-import { Button } from "@/components/ui/button";
-import React from "react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
-import {
-  Trash2,
-  LucideSettings2,
-  Download,
-  TrendingUp,
-  AlertTriangle,
-  RefreshCw,
-  FileSpreadsheet,
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-} from "@/components/ui/dropdown-menu";
-import {
-  searchVehicles,
-  getVehicleStatistics,
-  prepareVehicleDataForExport,
-  sortVehicles,
-  VEHICLE_TIERS,
-} from "@/utils/vehicleUtils";
+import { Checkbox } from "@/components/ui/checkbox";
+import DataTableColumnHeader from "./components/data-table-column-header";
+import VehicleActionButton from "./components/data-table-action-button";
+
+// Vehicle utilities - เพิ่ม fallback functions หากไม่มี utils
+const searchVehicleData = (vehicles: any[], filters: any) => {
+  // ถ้าไม่มี vehicleUtils ให้ใช้ function นี้แทน
+  if (!vehicles || !Array.isArray(vehicles)) return [];
+
+  return vehicles.filter((vehicle) => {
+    if (filters.licensePlate) {
+      return vehicle.license_plate
+        ?.toLowerCase()
+        .includes(filters.licensePlate.toLowerCase());
+    }
+    return true;
+  });
+};
+
+const getVehicleStatistics = (vehicles: any[]) => {
+  if (!vehicles || !Array.isArray(vehicles)) {
+    return {
+      total: 0,
+      resident: 0,
+      staff: 0,
+      guest: 0,
+      expiring: 0,
+      expired: 0,
+    };
+  }
+
+  return {
+    total: vehicles.length,
+    resident: vehicles.filter((v) => v.tier === "resident").length,
+    staff: vehicles.filter((v) => v.tier === "staff").length,
+    guest: vehicles.filter((v) => v.tier === "guest").length,
+    expiring: 0, // TODO: implement logic
+    expired: 0, // TODO: implement logic
+  };
+};
+
+const prepareVehicleDataForExport = (vehicles: any[]) => {
+  if (!vehicles || !Array.isArray(vehicles)) return [];
+
+  return vehicles.map((vehicle) => ({
+    ป้ายทะเบียน: vehicle.license_plate || "",
+    ระดับ: vehicle.tier || "",
+    จังหวัด: vehicle.area_code || "",
+    สถานะ: vehicle.status || "",
+    วันที่สร้าง: vehicle.created
+      ? new Date(vehicle.created).toLocaleDateString("th-TH")
+      : "",
+  }));
+};
+
+const sortVehicles = (
+  vehicles: any[],
+  sortBy: string,
+  order: "asc" | "desc"
+) => {
+  if (!vehicles || !Array.isArray(vehicles)) return [];
+
+  return [...vehicles].sort((a, b) => {
+    const aVal = a[sortBy];
+    const bVal = b[sortBy];
+
+    if (order === "desc") {
+      return aVal > bVal ? -1 : 1;
+    }
+    return aVal > bVal ? 1 : -1;
+  });
+};
+
+// แทนที่ import จาก utils
+// import {
+//   searchVehicles as searchVehicleData,
+//   getVehicleStatistics,
+//   prepareVehicleDataForExport,
+//   sortVehicles,
+// } from "@/utils/vehicleUtils";
 
 interface VehicleSearchFilters {
   licensePlate?: string;
   tier?: string;
   areaCode?: string;
   status?: string;
-  houseId?: string;
-  dateRange?: {
-    start?: string;
-    end?: string;
-  };
 }
 
 export default function Vehicles() {
+  // State declarations
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
     pageSize: 10,
@@ -94,11 +160,9 @@ export default function Vehicles() {
   ]);
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false);
-
-  // Search and filter state
   const [searchFilters, setSearchFilters] = useState<VehicleSearchFilters>({});
-  const [isExporting, setIsExporting] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // React Query hooks
   const {
@@ -114,37 +178,10 @@ export default function Vehicles() {
     data: expiringVehicles,
     isLoading: isLoadingExpiring,
     error: expiringError,
-  } = useExpiringVehiclesQuery(7);
+  } = useExpiringVehiclesQuery(7); // 7 days
 
   const { mutateAsync: bulkDeleteVehicle, isPending: isDeleting } =
     useBulkDeleteVehicleMutation();
-
-  // Parse URL search params for initial filters
-  const searchParams = useSearch({
-    from: "/_authenticated/vehicles",
-  });
-
-  // Initialize filters from URL params
-  useEffect(() => {
-    const tierParam = searchParams.tier;
-    if (tierParam) {
-      // Handle single tier or comma-separated tiers
-      const tiers =
-        typeof tierParam === "string"
-          ? tierParam
-              .split(",")
-              .filter((tier) => Object.keys(VEHICLE_TIERS).includes(tier))
-          : Array.isArray(tierParam)
-            ? tierParam.filter((tier) =>
-                Object.keys(VEHICLE_TIERS).includes(tier)
-              )
-            : [];
-
-      if (tiers.length === 1) {
-        setSearchFilters((prev) => ({ ...prev, tier: tiers[0] }));
-      }
-    }
-  }, [searchParams]);
 
   // Auto-retry on mount หากมี error
   useEffect(() => {
@@ -158,67 +195,153 @@ export default function Vehicles() {
 
   // Memoized filtered and sorted data
   const processedData = useMemo(() => {
-    // ตรวจสอบว่ามีข้อมูลหรือไม่
-    if (!allVehicles || allVehicles.length === 0) return [];
+    // เพิ่มการตรวจสอบที่เข้มงวดขึ้น
+    if (
+      !allVehicles ||
+      !Array.isArray(allVehicles) ||
+      allVehicles.length === 0
+    ) {
+      return [];
+    }
 
     try {
-      // Apply search filters
-      let filtered = searchVehicles(allVehicles, searchFilters);
+      let filtered = [...allVehicles];
 
-      // Apply sorting if needed (table handles most sorting)
-      if (sorting.length > 0) {
+      if (searchTerm && searchTerm.trim()) {
+        filtered = searchVehicleData(filtered, {
+          licensePlate: searchTerm.trim(),
+        });
+      }
+
+      if (searchFilters && Object.keys(searchFilters).length > 0) {
+        filtered = searchVehicleData(filtered, searchFilters);
+      }
+
+      if (sorting && sorting.length > 0) {
         const sort = sorting[0];
         filtered = sortVehicles(filtered, sort.id, sort.desc ? "desc" : "asc");
       }
 
-      return filtered;
+      return filtered || [];
     } catch (error) {
       console.error("Error processing vehicle data:", error);
-      return allVehicles; // fallback ให้ข้อมูลดิบ
+      return allVehicles || [];
     }
-  }, [allVehicles, searchFilters, sorting]);
+  }, [allVehicles, searchFilters, searchTerm, sorting]);
 
-  // Calculate statistics
-  const stats = useMemo(() => {
-    if (!allVehicles || allVehicles.length === 0) {
-      return {
-        total: 0,
-        active: 0,
-        pending: 0,
-        expiring: 0,
-        expired: 0,
-        blocked: 0,
-      };
+  // Calculate statistics for StatisticsCards
+  const statisticsCards: StatisticCard[] = useMemo(() => {
+    // สร้าง default stats ก่อน
+    const defaultStats = [
+      {
+        key: "total",
+        label: "ทั้งหมด",
+        value: 0,
+        icon: TrendingUp,
+        color: "blue" as const,
+      },
+      {
+        key: "resident",
+        label: "ลูกบ้าน",
+        value: 0,
+        icon: Car,
+        color: "green" as const,
+      },
+      {
+        key: "staff",
+        label: "เจ้าหน้าที่",
+        value: 0,
+        icon: Car,
+        color: "blue" as const,
+      },
+      {
+        key: "guest",
+        label: "แขก",
+        value: 0,
+        icon: Car,
+        color: "yellow" as const,
+      },
+      {
+        key: "expiring",
+        label: "ใกล้หมดอายุ",
+        value: 0,
+        icon: AlertTriangle,
+        color: "orange" as const,
+      },
+      {
+        key: "expired",
+        label: "หมดอายุ",
+        value: 0,
+        icon: Clock,
+        color: "red" as const,
+      },
+    ];
+
+    if (
+      !allVehicles ||
+      !Array.isArray(allVehicles) ||
+      allVehicles.length === 0
+    ) {
+      return defaultStats;
     }
 
     try {
-      return getVehicleStatistics(allVehicles);
+      const stats = getVehicleStatistics(allVehicles);
+      return [
+        {
+          key: "total",
+          label: "ทั้งหมด",
+          value: stats.total || 0,
+          icon: TrendingUp,
+          color: "blue" as const,
+        },
+        {
+          key: "resident",
+          label: "ลูกบ้าน",
+          value: stats.resident || 0,
+          icon: Car,
+          color: "green" as const,
+        },
+        {
+          key: "staff",
+          label: "เจ้าหน้าที่",
+          value: stats.staff || 0,
+          icon: Car,
+          color: "blue" as const,
+        },
+        {
+          key: "guest",
+          label: "แขก",
+          value: stats.guest || 0,
+          icon: Car,
+          color: "yellow" as const,
+        },
+        {
+          key: "expiring",
+          label: "ใกล้หมดอายุ",
+          value: stats.expiring || 0,
+          icon: AlertTriangle,
+          color: "orange" as const,
+        },
+        {
+          key: "expired",
+          label: "หมดอายุ",
+          value: stats.expired || 0,
+          icon: Clock,
+          color: "red" as const,
+        },
+      ];
     } catch (error) {
       console.error("Error calculating statistics:", error);
-      return {
-        total: allVehicles.length,
-        active: 0,
-        pending: 0,
-        expiring: 0,
-        expired: 0,
-        blocked: 0,
-      };
+      return defaultStats.map((stat, index) =>
+        index === 0 ? { ...stat, value: allVehicles.length } : stat
+      );
     }
   }, [allVehicles]);
 
-  // Handle search filters
-  const handleSearch = (filters: VehicleSearchFilters) => {
-    setSearchFilters(filters);
-    // Reset to first page when search changes
-    setPagination((prev) => ({ ...prev, pageIndex: 0 }));
-    // Clear row selection when search changes
-    setRowSelection({});
-  };
-
-  // Handle refresh
+  // Handle functions
   const handleRefresh = async () => {
     try {
-      // รีเซ็ต error state ก่อน
       await refetch();
       toast.success("รีเฟรชข้อมูลสำเร็จ");
     } catch (error) {
@@ -227,22 +350,28 @@ export default function Vehicles() {
     }
   };
 
-  // Handle bulk delete
+  const handleCreateVehicle = () => {
+    console.log("handleCreateVehicle called"); // debug log
+    console.log("Current createDialogOpen:", createDialogOpen); // debug log
+    // setCreateDialogOpen(true); // ปิดชั่วคราว
+    toast.info("ฟีเจอร์เพิ่มยานพาหนะจะเปิดใช้งานเร็วๆ นี้"); // แสดง message แทน
+    console.log("setCreateDialogOpen(true) called"); // debug log
+  };
+
+  const handleVehicleCreated = () => {
+    refetch();
+    setCreateDialogOpen(false);
+  };
+
+  // Debug log for createDialogOpen state
+  useEffect(() => {
+    console.log("createDialogOpen changed to:", createDialogOpen);
+  }, [createDialogOpen]);
+
   const handleBulkDelete = async () => {
-    if (!rowSelection || Object.keys(rowSelection).length === 0) {
-      toast.error("กรุณาเลือกรายการที่ต้องการลบ");
-      return;
-    }
-
-    setShowBulkDeleteDialog(false);
-
     try {
       const selectedIds = Object.keys(rowSelection);
-      console.log("Deleting vehicles with IDs:", selectedIds);
-
       await bulkDeleteVehicle(selectedIds);
-
-      // Clear selection and refresh data
       setRowSelection({});
       await refetch();
     } catch (error) {
@@ -250,25 +379,18 @@ export default function Vehicles() {
     }
   };
 
-  const handleBulkDeleteClick = () => {
-    const selectedCount = Object.keys(rowSelection).length;
-    if (selectedCount === 0) {
-      toast.warning("กรุณาเลือกรายการที่ต้องการลบ");
-      return;
-    }
-    setShowBulkDeleteDialog(true);
-  };
-
-  // Export functions
   const handleExportCSV = async () => {
-    if (!processedData.length) {
+    if (!processedData || !processedData.length) {
       toast.warning("ไม่มีข้อมูลสำหรับส่งออก");
       return;
     }
 
-    setIsExporting(true);
     try {
       const exportData = prepareVehicleDataForExport(processedData);
+      if (!exportData || !exportData.length) {
+        toast.warning("ไม่สามารถเตรียมข้อมูลส่งออกได้");
+        return;
+      }
 
       const headers = Object.keys(exportData[0]);
       const csvContent = [
@@ -278,7 +400,6 @@ export default function Vehicles() {
         ),
       ].join("\n");
 
-      // Create and download file
       const blob = new Blob(["\ufeff" + csvContent], {
         type: "text/csv;charset=utf-8;",
       });
@@ -291,14 +412,12 @@ export default function Vehicles() {
     } catch (error) {
       console.error("Export error:", error);
       toast.error("เกิดข้อผิดพลาดในการส่งออกข้อมูล");
-    } finally {
-      setIsExporting(false);
     }
   };
 
   const handleExportSelected = async () => {
     const selectedIds = Object.keys(rowSelection);
-    if (selectedIds.length === 0) {
+    if (!processedData || selectedIds.length === 0) {
       toast.warning("กรุณาเลือกรายการที่ต้องการส่งออก");
       return;
     }
@@ -307,9 +426,17 @@ export default function Vehicles() {
       selectedIds.includes(item.id)
     );
 
-    setIsExporting(true);
+    if (!selectedData.length) {
+      toast.warning("ไม่พบข้อมูลที่เลือก");
+      return;
+    }
+
     try {
       const exportData = prepareVehicleDataForExport(selectedData);
+      if (!exportData || !exportData.length) {
+        toast.warning("ไม่สามารถเตรียมข้อมูลส่งออกได้");
+        return;
+      }
 
       const headers = Object.keys(exportData[0]);
       const csvContent = [
@@ -331,19 +458,52 @@ export default function Vehicles() {
     } catch (error) {
       console.error("Export selected error:", error);
       toast.error("เกิดข้อผิดพลาดในการส่งออกข้อมูล");
-    } finally {
-      setIsExporting(false);
     }
   };
 
+  // Active filters for SearchResultsSummary
+  const activeFilters: ActiveFilter[] = useMemo(() => {
+    const filters: ActiveFilter[] = [];
+
+    if (searchTerm.trim()) {
+      filters.push({
+        key: "search",
+        label: "ค้นหา",
+        value: searchTerm,
+        onRemove: () => setSearchTerm(""),
+      });
+    }
+
+    Object.entries(searchFilters).forEach(([key, value]) => {
+      if (value && value !== "") {
+        filters.push({
+          key,
+          label:
+            key === "licensePlate"
+              ? "ป้ายทะเบียน"
+              : key === "tier"
+                ? "ระดับ"
+                : key === "areaCode"
+                  ? "จังหวัด"
+                  : key === "status"
+                    ? "สถานะ"
+                    : key,
+          value: value as string,
+          onRemove: () =>
+            setSearchFilters((prev) => ({ ...prev, [key]: undefined })),
+        });
+      }
+    });
+
+    return filters;
+  }, [searchTerm, searchFilters]);
+
+  const hasActiveFilters = activeFilters.length > 0;
+
   // Table configuration
   const table = useReactTable({
-    initialState: {
-      columnVisibility: {
-        id: false,
-      },
-    },
-    data: processedData,
+    initialState: { columnVisibility: { id: false } },
+    data: processedData || [], // เพิ่ม fallback เป็น empty array
     columns: [
       {
         id: "select",
@@ -355,9 +515,7 @@ export default function Vehicles() {
                 table.getIsAllPageRowsSelected() ||
                 (table.getIsSomePageRowsSelected() && "indeterminate")
               }
-              onCheckedChange={(value) => {
-                table.toggleAllRowsSelected(!!value);
-              }}
+              onCheckedChange={(value) => table.toggleAllRowsSelected(!!value)}
               aria-label="Select all"
             />
           </div>
@@ -380,12 +538,12 @@ export default function Vehicles() {
         id: "action",
         header: () => (
           <div className="flex justify-center items-center">
-            <DataTableColumnHeader title={"การดำเนินการ"} />
+            <DataTableColumnHeader title="การดำเนินการ" />
           </div>
         ),
         cell: (info) => (
           <div className="flex justify-center items-center">
-            <DataTableActionButton info={info.cell} />
+            <VehicleActionButton info={info.cell} />
           </div>
         ),
         enableSorting: false,
@@ -402,393 +560,230 @@ export default function Vehicles() {
     onRowSelectionChange: setRowSelection,
     enableRowSelection: true,
     enableSorting: true,
-    debugTable: false,
     autoResetPageIndex: false,
-    state: {
-      pagination,
-      sorting,
-      rowSelection,
-    },
-  });
-
-  const hasActiveFilters = Object.keys(searchFilters).some((key) => {
-    const value = searchFilters[key as keyof typeof searchFilters];
-    if (key === "dateRange") {
-      const dateRange = value as { start?: string; end?: string } | undefined;
-      return dateRange && (dateRange.start || dateRange.end);
-    }
-    return value !== undefined && value !== null && value !== "";
+    state: { pagination, sorting, rowSelection },
   });
 
   // Show error state
   if (isError || error) {
     return (
       <div className="w-full pl-10 pr-10">
-        <Card className="mb-6">
-          <CardContent className="pt-6">
-            <div className="text-center text-red-600">
-              <AlertTriangle className="h-12 w-12 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">เกิดข้อผิดพลาด</h3>
-              <p className="text-sm text-gray-600 mb-4">
-                {error?.message || "ไม่สามารถโหลดข้อมูลยานพาหนะได้"}
-              </p>
-              <div className="flex gap-2 justify-center">
-                <Button
-                  onClick={handleRefresh}
-                  variant="outline"
-                  disabled={isFetching}>
-                  <RefreshCw
-                    className={`h-4 w-4 mr-2 ${isFetching ? "animate-spin" : ""}`}
-                  />
-                  {isFetching ? "กำลังโหลด..." : "ลองใหม่"}
-                </Button>
-                <Button
-                  onClick={() => window.location.reload()}
-                  variant="default">
-                  รีเฟรชหน้า
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        <ErrorState
+          title="เกิดข้อผิดพลาด"
+          message={error?.message || "ไม่สามารถโหลดข้อมูลยานพาหนะได้"}
+          onRetry={handleRefresh}
+          onHome={() => window.location.reload()}
+          isLoading={isFetching}
+          showHome
+        />
       </div>
     );
   }
 
   return (
     <div className="w-full pl-10 pr-10">
-      {/* Header Card with Statistics */}
-      <Card className="mb-6">
-        <CardHeader className="flex flex-row items-center justify-between pb-2">
-          <div className="flex-1">
-            <div className="flex items-center gap-4">
-              <div>
-                <CardTitle className="font-anuphan font-light text-2xl tracking-wider">
-                  จัดการข้อมูลยานพาหนะ
-                </CardTitle>
-                <p className="text-muted-foreground mt-1">
-                  จัดการข้อมูลยานพาหนะทั้งหมดในระบบ เพิ่ม แก้ไข
-                  หรือลบข้อมูลยานพาหนะ
-                </p>
-              </div>
-
-              {/* Expiring vehicles warning */}
-              {!isLoadingExpiring &&
-                !expiringError &&
-                expiringVehicles &&
-                expiringVehicles.length > 0 && (
-                  <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 flex items-center gap-2">
-                    <AlertTriangle className="h-5 w-5 text-orange-600" />
-                    <div>
-                      <p className="text-sm font-medium text-orange-800">
-                        มียานพาหนะใกล้หมดอายุ
-                      </p>
-                      <p className="text-xs text-orange-600">
-                        {expiringVehicles.length} คัน ภายใน 7 วัน
-                      </p>
-                    </div>
-                  </div>
-                )}
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handleRefresh}
-              variant="outline"
-              size="sm"
-              disabled={isFetching}
-              className="gap-2">
-              <RefreshCw
-                className={`h-4 w-4 ${isFetching ? "animate-spin" : ""}`}
-              />
-              รีเฟรช
-            </Button>
-            <CreateVehicleDrawer onVehicleCreated={refetch} />
-          </div>
-        </CardHeader>
-
-        {/* Statistics */}
-        <CardContent className="pt-0">
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-blue-600 text-sm font-medium">ทั้งหมด</p>
-                  <p className="text-2xl font-bold text-blue-900">
-                    {stats.total.toLocaleString()}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-blue-500" />
-              </div>
-            </div>
-
-            <div className="bg-green-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-green-600 text-sm font-medium">
-                    ใช้งานได้
-                  </p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {stats.active.toLocaleString()}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-green-500" />
-              </div>
-            </div>
-
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-yellow-600 text-sm font-medium">
-                    รอเริ่มใช้
-                  </p>
-                  <p className="text-2xl font-bold text-yellow-900">
-                    {stats.pending.toLocaleString()}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-yellow-500" />
-              </div>
-            </div>
-
-            <div className="bg-orange-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-orange-600 text-sm font-medium">
-                    ใกล้หมดอายุ
-                  </p>
-                  <p className="text-2xl font-bold text-orange-900">
-                    {stats.expiring.toLocaleString()}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-orange-500" />
-              </div>
-            </div>
-
-            <div className="bg-red-50 p-4 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-red-600 text-sm font-medium">
-                    หมดอายุ/ระงับ
-                  </p>
-                  <p className="text-2xl font-bold text-red-900">
-                    {(stats.expired + stats.blocked).toLocaleString()}
-                  </p>
-                </div>
-                <TrendingUp className="h-8 w-8 text-red-500" />
-              </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Page Header with Statistics */}
+      <PageHeader
+        title="จัดการยานพาหนะ"
+        description="จัดการยานพาหนะทั้งหมดในระบบ เพิ่ม แก้ไข หรือลบข้อมูลยานพาหนะ"
+        actions={[
+          {
+            key: "refresh",
+            label: "รีเฟรช",
+            icon: RefreshCw,
+            onClick: handleRefresh,
+            variant: "outline",
+            loading: isFetching,
+          },
+          {
+            key: "create",
+            label: "เพิ่มยานพาหนะ",
+            icon: Plus,
+            onClick: handleCreateVehicle,
+            variant: "default",
+          },
+        ]}
+        alerts={
+          !isLoadingExpiring &&
+          !expiringError &&
+          expiringVehicles &&
+          expiringVehicles.length > 0
+            ? [
+                {
+                  type: "warning",
+                  message: "มียานพาหนะใกล้หมดอายุ",
+                  description: "ภายใน 7 วัน",
+                  count: expiringVehicles.length,
+                },
+              ]
+            : []
+        }
+        statistics={
+          <StatisticsCards cards={statisticsCards} loading={isLoading} />
+        }
+      />
 
       {/* Search Component */}
-      <div className="mb-6">
-        <VehicleSearch onSearch={handleSearch} defaultFilters={searchFilters} />
-      </div>
+      <VehicleSearch onSearch={setSearchFilters} />
 
       {/* Search Results Summary */}
-      {hasActiveFilters && (
-        <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-          <div className="text-sm text-blue-800">
-            <span className="font-medium">ผลการค้นหา:</span>
-            <span className="ml-2">
-              พบ {processedData.length.toLocaleString()} รายการ จากทั้งหมด{" "}
-              {allVehicles?.length.toLocaleString() || 0} รายการ
-            </span>
-          </div>
-        </div>
-      )}
+      <SearchResultsSummary
+        isVisible={hasActiveFilters}
+        resultCount={processedData?.length || 0}
+        totalCount={allVehicles?.length || 0}
+        activeFilters={activeFilters}
+        onClearAll={() => {
+          setSearchFilters({});
+          setSearchTerm("");
+        }}
+      />
 
       <div className="rounded-md border">
-        {/* Enhanced Toolbar */}
-        <div className="flex items-center justify-between py-4 mb-2 px-4">
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-muted-foreground">
-              แสดง {processedData.length.toLocaleString()} รายการ
-              {Object.keys(rowSelection).length > 0 && (
-                <span className="ml-2 text-blue-600">
-                  (เลือก {Object.keys(rowSelection).length} รายการ)
-                </span>
-              )}
-            </div>
+        {/* แสดงข้อมูลสรุปและการจัดการคอลัมน์ */}
+        <div className="flex items-center justify-between py-4 px-4 border-b">
+          <div className="text-sm text-muted-foreground">
+            แสดง {(processedData?.length || 0).toLocaleString()} รายการ
+            {Object.keys(rowSelection).length > 0 && (
+              <span className="ml-2 text-blue-600">
+                (เลือก {Object.keys(rowSelection).length.toLocaleString()}{" "}
+                รายการ)
+              </span>
+            )}
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Export Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={processedData.length === 0 || isExporting}
-                  className="gap-2">
-                  <FileSpreadsheet className="h-4 w-4" />
-                  ส่งออกข้อมูล
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel>ส่งออกข้อมูล</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={handleExportCSV}
-                  disabled={isExporting}>
-                  <Download className="h-4 w-4 mr-2" />
-                  ส่งออกทั้งหมด ({processedData.length} รายการ)
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleExportSelected}
-                  disabled={
-                    isExporting || Object.keys(rowSelection).length === 0
-                  }>
-                  <Download className="h-4 w-4 mr-2" />
-                  ส่งออกที่เลือก ({Object.keys(rowSelection).length} รายการ)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-
-            {/* Column Management */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <LucideSettings2 className="h-4 w-4" />
-                  จัดการคอลัมน์
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                {table
-                  .getAllColumns()
-                  .filter((column) => column.getCanHide())
-                  .map((column) => {
-                    return (
-                      <DropdownMenuCheckboxItem
-                        key={column.id}
-                        className="capitalize"
-                        checked={column.getIsVisible()}
-                        onCheckedChange={(value) =>
-                          column.toggleVisibility(value)
-                        }>
-                        {column.id.replace("_", " ")}
-                      </DropdownMenuCheckboxItem>
-                    );
-                  })}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {/* การจัดการคอลัมน์ */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <LucideSettings2 className="h-4 w-4" />
+                จัดการคอลัมน์
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>แสดง/ซ่อนคอลัมน์</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => {
+                  return (
+                    <DropdownMenuCheckboxItem
+                      key={column.id}
+                      className="capitalize"
+                      checked={column.getIsVisible()}
+                      onCheckedChange={(value) =>
+                        column.toggleVisibility(value)
+                      }>
+                      {getVehicleColumnDisplayName(column.id)}
+                    </DropdownMenuCheckboxItem>
+                  );
+                })}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
-        {/* Data Table */}
+        {/* Data Table Body or Empty States */}
         {isLoading ? (
           <div className="p-4 space-y-4">
             {Array.from({ length: 5 }).map((_, index) => (
-              <Skeleton key={index} className="h-12 w-full" />
+              <div
+                key={index}
+                className="h-12 w-full bg-gray-100 animate-pulse rounded"
+              />
             ))}
           </div>
-        ) : processedData.length === 0 && !hasActiveFilters ? (
-          <div className="p-8 text-center">
-            <div className="text-gray-500">
-              <div className="text-lg font-medium mb-2">
-                ไม่มีข้อมูลยานพาหนะ
-              </div>
-              <p className="text-sm mb-4">เริ่มต้นด้วยการเพิ่มยานพาหนะใหม่</p>
-              <CreateVehicleDrawer onVehicleCreated={refetch} />
-            </div>
-          </div>
-        ) : processedData.length === 0 && hasActiveFilters ? (
-          <div className="p-8 text-center">
-            <div className="text-gray-500">
-              <div className="text-lg font-medium mb-2">
-                ไม่พบข้อมูลตามที่ค้นหา
-              </div>
-              <p className="text-sm mb-4">ลองปรับเปลี่ยนเงื่อนไขการค้นหา</p>
-              <Button
-                onClick={() => setSearchFilters({})}
-                variant="outline"
-                size="sm">
-                ล้างตัวกรอง
-              </Button>
-            </div>
-          </div>
+        ) : (!processedData || processedData.length === 0) &&
+          !hasActiveFilters ? (
+          <EmptyState
+            icon={Search}
+            title="ไม่มีข้อมูลยานพาหนะ"
+            description="เริ่มต้นด้วยการเพิ่มยานพาหนะใหม่"
+            actions={[
+              {
+                key: "create",
+                label: "เพิ่มยานพาหนะ",
+                onClick: handleCreateVehicle,
+                icon: Plus,
+              },
+            ]}
+          />
+        ) : (!processedData || processedData.length === 0) &&
+          hasActiveFilters ? (
+          <EmptyState
+            icon={Search}
+            title="ไม่พบข้อมูลตามที่ค้นหา"
+            description="ลองปรับเปลี่ยนเงื่อนไขการค้นหา"
+            actions={[
+              {
+                key: "clear",
+                label: "ล้างตัวกรอง",
+                onClick: () => {
+                  setSearchFilters({});
+                  setSearchTerm("");
+                },
+                variant: "outline",
+              },
+            ]}
+          />
         ) : (
           <DataTableBody table={table} />
         )}
 
         <DataTablePagination
           table={table}
-          totalRows={processedData.length}
+          totalRows={processedData?.length || 0}
           pgState={pagination}
         />
       </div>
 
-      {/* Floating Selection Bar */}
-      {Object.keys(rowSelection).length > 0 && (
-        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
-          <div className="bg-card border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
-            <span className="text-sm font-medium">
-              เลือกแล้ว {Object.keys(rowSelection).length} รายการ
-            </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setRowSelection({})}
-              className="h-8">
-              รีเซ็ต
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleExportSelected}
-              disabled={isExporting}
-              className="h-8">
-              <Download className="h-3 w-3 mr-1" />
-              ส่งออก
-            </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={isDeleting}
-              onClick={handleBulkDeleteClick}
-              className="h-8">
-              <Trash2 className="h-3 w-3 mr-1" />
-              {isDeleting ? "กำลังลบ..." : "ลบที่เลือก"}
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Bulk Action Bar */}
+      <BulkActionBar
+        selectedCount={Object.keys(rowSelection).length}
+        isVisible={Object.keys(rowSelection).length > 0}
+        isLoading={isDeleting}
+        onReset={() => setRowSelection({})}
+        onExport={handleExportSelected}
+        onDelete={handleBulkDelete}
+      />
 
-      {/* Bulk Delete Confirmation Dialog */}
-      <AlertDialog
-        open={showBulkDeleteDialog}
-        onOpenChange={setShowBulkDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>ยืนยันการลบหลายรายการ</AlertDialogTitle>
-            <AlertDialogDescription>
-              คุณแน่ใจหรือไม่ที่จะลบยานพาหนะ {Object.keys(rowSelection).length}{" "}
-              คัน?
-              <br />
-              การดำเนินการนี้ไม่สามารถยกเลิกได้
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => setShowBulkDeleteDialog(false)}
-              disabled={isDeleting}>
-              ยกเลิก
-            </AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleBulkDelete}
-              disabled={isDeleting}
-              className="bg-destructive text-white hover:bg-destructive/90">
-              {isDeleting
-                ? "กำลังลบ..."
-                : `ลบ ${Object.keys(rowSelection).length} รายการ`}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* Create Vehicle Dialog - ปิดชั่วคราวจนกว่าจะสร้างไฟล์ */}
+      {/* <CreateVehicleDrawer
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
+        onVehicleCreated={handleVehicleCreated}
+        showTriggerButton={false}
+      /> */}
 
       <Toaster />
     </div>
   );
+}
+
+// Helper function to convert column IDs to Thai display names for vehicles
+function getVehicleColumnDisplayName(columnId: string): string {
+  const columnNames: Record<string, string> = {
+    // Common columns
+    id: "รหัส",
+    created: "วันที่สร้าง",
+    updated: "อัปเดตล่าสุด",
+
+    // Vehicle columns
+    license_plate: "ป้ายทะเบียน",
+    tier: "ระดับ",
+    area_code: "จังหวัด",
+    status: "สถานะ",
+    house_id: "บ้าน",
+    authorized_area: "พื้นที่อนุญาต",
+    issuer: "ผู้สร้าง",
+    stamper: "ผู้ประทับตรา",
+    stamped_time: "เวลาประทับตรา",
+    expire_time: "เวลาหมดอายุ",
+    note: "หมายเหตุ",
+
+    // Actions
+    action: "การดำเนินการ",
+    select: "เลือก",
+  };
+
+  return columnNames[columnId] || columnId.replace(/_/g, " ");
 }

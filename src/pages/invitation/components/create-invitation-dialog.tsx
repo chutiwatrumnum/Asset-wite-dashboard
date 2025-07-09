@@ -1,4 +1,4 @@
-// src/pages/invitation/components/create-invitation-dialog.tsx - ใช้ FormDialog component
+// src/pages/invitation/components/create-invitation-dialog.tsx - แก้ไขให้รับ props แทน ref
 "use client";
 
 import type React from "react";
@@ -83,14 +83,27 @@ type FormSchema = z.infer<typeof formSchema>;
 
 interface CreateInvitationDrawerProps {
   onInvitationCreated: () => void;
+  // แก้ไข: รับ props แทน ref
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  // เพิ่ม props สำหรับ trigger button
+  showTriggerButton?: boolean;
 }
 
 export function CreateInvitationDrawer({
   onInvitationCreated,
+  open: externalOpen,
+  onOpenChange: externalOnOpenChange,
+  showTriggerButton = true,
 }: CreateInvitationDrawerProps) {
   const { data: houseList } = useHouseListQuery({});
   const { data: userAuthorizedAreas } = useUserAuthorizedAreasQuery();
-  const [open, setOpen] = useState(false);
+
+  // ใช้ state internal หรือ external
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const setOpen = externalOnOpenChange || setInternalOpen;
+
   const [isLoading, setIsLoading] = useState(false);
 
   const { mutateAsync: createInvitation } = useCreateInvitationMutation();
@@ -213,25 +226,27 @@ export function CreateInvitationDrawer({
 
   return (
     <>
-      {/* Trigger Button */}
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="default"
-              className="gap-2"
-              onClick={() => setOpen(true)}>
-              <UserPlusIcon className="h-4 w-4" />
-              สร้างบัตรเชิญ
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>สร้างบัตรเชิญใหม่สำหรับผู้เยี่ยม</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      {/* Trigger Button - แสดงเฉพาะเมื่อ showTriggerButton = true */}
+      {showTriggerButton && (
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="default"
+                className="gap-2"
+                onClick={() => setOpen(true)}>
+                <UserPlusIcon className="h-4 w-4" />
+                สร้างบัตรเชิญ
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>สร้างบัตรเชิญใหม่สำหรับผู้เยี่ยม</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      )}
 
-      {/* FormDialog - ใช้แทน Sheet */}
+      {/* FormDialog */}
       <FormDialog
         open={open}
         onOpenChange={setOpen}
