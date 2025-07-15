@@ -73,13 +73,13 @@ const getColorClasses = (color: string) => {
 
 function StatisticCardSkeleton() {
   return (
-    <div className="bg-gray-50 p-4 rounded-lg animate-pulse">
+    <div className="bg-gray-50 p-3 rounded-lg animate-pulse flex-shrink-0 min-w-[140px]">
       <div className="flex items-center justify-between">
-        <div>
-          <div className="h-4 bg-gray-200 rounded w-20 mb-2"></div>
-          <div className="h-8 bg-gray-200 rounded w-16"></div>
+        <div className="flex-1">
+          <div className="h-3 bg-gray-200 rounded w-16 mb-2"></div>
+          <div className="h-6 bg-gray-200 rounded w-12"></div>
         </div>
-        <div className="h-8 w-8 bg-gray-200 rounded"></div>
+        <div className="h-6 w-6 bg-gray-200 rounded ml-2"></div>
       </div>
     </div>
   );
@@ -90,17 +90,22 @@ function StatisticCardComponent({ card }: { card: StatisticCard }) {
   const IconComponent = card.icon;
 
   return (
-    <div className={cn("p-4 rounded-lg", colors.bg)}>
+    <div
+      className={cn("p-3 rounded-lg flex-shrink-0 min-w-[140px]", colors.bg)}>
       <div className="flex items-center justify-between">
-        <div>
-          <p className={cn("text-sm font-medium", colors.text)}>{card.label}</p>
-          <div className="flex items-baseline gap-2">
+        <div className="flex-1 min-w-0">
+          <p className={cn("text-xs font-medium truncate", colors.text)}>
+            {card.label}
+          </p>
+          <div className="flex items-baseline gap-1 mt-1">
             <p
               className={cn(
-                "text-2xl font-bold",
+                "text-xl font-bold",
                 colors.text.replace("600", "900")
               )}>
-              {card.value.toLocaleString()}
+              {card.value >= 1000
+                ? `${(card.value / 1000).toFixed(1)}k`
+                : card.value.toLocaleString()}
             </p>
             {card.trend && (
               <span
@@ -108,16 +113,20 @@ function StatisticCardComponent({ card }: { card: StatisticCard }) {
                   "text-xs font-medium",
                   card.trend.isPositive ? "text-green-600" : "text-red-600"
                 )}>
-                {card.trend.isPositive ? "+" : ""}
-                {card.trend.value}% {card.trend.label}
+                {card.trend.isPositive ? "↗" : "↘"}
+                {card.trend.value}%
               </span>
             )}
           </div>
           {card.description && (
-            <p className="text-xs text-gray-500 mt-1">{card.description}</p>
+            <p className="text-xs text-gray-500 mt-1 truncate">
+              {card.description}
+            </p>
           )}
         </div>
-        <IconComponent className={cn("h-8 w-8", colors.icon)} />
+        <IconComponent
+          className={cn("h-6 w-6 flex-shrink-0 ml-2", colors.icon)}
+        />
       </div>
     </div>
   );
@@ -129,26 +138,9 @@ export function StatisticsCards({
   columns = 6,
   loading = false,
 }: StatisticsCardsProps) {
-  const gridCols =
-    {
-      2: "grid-cols-2",
-      3: "grid-cols-3",
-      4: "grid-cols-4",
-      5: "grid-cols-5",
-      6: "grid-cols-6",
-      7: "grid-cols-7",
-      8: "grid-cols-8",
-    }[columns] || "grid-cols-6";
-
   if (loading) {
     return (
-      <div
-        className={cn(
-          "grid gap-4",
-          `lg:${gridCols}`,
-          "grid-cols-2",
-          className
-        )}>
+      <div className={cn("flex gap-3 overflow-x-auto pb-2", className)}>
         {Array.from({ length: columns }).map((_, index) => (
           <StatisticCardSkeleton key={index} />
         ))}
@@ -157,8 +149,7 @@ export function StatisticsCards({
   }
 
   return (
-    <div
-      className={cn("grid gap-4", `lg:${gridCols}`, "grid-cols-2", className)}>
+    <div className={cn("flex gap-3 overflow-x-auto pb-2", className)}>
       {cards.map((card) => (
         <StatisticCardComponent key={card.key} card={card} />
       ))}
