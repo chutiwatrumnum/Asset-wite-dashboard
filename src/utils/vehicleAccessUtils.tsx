@@ -110,12 +110,44 @@ export const getRegionName = (areaCode: string): string => {
 
 // Snapshot info parsing
 export const parseSnapshotInfo = (
-  snapshotInfoString: string
+  snapshotInfoString: string | any
 ): SnapshotInfo | null => {
+  // ตรวจสอบว่าเป็น null, undefined หรือ empty
+  if (!snapshotInfoString) {
+    return null;
+  }
+
+  // ถ้าเป็น object อยู่แล้ว ให้ return โดยตรง
+  if (typeof snapshotInfoString === "object") {
+    try {
+      return {
+        confidence: snapshotInfoString.confidence || 0,
+        processing_time: snapshotInfoString.processing_time || 0,
+        camera_id: snapshotInfoString.camera_id || "UNKNOWN",
+        ...snapshotInfoString,
+      };
+    } catch (error) {
+      console.error("Error processing snapshot object:", error);
+      return null;
+    }
+  }
+
+  // ถ้าไม่ใช่ string ให้แปลงเป็น string ก่อน
+  if (typeof snapshotInfoString !== "string") {
+    try {
+      snapshotInfoString = String(snapshotInfoString);
+    } catch (error) {
+      console.error("Error converting to string:", error);
+      return null;
+    }
+  }
+
+  // ตรวจสอบว่าเป็น empty string หลังจากแปลงแล้ว
   if (!snapshotInfoString || snapshotInfoString.trim() === "") {
     return null;
   }
 
+  // ลองแปลง JSON string เป็น object
   try {
     const parsed = JSON.parse(snapshotInfoString);
     return {
@@ -125,8 +157,21 @@ export const parseSnapshotInfo = (
       ...parsed,
     };
   } catch (error) {
-    console.error("Error parsing snapshot info:", error);
-    return null;
+    console.error("Error parsing snapshot info JSON:", error);
+
+    // ถ้า parse ไม่ได้ ลองตรวจสอบว่าเป็น plain text หรือไม่
+    try {
+      // ถ้าเป็น string ธรรมดา ให้สร้าง object เริ่มต้น
+      return {
+        confidence: 0,
+        processing_time: 0,
+        camera_id: snapshotInfoString.substring(0, 20) || "UNKNOWN", // ใช้ข้อความบางส่วนเป็น camera_id
+        raw_data: snapshotInfoString,
+      };
+    } catch (fallbackError) {
+      console.error("Fallback parsing failed:", fallbackError);
+      return null;
+    }
   }
 };
 
