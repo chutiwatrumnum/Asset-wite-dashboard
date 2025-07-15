@@ -1,6 +1,6 @@
 // src/routes/_authenticated/history-in-out.tsx
 import Pb from "@/api/pocketbase";
-import PassageLogs from "@/pages/passage-log";
+import PassageLogs from "@/pages/passage_log"; // ✅ แก้ไข path ให้ตรงกับโฟลเดอร์จริง
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 const accessRoleLst = ["master", "staff"];

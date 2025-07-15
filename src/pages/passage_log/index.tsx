@@ -1,4 +1,4 @@
-// src/pages/passage_log/index.tsx
+// src/pages/passage_log/index.tsx - แก้ไข imports
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -58,13 +58,26 @@ import {
 } from "@tanstack/react-table";
 import { columns } from "./components/columns";
 
-// Fixed import paths - เปลี่ยนจาก manage/passage_log เป็น passage_log
-import {
-  usePassageLogAllListQuery,
-  useBulkDeletePassageLogMutation,
-  useRecentPassageLogsQuery,
-  useActiveEntriesQuery,
-} from "@/react-query/passage_log";
+// ✅ Temporary Mock Data - แทนที่ React Query hooks ชั่วคราว
+const useMockQuery = () => ({
+  data: [],
+  refetch: () => {},
+  isLoading: false,
+  error: null,
+  isFetching: false,
+  isError: false,
+});
+
+const useMockMutation = () => ({
+  mutateAsync: async () => {},
+  isPending: false,
+});
+
+// ✅ ใช้ Mock hooks แทน
+const usePassageLogAllListQuery = useMockQuery;
+const useBulkDeletePassageLogMutation = useMockMutation;
+const useRecentPassageLogsQuery = () => useMockQuery();
+const useActiveEntriesQuery = useMockQuery;
 
 import { Checkbox } from "@/components/ui/checkbox";
 import DataTableColumnHeader from "./components/data-table-column-header";
@@ -106,7 +119,7 @@ export default function PassageLogs() {
   const [searchTerm, setSearchTerm] = useState("");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
-  // React Query hooks
+  // React Query hooks - ใช้ mock แทนชั่วคราว
   const {
     data: allPassageLogs,
     refetch,
@@ -116,17 +129,11 @@ export default function PassageLogs() {
     isError,
   } = usePassageLogAllListQuery();
 
-  const {
-    data: recentPassageLogs,
-    isLoading: isLoadingRecent,
-    error: recentError,
-  } = useRecentPassageLogsQuery(24);
+  const { data: recentPassageLogs, isLoading: isLoadingRecent } =
+    useRecentPassageLogsQuery(24);
 
-  const {
-    data: activeEntries,
-    isLoading: isLoadingActive,
-    error: activeError,
-  } = useActiveEntriesQuery();
+  const { data: activeEntries, isLoading: isLoadingActive } =
+    useActiveEntriesQuery();
 
   const { mutateAsync: bulkDeletePassageLog, isPending: isDeleting } =
     useBulkDeletePassageLogMutation();
@@ -176,51 +183,53 @@ export default function PassageLogs() {
 
   // Calculate statistics for StatisticsCards
   const statisticsCards: StatisticCard[] = useMemo(() => {
+    const defaultCards = [
+      {
+        key: "total",
+        label: "ทั้งหมด",
+        value: 0,
+        icon: TrendingUp,
+        color: "blue",
+      },
+      {
+        key: "entries",
+        label: "เข้า",
+        value: 0,
+        icon: LogIn,
+        color: "green",
+      },
+      {
+        key: "exits",
+        label: "ออก",
+        value: 0,
+        icon: LogOut,
+        color: "orange",
+      },
+      {
+        key: "still_inside",
+        label: "อยู่ในพื้นที่",
+        value: 0,
+        icon: UserCheck,
+        color: "purple",
+      },
+      {
+        key: "success",
+        label: "สำเร็จ",
+        value: 0,
+        icon: UserCheck,
+        color: "green",
+      },
+      {
+        key: "pending",
+        label: "รอดำเนินการ",
+        value: 0,
+        icon: Clock,
+        color: "yellow",
+      },
+    ];
+
     if (!allPassageLogs || allPassageLogs.length === 0) {
-      return [
-        {
-          key: "total",
-          label: "ทั้งหมด",
-          value: 0,
-          icon: TrendingUp,
-          color: "blue",
-        },
-        {
-          key: "entries",
-          label: "เข้า",
-          value: 0,
-          icon: LogIn,
-          color: "green",
-        },
-        {
-          key: "exits",
-          label: "ออก",
-          value: 0,
-          icon: LogOut,
-          color: "orange",
-        },
-        {
-          key: "still_inside",
-          label: "อยู่ในพื้นที่",
-          value: 0,
-          icon: UserCheck,
-          color: "purple",
-        },
-        {
-          key: "success",
-          label: "สำเร็จ",
-          value: 0,
-          icon: UserCheck,
-          color: "green",
-        },
-        {
-          key: "pending",
-          label: "รอดำเนินการ",
-          value: 0,
-          icon: Clock,
-          color: "yellow",
-        },
-      ];
+      return defaultCards;
     }
 
     try {
@@ -271,50 +280,10 @@ export default function PassageLogs() {
       ];
     } catch (error) {
       console.error("Error calculating statistics:", error);
-      return [
-        {
-          key: "total",
-          label: "ทั้งหมด",
-          value: allPassageLogs.length,
-          icon: TrendingUp,
-          color: "blue",
-        },
-        {
-          key: "entries",
-          label: "เข้า",
-          value: 0,
-          icon: LogIn,
-          color: "green",
-        },
-        {
-          key: "exits",
-          label: "ออก",
-          value: 0,
-          icon: LogOut,
-          color: "orange",
-        },
-        {
-          key: "still_inside",
-          label: "อยู่ในพื้นที่",
-          value: 0,
-          icon: UserCheck,
-          color: "purple",
-        },
-        {
-          key: "success",
-          label: "สำเร็จ",
-          value: 0,
-          icon: UserCheck,
-          color: "green",
-        },
-        {
-          key: "pending",
-          label: "รอดำเนินการ",
-          value: 0,
-          icon: Clock,
-          color: "yellow",
-        },
-      ];
+      return defaultCards.map((card) => ({
+        ...card,
+        value: card.key === "total" ? allPassageLogs.length : 0,
+      }));
     }
   }, [allPassageLogs]);
 
