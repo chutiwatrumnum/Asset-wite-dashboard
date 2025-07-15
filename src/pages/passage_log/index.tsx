@@ -1,4 +1,3 @@
-// src/pages/passage_log/index.tsx - แก้ไข imports
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -6,13 +5,13 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
   RefreshCw,
-  Plus,
   TrendingUp,
   LogIn,
   LogOut,
   UserCheck,
   Clock,
   Search,
+  FileText,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -31,7 +30,6 @@ import {
   StatisticsCards,
   StatisticCard,
 } from "@/components/ui/statistics-cards";
-import { BulkActionBar } from "@/components/ui/bulk-action-bar";
 import {
   SearchResultsSummary,
   ActiveFilter,
@@ -42,7 +40,6 @@ import { ErrorState } from "@/components/ui/error-state";
 // Existing components
 import DataTableBody from "./components/data-table-body";
 import DataTablePagination from "./components/data-table-pagination";
-import { CreatePassageLogDialog } from "./components/create-passage-log-dialog";
 import { PassageLogSearch } from "@/components/ui/passage-log-search";
 
 // React Table and other imports
@@ -58,26 +55,12 @@ import {
 } from "@tanstack/react-table";
 import { columns } from "./components/columns";
 
-// ✅ Temporary Mock Data - แทนที่ React Query hooks ชั่วคราว
-const useMockQuery = () => ({
-  data: [],
-  refetch: () => {},
-  isLoading: false,
-  error: null,
-  isFetching: false,
-  isError: false,
-});
-
-const useMockMutation = () => ({
-  mutateAsync: async () => {},
-  isPending: false,
-});
-
-// ✅ ใช้ Mock hooks แทน
-const usePassageLogAllListQuery = useMockQuery;
-const useBulkDeletePassageLogMutation = useMockMutation;
-const useRecentPassageLogsQuery = () => useMockQuery();
-const useActiveEntriesQuery = useMockQuery;
+// ✅ ใช้ real API calls แต่เพิ่ม fallback
+import {
+  usePassageLogAllListQuery,
+  useRecentPassageLogsQuery,
+  useActiveEntriesQuery,
+} from "@/react-query/manage/passage_log";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import DataTableColumnHeader from "./components/data-table-column-header";
@@ -88,6 +71,7 @@ import {
   preparePassageLogDataForExport,
   sortPassageLogs,
 } from "@/utils/passageLogUtils";
+import type { PassageLogItem } from "@/api/passage_log/passage_log";
 
 interface PassageLogSearchFilters {
   visitorName?: string;
@@ -100,6 +84,30 @@ interface PassageLogSearchFilters {
     end?: string;
   };
 }
+
+// ✅ Mock data เป็น fallback
+const FALLBACK_DATA: PassageLogItem[] = [
+  {
+    id: "mock-1",
+    collectionId: "mock",
+    collectionName: "passage_log",
+    visitor_name: "ทดสอบ ระบบ",
+    entry_time: new Date().toISOString(),
+    exit_time: null,
+    passage_type: "entry",
+    location_area: "พื้นที่ทดสอบ",
+    verification_method: "manual",
+    verification_data: "",
+    staff_verified_by: "",
+    invitation_id: "",
+    vehicle_id: "",
+    house_id: "",
+    notes: "ข้อมูลทดสอบ",
+    status: "success",
+    created: new Date().toISOString(),
+    updated: new Date().toISOString(),
+  },
+];
 
 export default function PassageLogs() {
   // State declarations
@@ -117,9 +125,9 @@ export default function PassageLogs() {
     {}
   );
   const [searchTerm, setSearchTerm] = useState("");
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [useFallbackData, setUseFallbackData] = useState(false);
 
-  // React Query hooks - ใช้ mock แทนชั่วคราว
+  // ✅ React Query hooks with better error handling
   const {
     data: allPassageLogs,
     refetch,
@@ -129,31 +137,59 @@ export default function PassageLogs() {
     isError,
   } = usePassageLogAllListQuery();
 
-  const { data: recentPassageLogs, isLoading: isLoadingRecent } =
-    useRecentPassageLogsQuery(24);
+  const { data: recentPassageLogs } = useRecentPassageLogsQuery(24);
+  const { data: activeEntries } = useActiveEntriesQuery();
 
-  const { data: activeEntries, isLoading: isLoadingActive } =
-    useActiveEntriesQuery();
-
-  const { mutateAsync: bulkDeletePassageLog, isPending: isDeleting } =
-    useBulkDeletePassageLogMutation();
-
-  // Auto-retry on mount หากมี error
+  // ✅ Enhanced debug logging
   useEffect(() => {
-    if (isError && !isLoading && !isFetching) {
-      console.log("Auto-retrying failed query...");
-      setTimeout(() => {
-        refetch();
-      }, 1000);
-    }
-  }, [isError, isLoading, isFetching, refetch]);
+    console.log("🔍 Passage Log Debug Info:", {
+      allPassageLogs,
+      isLoading,
+      isError,
+      error: error?.message,
+      dataLength: allPassageLogs?.length || 0,
+      dataType: typeof allPassageLogs,
+      isArray: Array.isArray(allPassageLogs),
+      firstItem: allPassageLogs?.[0],
+      useFallbackData,
+    });
 
-  // Memoized filtered and sorted data
+    // ✅ Auto-switch to fallback data if API fails
+    if (isError && !useFallbackData) {
+      console.warn("⚠️ API Error detected, switching to fallback data");
+      setUseFallbackData(true);
+      toast.warning("เกิดข้อผิดพลาดในการโหลดข้อมูล กำลังใช้ข้อมูลทดสอบ", {
+        description: "กรุณาตรวจสอบการเชื่อมต่อเซิร์ฟเวอร์",
+        duration: 5000,
+      });
+    }
+  }, [allPassageLogs, isLoading, isError, error, useFallbackData]);
+
+  // ✅ Safe data processing with fallback
   const processedData = useMemo(() => {
-    if (!allPassageLogs || allPassageLogs.length === 0) return [];
+    let sourceData: PassageLogItem[] = [];
+
+    // Determine data source
+    if (useFallbackData) {
+      sourceData = FALLBACK_DATA;
+    } else if (Array.isArray(allPassageLogs) && allPassageLogs.length > 0) {
+      sourceData = allPassageLogs;
+    } else {
+      sourceData = [];
+    }
+
+    console.log("📊 Processing data:", {
+      sourceLength: sourceData.length,
+      source: useFallbackData ? "fallback" : "api",
+      firstItem: sourceData[0],
+    });
+
+    if (sourceData.length === 0) {
+      return [];
+    }
 
     try {
-      let filtered = [...allPassageLogs];
+      let filtered = [...sourceData];
 
       if (searchTerm.trim()) {
         filtered = searchPassageLogs(filtered, {
@@ -176,12 +212,12 @@ export default function PassageLogs() {
 
       return filtered;
     } catch (error) {
-      console.error("Error processing passage log data:", error);
-      return allPassageLogs;
+      console.error("❌ Error processing passage log data:", error);
+      return sourceData; // Return unprocessed data as fallback
     }
-  }, [allPassageLogs, searchFilters, searchTerm, sorting]);
+  }, [allPassageLogs, searchFilters, searchTerm, sorting, useFallbackData]);
 
-  // Calculate statistics for StatisticsCards
+  // ✅ Safe statistics calculation
   const statisticsCards: StatisticCard[] = useMemo(() => {
     const defaultCards = [
       {
@@ -228,12 +264,14 @@ export default function PassageLogs() {
       },
     ];
 
-    if (!allPassageLogs || allPassageLogs.length === 0) {
+    const sourceData = useFallbackData ? FALLBACK_DATA : allPassageLogs;
+
+    if (!sourceData || sourceData.length === 0) {
       return defaultCards;
     }
 
     try {
-      const stats = getPassageLogStatistics(allPassageLogs);
+      const stats = getPassageLogStatistics(sourceData);
       return [
         {
           key: "total",
@@ -279,15 +317,15 @@ export default function PassageLogs() {
         },
       ];
     } catch (error) {
-      console.error("Error calculating statistics:", error);
+      console.error("❌ Error calculating statistics:", error);
       return defaultCards.map((card) => ({
         ...card,
-        value: card.key === "total" ? allPassageLogs.length : 0,
+        value: card.key === "total" ? sourceData.length : 0,
       }));
     }
-  }, [allPassageLogs]);
+  }, [allPassageLogs, useFallbackData]);
 
-  // Table setup with action column
+  // ✅ Safe table setup with better error handling
   const columnsWithActions = useMemo(
     () => [
       // Selection column
@@ -316,19 +354,34 @@ export default function PassageLogs() {
         enableHiding: false,
       },
       ...columns,
-      // Action column
+      // Action column with safe rendering
       {
         id: "action",
         header: () => (
           <div className="flex justify-center items-center">
-            <DataTableColumnHeader title="การดำเนินการ" />
+            <DataTableColumnHeader title="ดูรายละเอียด" />
           </div>
         ),
-        cell: ({ row }: any) => (
-          <div className="flex justify-center items-center">
-            <PassageLogActionButton info={row} />
-          </div>
-        ),
+        cell: ({ row }: any) => {
+          // ✅ Safe check before rendering
+          if (!row?.original) {
+            console.warn("⚠️ Row original is undefined:", row);
+            return (
+              <div className="flex justify-center items-center">
+                <Button variant="ghost" size="sm" disabled>
+                  <FileText className="h-4 w-4" />
+                  ดู
+                </Button>
+              </div>
+            );
+          }
+
+          return (
+            <div className="flex justify-center items-center">
+              <PassageLogActionButton info={row} />
+            </div>
+          );
+        },
         enableHiding: false,
         enableSorting: false,
       },
@@ -337,7 +390,7 @@ export default function PassageLogs() {
   );
 
   const table = useReactTable({
-    data: processedData,
+    data: processedData || [], // ✅ Ensure data is never undefined
     columns: columnsWithActions,
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
@@ -417,35 +470,22 @@ export default function PassageLogs() {
     return filters;
   }, [searchTerm, searchFilters]);
 
-  // Bulk actions
+  // Export functions
   const selectedRows = table.getFilteredSelectedRowModel().rows;
   const selectedCount = selectedRows.length;
   const hasSelection = selectedCount > 0;
 
-  const handleBulkDelete = async () => {
-    try {
-      const selectedIds = selectedRows.map(
-        (row) => row.getValue("id") as string
-      );
-
-      await bulkDeletePassageLog(selectedIds);
-
-      // Reset selection
-      setRowSelection({});
-
-      toast.success(`ลบประวัติการเข้าออกสำเร็จ ${selectedCount} รายการ`);
-    } catch (error) {
-      console.error("Bulk delete error:", error);
-      toast.error("เกิดข้อผิดพลาดในการลบข้อมูล");
-    }
-  };
-
   const handleExportSelected = () => {
     try {
-      const selectedData = selectedRows.map((row) => row.original);
-      const exportData = preparePassageLogDataForExport(selectedData);
+      const selectedData = selectedRows
+        .map((row) => row.original)
+        .filter(Boolean);
+      if (selectedData.length === 0) {
+        toast.warning("ไม่มีข้อมูลที่เลือกสำหรับส่งออก");
+        return;
+      }
 
-      // Convert to CSV
+      const exportData = preparePassageLogDataForExport(selectedData);
       const headers = Object.keys(exportData[0] || {});
       const csvContent = [
         headers.join(","),
@@ -454,7 +494,6 @@ export default function PassageLogs() {
         ),
       ].join("\n");
 
-      // Download
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
@@ -477,9 +516,12 @@ export default function PassageLogs() {
 
   const handleExportAll = () => {
     try {
-      const exportData = preparePassageLogDataForExport(processedData);
+      if (processedData.length === 0) {
+        toast.warning("ไม่มีข้อมูลสำหรับส่งออก");
+        return;
+      }
 
-      // Convert to CSV
+      const exportData = preparePassageLogDataForExport(processedData);
       const headers = Object.keys(exportData[0] || {});
       const csvContent = [
         headers.join(","),
@@ -488,7 +530,6 @@ export default function PassageLogs() {
         ),
       ].join("\n");
 
-      // Download
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
@@ -509,20 +550,54 @@ export default function PassageLogs() {
     }
   };
 
-  // Error state
-  if (isError && !isFetching) {
+  // ✅ Loading state with better UX
+  if (isLoading && !useFallbackData) {
+    return (
+      <div className="p-6 space-y-6">
+        <PageHeader
+          title="ประวัติการเข้าออก"
+          description="กำลังโหลดข้อมูล..."
+        />
+        <div className="flex justify-center items-center h-64">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-2"></div>
+            <span className="text-sm text-muted-foreground">
+              กำลังโหลดข้อมูล...
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ Error state with retry option
+  if (isError && !isFetching && !useFallbackData) {
     return (
       <div className="p-6">
         <ErrorState
           title="ไม่สามารถโหลดข้อมูลประวัติการเข้าออกได้"
           message={error?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล"}
-          onRetry={refetch}
+          onRetry={() => {
+            setUseFallbackData(false);
+            refetch();
+          }}
           isLoading={isFetching}
           showRetry={true}
+          actions={[
+            {
+              key: "fallback",
+              label: "ใช้ข้อมูลทดสอบ",
+              onClick: () => setUseFallbackData(true),
+              variant: "outline",
+            },
+          ]}
         />
       </div>
     );
   }
+
+  const dataSource = useFallbackData ? FALLBACK_DATA : allPassageLogs;
+  const totalCount = dataSource?.length || 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -531,31 +606,43 @@ export default function PassageLogs() {
       {/* Page Header */}
       <PageHeader
         title="ประวัติการเข้าออก"
-        description="จัดการและติดตามประวัติการเข้าออกของผู้เยี่ยม"
+        description={
+          useFallbackData
+            ? "ดูและติดตามประวัติการเข้าออกของผู้เยี่ยม (ข้อมูลทดสอบ)"
+            : "ดูและติดตามประวัติการเข้าออกของผู้เยี่ยม (อ่านอย่างเดียว)"
+        }
         actions={[
           {
             key: "refresh",
             label: isFetching ? "กำลังโหลด..." : "รีเฟรช",
             icon: RefreshCw,
-            onClick: refetch,
+            onClick: () => {
+              setUseFallbackData(false);
+              refetch();
+            },
             disabled: isFetching,
             variant: "outline",
           },
-          {
-            key: "create",
-            label: "บันทึกการเข้าออก",
-            icon: Plus,
-            onClick: () => setCreateDialogOpen(true),
-            variant: "default",
-          },
         ]}
+        alerts={
+          useFallbackData
+            ? [
+                {
+                  type: "warning",
+                  message: "กำลังใช้ข้อมูลทดสอบ",
+                  description:
+                    "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กำลังแสดงข้อมูลตัวอย่าง",
+                },
+              ]
+            : []
+        }
       />
 
       {/* Statistics Cards */}
       <StatisticsCards
         cards={statisticsCards}
         columns={6}
-        loading={isLoading}
+        loading={isLoading && !useFallbackData}
       />
 
       {/* Search and Filters */}
@@ -565,7 +652,7 @@ export default function PassageLogs() {
       <SearchResultsSummary
         isVisible={activeFilters.length > 0}
         resultCount={processedData.length}
-        totalCount={allPassageLogs?.length || 0}
+        totalCount={totalCount}
         activeFilters={activeFilters}
         onClearAll={() => {
           setSearchTerm("");
@@ -578,30 +665,50 @@ export default function PassageLogs() {
       <div className="flex items-center justify-between py-4">
         <div className="text-sm text-muted-foreground">
           แสดง {processedData.length.toLocaleString()} จาก{" "}
-          {allPassageLogs?.length.toLocaleString() || 0} รายการ
+          {totalCount.toLocaleString()} รายการ
           {hasSelection && (
             <span className="ml-2 text-blue-600">
-              (เลือก {selectedCount.toLocaleString()} รายการ)
+              (เลือก {selectedCount.toLocaleString()} รายการสำหรับส่งออก)
             </span>
           )}
         </div>
 
-        {/* Column Visibility Toggle */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="gap-2">
-              <LucideSettings2 className="h-4 w-4" />
-              จัดการคอลัมน์
+        <div className="flex gap-2">
+          {hasSelection && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportSelected}
+              className="gap-2">
+              <FileText className="h-4 w-4" />
+              ส่งออกที่เลือก ({selectedCount})
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>แสดง/ซ่อนคอลัมน์</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            {table
-              .getAllColumns()
-              .filter((column) => column.getCanHide())
-              .map((column) => {
-                return (
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleExportAll}
+            className="gap-2"
+            disabled={processedData.length === 0}>
+            <FileText className="h-4 w-4" />
+            ส่งออกทั้งหมด
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <LucideSettings2 className="h-4 w-4" />
+                จัดการคอลัมน์
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>แสดง/ซ่อนคอลัมน์</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              {table
+                .getAllColumns()
+                .filter((column) => column.getCanHide())
+                .map((column) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
                     className="capitalize"
@@ -609,35 +716,26 @@ export default function PassageLogs() {
                     onCheckedChange={(value) => column.toggleVisibility(value)}>
                     {column.id}
                   </DropdownMenuCheckboxItem>
-                );
-              })}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Data Table */}
-      {isLoading ? (
-        <div className="flex justify-center items-center h-64">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-        </div>
-      ) : processedData.length === 0 ? (
+      {processedData.length === 0 ? (
         <EmptyState
           icon={Search}
           title="ไม่พบประวัติการเข้าออก"
           description={
             activeFilters.length > 0
               ? "ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา ลองปรับเปลี่ยนตัวกรองหรือล้างตัวกรอง"
-              : "ยังไม่มีประวัติการเข้าออกในระบบ เริ่มต้นโดยการบันทึกการเข้าออกใหม่"
+              : useFallbackData
+                ? "กำลังใช้ข้อมูลทดสอบ แต่ไม่มีข้อมูลที่จะแสดง"
+                : "ยังไม่มีประวัติการเข้าออกในระบบ"
           }
-          actions={[
-            {
-              key: "create",
-              label: "บันทึกการเข้าออกใหม่",
-              onClick: () => setCreateDialogOpen(true),
-              variant: "default",
-              icon: Plus,
-            },
-            ...(activeFilters.length > 0
+          actions={
+            activeFilters.length > 0
               ? [
                   {
                     key: "clear",
@@ -646,11 +744,23 @@ export default function PassageLogs() {
                       setSearchTerm("");
                       setSearchFilters({});
                     },
-                    variant: "outline" as const,
+                    variant: "outline",
                   },
                 ]
-              : []),
-          ]}
+              : useFallbackData
+                ? [
+                    {
+                      key: "retry",
+                      label: "ลองเชื่อมต่อใหม่",
+                      onClick: () => {
+                        setUseFallbackData(false);
+                        refetch();
+                      },
+                      variant: "default",
+                    },
+                  ]
+                : []
+          }
         />
       ) : (
         <>
@@ -663,34 +773,31 @@ export default function PassageLogs() {
         </>
       )}
 
-      {/* Bulk Action Bar */}
-      <BulkActionBar
-        selectedCount={selectedCount}
-        isVisible={hasSelection}
-        isLoading={isDeleting}
-        onReset={() => setRowSelection({})}
-        onExport={handleExportSelected}
-        onDelete={handleBulkDelete}
-        customActions={[
-          {
-            key: "export-all",
-            label: "ส่งออกทั้งหมด",
-            onClick: handleExportAll,
-            variant: "outline",
-          },
-        ]}
-      />
-
-      {/* Create Dialog */}
-      <CreatePassageLogDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onPassageLogCreated={() => {
-          refetch();
-          setCreateDialogOpen(false);
-        }}
-        showTriggerButton={false}
-      />
+      {/* Selection Bar */}
+      {hasSelection && (
+        <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50">
+          <div className="bg-card border border-border rounded-lg shadow-lg px-4 py-3 flex items-center gap-4">
+            <span className="text-sm font-medium">
+              เลือกแล้ว {selectedCount.toLocaleString()} รายการ
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setRowSelection({})}
+              className="gap-2">
+              ยกเลิกการเลือก
+            </Button>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={handleExportSelected}
+              className="gap-2">
+              <FileText className="h-4 w-4" />
+              ส่งออกที่เลือก
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
