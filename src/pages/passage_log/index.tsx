@@ -57,12 +57,15 @@ import {
   SortingState,
 } from "@tanstack/react-table";
 import { columns } from "./components/columns";
+
+// Fixed import paths - เปลี่ยนจาก manage/passage_log เป็น passage_log
 import {
   usePassageLogAllListQuery,
   useBulkDeletePassageLogMutation,
   useRecentPassageLogsQuery,
   useActiveEntriesQuery,
-} from "@/react-query/manage/passage_log";
+} from "@/react-query/passage_log";
+
 import { Checkbox } from "@/components/ui/checkbox";
 import DataTableColumnHeader from "./components/data-table-column-header";
 import PassageLogActionButton from "./components/data-table-action-button";

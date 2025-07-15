@@ -11,7 +11,7 @@ import {
     usePatchPassageLogMutation,
     useDeletePassageLogMutation,
     useBulkDeletePassageLogMutation
-} from './passage_log'
+} from './passage_log';
 
 export {
     usePassageLogListQuery,
@@ -25,4 +25,4 @@ export {
     usePatchPassageLogMutation,
     useDeletePassageLogMutation,
     useBulkDeletePassageLogMutation
-}
+};
