@@ -17,6 +17,7 @@ import { Route as AuthenticatedImport } from './routes/_authenticated'
 import { Route as ForbiddenImport } from './routes/Forbidden'
 import { Route as IndexImport } from './routes/index'
 import { Route as AuthenticatedVehiclesImport } from './routes/_authenticated/vehicles'
+import { Route as AuthenticatedVehicleAccessImport } from './routes/_authenticated/vehicle-access'
 import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
 import { Route as AuthenticatedResidentsImport } from './routes/_authenticated/residents'
 import { Route as AuthenticatedInvitationsImport } from './routes/_authenticated/invitations'
@@ -58,6 +59,14 @@ const AuthenticatedVehiclesRoute = AuthenticatedVehiclesImport.update({
   path: '/vehicles',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
+
+const AuthenticatedVehicleAccessRoute = AuthenticatedVehicleAccessImport.update(
+  {
+    id: '/vehicle-access',
+    path: '/vehicle-access',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any,
+)
 
 const AuthenticatedSaffRoute = AuthenticatedSaffImport.update({
   id: '/saff',
@@ -150,6 +159,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSaffImport
       parentRoute: typeof AuthenticatedImport
     }
+    '/_authenticated/vehicle-access': {
+      id: '/_authenticated/vehicle-access'
+      path: '/vehicle-access'
+      fullPath: '/vehicle-access'
+      preLoaderRoute: typeof AuthenticatedVehicleAccessImport
+      parentRoute: typeof AuthenticatedImport
+    }
     '/_authenticated/vehicles': {
       id: '/_authenticated/vehicles'
       path: '/vehicles'
@@ -167,6 +183,7 @@ interface AuthenticatedRouteChildren {
   AuthenticatedInvitationsRoute: typeof AuthenticatedInvitationsRoute
   AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
   AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
+  AuthenticatedVehicleAccessRoute: typeof AuthenticatedVehicleAccessRoute
   AuthenticatedVehiclesRoute: typeof AuthenticatedVehiclesRoute
 }
 
@@ -175,6 +192,7 @@ const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedInvitationsRoute: AuthenticatedInvitationsRoute,
   AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
   AuthenticatedSaffRoute: AuthenticatedSaffRoute,
+  AuthenticatedVehicleAccessRoute: AuthenticatedVehicleAccessRoute,
   AuthenticatedVehiclesRoute: AuthenticatedVehiclesRoute,
 }
 
@@ -192,6 +210,7 @@ export interface FileRoutesByFullPath {
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
+  '/vehicle-access': typeof AuthenticatedVehicleAccessRoute
   '/vehicles': typeof AuthenticatedVehiclesRoute
 }
 
@@ -205,6 +224,7 @@ export interface FileRoutesByTo {
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
+  '/vehicle-access': typeof AuthenticatedVehicleAccessRoute
   '/vehicles': typeof AuthenticatedVehiclesRoute
 }
 
@@ -219,6 +239,7 @@ export interface FileRoutesById {
   '/_authenticated/invitations': typeof AuthenticatedInvitationsRoute
   '/_authenticated/residents': typeof AuthenticatedResidentsRoute
   '/_authenticated/saff': typeof AuthenticatedSaffRoute
+  '/_authenticated/vehicle-access': typeof AuthenticatedVehicleAccessRoute
   '/_authenticated/vehicles': typeof AuthenticatedVehiclesRoute
 }
 
@@ -234,6 +255,7 @@ export interface FileRouteTypes {
     | '/invitations'
     | '/residents'
     | '/saff'
+    | '/vehicle-access'
     | '/vehicles'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -246,6 +268,7 @@ export interface FileRouteTypes {
     | '/invitations'
     | '/residents'
     | '/saff'
+    | '/vehicle-access'
     | '/vehicles'
   id:
     | '__root__'
@@ -258,6 +281,7 @@ export interface FileRouteTypes {
     | '/_authenticated/invitations'
     | '/_authenticated/residents'
     | '/_authenticated/saff'
+    | '/_authenticated/vehicle-access'
     | '/_authenticated/vehicles'
   fileRoutesById: FileRoutesById
 }
@@ -308,6 +332,7 @@ export const routeTree = rootRoute
         "/_authenticated/invitations",
         "/_authenticated/residents",
         "/_authenticated/saff",
+        "/_authenticated/vehicle-access",
         "/_authenticated/vehicles"
       ]
     },
@@ -331,6 +356,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/saff": {
       "filePath": "_authenticated/saff.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/vehicle-access": {
+      "filePath": "_authenticated/vehicle-access.tsx",
       "parent": "/_authenticated"
     },
     "/_authenticated/vehicles": {

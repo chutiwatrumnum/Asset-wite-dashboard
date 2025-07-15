@@ -1,4 +1,4 @@
-// src/pages/vehicle_access/index.tsx
+// src/pages/vehicle_access/index.tsx (แก้ไขแล้ว)
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -13,7 +13,6 @@ import {
   Camera,
   Search,
   FileText,
-  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,10 +38,10 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 
-// Existing components (adapted for vehicle access)
+// Local components
 import DataTableBody from "./components/data-table-body";
 import DataTablePagination from "./components/data-table-pagination";
-import { VehicleAccessSearch } from "@/components/ui/vehicle-access-search";
+import { VehicleAccessSearch } from "@/components/ui/vehicle-access-search.tsx";
 
 // React Table and other imports
 import {

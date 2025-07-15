@@ -1,3 +1,4 @@
+// src/components/app-sidebar.tsx (อัปเดต)
 import * as React from "react";
 import Pb from "@/api/pocketbase.tsx";
 import { NavMain } from "@/components/nav-main";
@@ -15,6 +16,8 @@ import {
   LucideUserRound,
   LucideHome,
   GlassesIcon,
+  Camera,
+  Activity,
 } from "lucide-react";
 import {
   Sidebar,
@@ -100,6 +103,25 @@ const data = {
       ],
     },
     {
+      title: "ระบบเข้าออกยานพาหนะ",
+      url: "/vehicle-access",
+      icon: Camera,
+      items: [
+        {
+          title: "การเข้าออกทั้งหมด",
+          url: "/vehicle-access",
+        },
+        {
+          title: "การเข้าออกวันนี้",
+          url: "/vehicle-access?date=today",
+        },
+        {
+          title: "รายงานสถิติ",
+          url: "/vehicle-access?view=statistics",
+        },
+      ],
+    },
+    {
       title: "ประวัติการเข้าออก",
       url: "/history-in-out",
       icon: LucideFileClock,
@@ -115,6 +137,10 @@ const data = {
         {
           title: "บัตรเชิญ",
           url: "/invitation-history",
+        },
+        {
+          title: "ระบบ AI รู้จำป้าย",
+          url: "/vehicle-access",
         },
       ],
     },
