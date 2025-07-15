@@ -20,6 +20,7 @@ import { Route as AuthenticatedVehiclesImport } from './routes/_authenticated/ve
 import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
 import { Route as AuthenticatedResidentsImport } from './routes/_authenticated/residents'
 import { Route as AuthenticatedInvitationsImport } from './routes/_authenticated/invitations'
+import { Route as AuthenticatedHistoryInOutImport } from './routes/_authenticated/history-in-out'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
 
 // Create/Update Routes
@@ -77,6 +78,12 @@ const AuthenticatedInvitationsRoute = AuthenticatedInvitationsImport.update({
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 
+const AuthenticatedHistoryInOutRoute = AuthenticatedHistoryInOutImport.update({
+  id: '/history-in-out',
+  path: '/history-in-out',
+  getParentRoute: () => AuthenticatedRoute,
+} as any)
+
 const AuthenticatedDashboardRoute = AuthenticatedDashboardImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -129,6 +136,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardImport
       parentRoute: typeof AuthenticatedImport
     }
+    '/_authenticated/history-in-out': {
+      id: '/_authenticated/history-in-out'
+      path: '/history-in-out'
+      fullPath: '/history-in-out'
+      preLoaderRoute: typeof AuthenticatedHistoryInOutImport
+      parentRoute: typeof AuthenticatedImport
+    }
     '/_authenticated/invitations': {
       id: '/_authenticated/invitations'
       path: '/invitations'
@@ -164,6 +178,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedHistoryInOutRoute: typeof AuthenticatedHistoryInOutRoute
   AuthenticatedInvitationsRoute: typeof AuthenticatedInvitationsRoute
   AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
   AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
@@ -172,6 +187,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedHistoryInOutRoute: AuthenticatedHistoryInOutRoute,
   AuthenticatedInvitationsRoute: AuthenticatedInvitationsRoute,
   AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
   AuthenticatedSaffRoute: AuthenticatedSaffRoute,
@@ -189,6 +205,7 @@ export interface FileRoutesByFullPath {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/history-in-out': typeof AuthenticatedHistoryInOutRoute
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
@@ -202,6 +219,7 @@ export interface FileRoutesByTo {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/history-in-out': typeof AuthenticatedHistoryInOutRoute
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
@@ -216,6 +234,7 @@ export interface FileRoutesById {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/history-in-out': typeof AuthenticatedHistoryInOutRoute
   '/_authenticated/invitations': typeof AuthenticatedInvitationsRoute
   '/_authenticated/residents': typeof AuthenticatedResidentsRoute
   '/_authenticated/saff': typeof AuthenticatedSaffRoute
@@ -231,6 +250,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/dashboard'
+    | '/history-in-out'
     | '/invitations'
     | '/residents'
     | '/saff'
@@ -243,6 +263,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/dashboard'
+    | '/history-in-out'
     | '/invitations'
     | '/residents'
     | '/saff'
@@ -255,6 +276,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/_authenticated/dashboard'
+    | '/_authenticated/history-in-out'
     | '/_authenticated/invitations'
     | '/_authenticated/residents'
     | '/_authenticated/saff'
@@ -305,6 +327,7 @@ export const routeTree = rootRoute
       "filePath": "_authenticated.ts",
       "children": [
         "/_authenticated/dashboard",
+        "/_authenticated/history-in-out",
         "/_authenticated/invitations",
         "/_authenticated/residents",
         "/_authenticated/saff",
@@ -319,6 +342,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/dashboard": {
       "filePath": "_authenticated/dashboard.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/history-in-out": {
+      "filePath": "_authenticated/history-in-out.tsx",
       "parent": "/_authenticated"
     },
     "/_authenticated/invitations": {
