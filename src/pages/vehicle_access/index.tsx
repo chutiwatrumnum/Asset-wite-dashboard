@@ -1,3 +1,4 @@
+// src/pages/vehicle_access/index.tsx
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -5,13 +6,14 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
   RefreshCw,
-  TrendingUp,
-  LogIn,
-  LogOut,
-  UserCheck,
-  Clock,
+  Car,
+  CheckCircle,
+  XCircle,
+  Shield,
+  Camera,
   Search,
   FileText,
+  Plus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -37,10 +39,10 @@ import {
 import { EmptyState } from "@/components/ui/empty-state";
 import { ErrorState } from "@/components/ui/error-state";
 
-// Existing components
+// Existing components (adapted for vehicle access)
 import DataTableBody from "./components/data-table-body";
 import DataTablePagination from "./components/data-table-pagination";
-import { PassageLogSearch } from "@/components/ui/passage-log-search";
+import { VehicleAccessSearch } from "@/components/ui/vehicle-access-search";
 
 // React Table and other imports
 import {
@@ -55,61 +57,39 @@ import {
 } from "@tanstack/react-table";
 import { columns } from "./components/columns";
 
-// ✅ ใช้ real API calls แต่เพิ่ม fallback
+// API and utils
 import {
-  usePassageLogAllListQuery,
-  useRecentPassageLogsQuery,
-  useActiveEntriesQuery,
-} from "@/react-query/manage/passage_log";
+  useVehicleAccessAllListQuery,
+  useRecentVehicleAccessQuery,
+} from "@/react-query/manage/vehicle_access/vehicle_access";
 
 import { Checkbox } from "@/components/ui/checkbox";
 import DataTableColumnHeader from "./components/data-table-column-header";
-import PassageLogActionButton from "./components/data-table-action-button";
+import VehicleAccessActionButton from "./components/data-table-action-button";
 import {
-  searchPassageLogs,
-  getPassageLogStatistics,
-  preparePassageLogDataForExport,
-  sortPassageLogs,
-} from "@/utils/passageLogUtils";
-import type { PassageLogItem } from "@/api/passage_log/passage_log";
+  searchVehicleAccessLogs,
+  getVehicleAccessStatistics,
+  prepareVehicleAccessDataForExport,
+  sortVehicleAccessLogs,
+  VEHICLE_TIERS,
+  THAI_AREA_CODES,
+  GATE_STATES,
+} from "@/utils/vehicleAccessUtils";
+import type { VehicleAccessItem } from "@/api/vehicle_access/vehicle_access";
 
-interface PassageLogSearchFilters {
-  visitorName?: string;
-  passageType?: "entry" | "exit";
-  locationArea?: string;
-  verificationMethod?: string;
-  status?: string;
+interface VehicleAccessSearchFilters {
+  licensePlate?: string;
+  tier?: string;
+  areaCode?: string;
+  gateState?: string;
+  isSuccess?: boolean;
   dateRange?: {
     start?: string;
     end?: string;
   };
 }
 
-// ✅ Mock data เป็น fallback
-const FALLBACK_DATA: PassageLogItem[] = [
-  {
-    id: "mock-1",
-    collectionId: "mock",
-    collectionName: "passage_log",
-    visitor_name: "ทดสอบ ระบบ",
-    entry_time: new Date().toISOString(),
-    exit_time: null,
-    passage_type: "entry",
-    location_area: "พื้นที่ทดสอบ",
-    verification_method: "manual",
-    verification_data: "",
-    staff_verified_by: "",
-    invitation_id: "",
-    vehicle_id: "",
-    house_id: "",
-    notes: "ข้อมูลทดสอบ",
-    status: "success",
-    created: new Date().toISOString(),
-    updated: new Date().toISOString(),
-  },
-];
-
-export default function PassageLogs() {
+export default function VehicleAccessPage() {
   // State declarations
   const [pagination, setPagination] = useState<PaginationState>({
     pageIndex: 0,
@@ -121,66 +101,48 @@ export default function PassageLogs() {
   ]);
 
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
-  const [searchFilters, setSearchFilters] = useState<PassageLogSearchFilters>(
-    {}
-  );
+  const [searchFilters, setSearchFilters] =
+    useState<VehicleAccessSearchFilters>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [useFallbackData, setUseFallbackData] = useState(false);
 
-  // ✅ React Query hooks with better error handling
+  // React Query hooks
   const {
-    data: allPassageLogs,
+    data: allVehicleAccess,
     refetch,
     isLoading,
     error,
     isFetching,
     isError,
-  } = usePassageLogAllListQuery();
+  } = useVehicleAccessAllListQuery();
 
-  const { data: recentPassageLogs } = useRecentPassageLogsQuery(24);
-  const { data: activeEntries } = useActiveEntriesQuery();
+  const { data: recentVehicleAccess } = useRecentVehicleAccessQuery(24);
 
-  // ✅ Enhanced debug logging
+  // Enhanced debug logging
   useEffect(() => {
-    console.log("🔍 Passage Log Debug Info:", {
-      allPassageLogs,
+    console.log("🚗 Vehicle Access Debug Info:", {
+      allVehicleAccess,
       isLoading,
       isError,
       error: error?.message,
-      dataLength: allPassageLogs?.length || 0,
-      dataType: typeof allPassageLogs,
-      isArray: Array.isArray(allPassageLogs),
-      firstItem: allPassageLogs?.[0],
-      useFallbackData,
+      dataLength: allVehicleAccess?.length || 0,
+      dataType: typeof allVehicleAccess,
+      isArray: Array.isArray(allVehicleAccess),
+      firstItem: allVehicleAccess?.[0],
     });
+  }, [allVehicleAccess, isLoading, isError, error]);
 
-    // ✅ Auto-switch to fallback data if API fails
-    if (isError && !useFallbackData) {
-      console.warn("⚠️ API Error detected, switching to fallback data");
-      setUseFallbackData(true);
-      toast.warning("เกิดข้อผิดพลาดในการโหลดข้อมูล กำลังใช้ข้อมูลทดสอบ", {
-        description: "กรุณาตรวจสอบการเชื่อมต่อเซิร์ฟเวอร์",
-        duration: 5000,
-      });
-    }
-  }, [allPassageLogs, isLoading, isError, error, useFallbackData]);
-
-  // ✅ Safe data processing with fallback
+  // Safe data processing
   const processedData = useMemo(() => {
-    let sourceData: PassageLogItem[] = [];
+    let sourceData: VehicleAccessItem[] = [];
 
-    // Determine data source
-    if (useFallbackData) {
-      sourceData = FALLBACK_DATA;
-    } else if (Array.isArray(allPassageLogs) && allPassageLogs.length > 0) {
-      sourceData = allPassageLogs;
+    if (Array.isArray(allVehicleAccess) && allVehicleAccess.length > 0) {
+      sourceData = allVehicleAccess;
     } else {
       sourceData = [];
     }
 
-    console.log("📊 Processing data:", {
+    console.log("📊 Processing vehicle access data:", {
       sourceLength: sourceData.length,
-      source: useFallbackData ? "fallback" : "api",
       firstItem: sourceData[0],
     });
 
@@ -192,18 +154,18 @@ export default function PassageLogs() {
       let filtered = [...sourceData];
 
       if (searchTerm.trim()) {
-        filtered = searchPassageLogs(filtered, {
-          visitorName: searchTerm.trim(),
+        filtered = searchVehicleAccessLogs(filtered, {
+          licensePlate: searchTerm.trim(),
         });
       }
 
       if (Object.keys(searchFilters).length > 0) {
-        filtered = searchPassageLogs(filtered, searchFilters);
+        filtered = searchVehicleAccessLogs(filtered, searchFilters);
       }
 
       if (sorting.length > 0) {
         const sort = sorting[0];
-        filtered = sortPassageLogs(
+        filtered = sortVehicleAccessLogs(
           filtered,
           sort.id,
           sort.desc ? "desc" : "asc"
@@ -212,120 +174,109 @@ export default function PassageLogs() {
 
       return filtered;
     } catch (error) {
-      console.error("❌ Error processing passage log data:", error);
-      return sourceData; // Return unprocessed data as fallback
+      console.error("❌ Error processing vehicle access data:", error);
+      return sourceData;
     }
-  }, [allPassageLogs, searchFilters, searchTerm, sorting, useFallbackData]);
+  }, [allVehicleAccess, searchFilters, searchTerm, sorting]);
 
-  // ✅ Safe statistics calculation
+  // Safe statistics calculation
   const statisticsCards: StatisticCard[] = useMemo(() => {
     const defaultCards = [
       {
         key: "total",
-        label: "ทั้งหมด",
+        label: "ยานพาหนะทั้งหมด",
         value: 0,
-        icon: TrendingUp,
+        icon: Car,
         color: "blue",
       },
       {
-        key: "entries",
-        label: "เข้า",
+        key: "successful",
+        label: "ผ่านสำเร็จ",
         value: 0,
-        icon: LogIn,
+        icon: CheckCircle,
         color: "green",
       },
       {
-        key: "exits",
-        label: "ออก",
+        key: "failed",
+        label: "ล้มเหลว",
         value: 0,
-        icon: LogOut,
-        color: "orange",
+        icon: XCircle,
+        color: "red",
       },
       {
-        key: "still_inside",
-        label: "อยู่ในพื้นที่",
+        key: "enabled_gates",
+        label: "ประตูใช้งานได้",
         value: 0,
-        icon: UserCheck,
+        icon: Shield,
         color: "purple",
       },
       {
-        key: "success",
-        label: "สำเร็จ",
+        key: "with_images",
+        label: "มีรูปภาพ",
         value: 0,
-        icon: UserCheck,
-        color: "green",
-      },
-      {
-        key: "pending",
-        label: "รอดำเนินการ",
-        value: 0,
-        icon: Clock,
-        color: "yellow",
+        icon: Camera,
+        color: "orange",
       },
     ];
 
-    const sourceData = useFallbackData ? FALLBACK_DATA : allPassageLogs;
-
-    if (!sourceData || sourceData.length === 0) {
+    if (!allVehicleAccess || allVehicleAccess.length === 0) {
       return defaultCards;
     }
 
     try {
-      const stats = getPassageLogStatistics(sourceData);
+      const stats = getVehicleAccessStatistics(allVehicleAccess);
       return [
         {
           key: "total",
-          label: "ทั้งหมด",
+          label: "ยานพาหนะทั้งหมด",
           value: stats.total,
-          icon: TrendingUp,
+          icon: Car,
           color: "blue",
         },
         {
-          key: "entries",
-          label: "เข้า",
-          value: stats.entries,
-          icon: LogIn,
+          key: "successful",
+          label: "ผ่านสำเร็จ",
+          value: stats.successful,
+          icon: CheckCircle,
           color: "green",
         },
         {
-          key: "exits",
-          label: "ออก",
-          value: stats.exits,
-          icon: LogOut,
-          color: "orange",
+          key: "failed",
+          label: "ล้มเหลว",
+          value: stats.failed,
+          icon: XCircle,
+          color: "red",
         },
         {
-          key: "still_inside",
-          label: "อยู่ในพื้นที่",
-          value: stats.stillInside,
-          icon: UserCheck,
+          key: "enabled_gates",
+          label: "ประตูใช้งานได้",
+          value: Object.values(stats.byGateState).reduce(
+            (sum, count) => sum + count,
+            0
+          ),
+          icon: Shield,
           color: "purple",
         },
         {
-          key: "success",
-          label: "สำเร็จ",
-          value: stats.success,
-          icon: UserCheck,
-          color: "green",
-        },
-        {
-          key: "pending",
-          label: "รอดำเนินการ",
-          value: stats.pending,
-          icon: Clock,
-          color: "yellow",
+          key: "with_images",
+          label: "มีรูปภาพ",
+          value: allVehicleAccess.filter(
+            (item) => item.full_snapshot || item.lp_snapshot
+          ).length,
+          icon: Camera,
+          color: "orange",
         },
       ];
     } catch (error) {
       console.error("❌ Error calculating statistics:", error);
       return defaultCards.map((card) => ({
         ...card,
-        value: card.key === "total" ? sourceData.length : 0,
+        value: card.key === "total" ? allVehicleAccess.length : 0,
       }));
     }
-  }, [allPassageLogs, useFallbackData]);
+  }, [allVehicleAccess]);
 
-  // ✅ Safe table setup with better error handling
+  // Safe table setup
   const columnsWithActions = useMemo(
     () => [
       // Selection column
@@ -354,7 +305,7 @@ export default function PassageLogs() {
         enableHiding: false,
       },
       ...columns,
-      // Action column with safe rendering
+      // Action column
       {
         id: "action",
         header: () => (
@@ -363,7 +314,6 @@ export default function PassageLogs() {
           </div>
         ),
         cell: ({ row }: any) => {
-          // ✅ Safe check before rendering
           if (!row?.original) {
             console.warn("⚠️ Row original is undefined:", row);
             return (
@@ -378,7 +328,7 @@ export default function PassageLogs() {
 
           return (
             <div className="flex justify-center items-center">
-              <PassageLogActionButton info={row} />
+              <VehicleAccessActionButton info={row} />
             </div>
           );
         },
@@ -390,7 +340,7 @@ export default function PassageLogs() {
   );
 
   const table = useReactTable({
-    data: processedData || [], // ✅ Ensure data is never undefined
+    data: processedData || [],
     columns: columnsWithActions,
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
@@ -420,30 +370,36 @@ export default function PassageLogs() {
     }
 
     Object.entries(searchFilters).forEach(([key, value]) => {
-      if (value !== undefined && value !== "") {
+      if (value !== undefined && value !== "" && value !== null) {
         let label = "";
         let displayValue = "";
 
         switch (key) {
-          case "visitorName":
-            label = "ชื่อผู้เยี่ยม";
+          case "licensePlate":
+            label = "ป้ายทะเบียน";
             displayValue = value as string;
             break;
-          case "passageType":
+          case "tier":
             label = "ประเภท";
-            displayValue = value === "entry" ? "เข้า" : "ออก";
+            displayValue =
+              VEHICLE_TIERS[value as keyof typeof VEHICLE_TIERS]?.label ||
+              (value as string);
             break;
-          case "locationArea":
-            label = "พื้นที่";
-            displayValue = value as string;
+          case "areaCode":
+            label = "จังหวัด";
+            displayValue =
+              THAI_AREA_CODES[value as keyof typeof THAI_AREA_CODES] ||
+              (value as string);
             break;
-          case "verificationMethod":
-            label = "วิธียืนยัน";
-            displayValue = value as string;
+          case "gateState":
+            label = "สถานะประตู";
+            displayValue =
+              GATE_STATES[value as keyof typeof GATE_STATES]?.label ||
+              (value as string);
             break;
-          case "status":
-            label = "สถานะ";
-            displayValue = value as string;
+          case "isSuccess":
+            label = "สถานะการผ่าน";
+            displayValue = value ? "สำเร็จ" : "ล้มเหลว";
             break;
           case "dateRange":
             label = "ช่วงวันที่";
@@ -459,7 +415,7 @@ export default function PassageLogs() {
             value: displayValue,
             onRemove: () => {
               const newFilters = { ...searchFilters };
-              delete newFilters[key as keyof PassageLogSearchFilters];
+              delete newFilters[key as keyof VehicleAccessSearchFilters];
               setSearchFilters(newFilters);
             },
           });
@@ -485,7 +441,7 @@ export default function PassageLogs() {
         return;
       }
 
-      const exportData = preparePassageLogDataForExport(selectedData);
+      const exportData = prepareVehicleAccessDataForExport(selectedData);
       const headers = Object.keys(exportData[0] || {});
       const csvContent = [
         headers.join(","),
@@ -500,7 +456,7 @@ export default function PassageLogs() {
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `passage-logs-selected-${new Date().getTime()}.csv`
+        `vehicle-access-selected-${new Date().getTime()}.csv`
       );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
@@ -521,7 +477,7 @@ export default function PassageLogs() {
         return;
       }
 
-      const exportData = preparePassageLogDataForExport(processedData);
+      const exportData = prepareVehicleAccessDataForExport(processedData);
       const headers = Object.keys(exportData[0] || {});
       const csvContent = [
         headers.join(","),
@@ -536,7 +492,7 @@ export default function PassageLogs() {
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `passage-logs-all-${new Date().getTime()}.csv`
+        `vehicle-access-all-${new Date().getTime()}.csv`
       );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
@@ -550,12 +506,12 @@ export default function PassageLogs() {
     }
   };
 
-  // ✅ Loading state with better UX
-  if (isLoading && !useFallbackData) {
+  // Loading state
+  if (isLoading) {
     return (
       <div className="p-6 space-y-6">
         <PageHeader
-          title="ประวัติการเข้าออก"
+          title="ระบบจัดการการเข้าออกยานพาหนะ"
           description="กำลังโหลดข้อมูล..."
         />
         <div className="flex justify-center items-center h-64">
@@ -570,34 +526,22 @@ export default function PassageLogs() {
     );
   }
 
-  // ✅ Error state with retry option
-  if (isError && !isFetching && !useFallbackData) {
+  // Error state
+  if (isError && !isFetching) {
     return (
       <div className="p-6">
         <ErrorState
-          title="ไม่สามารถโหลดข้อมูลประวัติการเข้าออกได้"
+          title="ไม่สามารถโหลดข้อมูลการเข้าออกยานพาหนะได้"
           message={error?.message || "เกิดข้อผิดพลาดในการโหลดข้อมูล"}
-          onRetry={() => {
-            setUseFallbackData(false);
-            refetch();
-          }}
+          onRetry={() => refetch()}
           isLoading={isFetching}
           showRetry={true}
-          actions={[
-            {
-              key: "fallback",
-              label: "ใช้ข้อมูลทดสอบ",
-              onClick: () => setUseFallbackData(true),
-              variant: "outline",
-            },
-          ]}
         />
       </div>
     );
   }
 
-  const dataSource = useFallbackData ? FALLBACK_DATA : allPassageLogs;
-  const totalCount = dataSource?.length || 0;
+  const totalCount = allVehicleAccess?.length || 0;
 
   return (
     <div className="p-6 space-y-6">
@@ -605,48 +549,29 @@ export default function PassageLogs() {
 
       {/* Page Header */}
       <PageHeader
-        title="ประวัติการเข้าออก"
-        description={
-          useFallbackData
-            ? "ดูและติดตามประวัติการเข้าออกของผู้เยี่ยม (ข้อมูลทดสอบ)"
-            : "ดูและติดตามประวัติการเข้าออกของผู้เยี่ยม (อ่านอย่างเดียว)"
-        }
+        title="ระบบจัดการการเข้าออกยานพาหนะ"
+        description="ติดตามและจัดการการเข้าออกของยานพาหนะด้วยระบบ AI รู้จำป้ายทะเบียน"
         actions={[
           {
             key: "refresh",
             label: isFetching ? "กำลังโหลด..." : "รีเฟรช",
             icon: RefreshCw,
-            onClick: () => {
-              setUseFallbackData(false);
-              refetch();
-            },
+            onClick: () => refetch(),
             disabled: isFetching,
             variant: "outline",
           },
         ]}
-        alerts={
-          useFallbackData
-            ? [
-                {
-                  type: "warning",
-                  message: "กำลังใช้ข้อมูลทดสอบ",
-                  description:
-                    "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กำลังแสดงข้อมูลตัวอย่าง",
-                },
-              ]
-            : []
-        }
       />
 
       {/* Statistics Cards */}
       <StatisticsCards
         cards={statisticsCards}
-        columns={6}
-        loading={isLoading && !useFallbackData}
+        columns={5}
+        loading={isLoading}
       />
 
       {/* Search and Filters */}
-      <PassageLogSearch onSearch={setSearchFilters} />
+      <VehicleAccessSearch onSearch={setSearchFilters} />
 
       {/* Search Results Summary */}
       <SearchResultsSummary
@@ -726,13 +651,11 @@ export default function PassageLogs() {
       {processedData.length === 0 ? (
         <EmptyState
           icon={Search}
-          title="ไม่พบประวัติการเข้าออก"
+          title="ไม่พบข้อมูลการเข้าออกยานพาหนะ"
           description={
             activeFilters.length > 0
               ? "ไม่พบข้อมูลที่ตรงกับเงื่อนไขการค้นหา ลองปรับเปลี่ยนตัวกรองหรือล้างตัวกรอง"
-              : useFallbackData
-                ? "กำลังใช้ข้อมูลทดสอบ แต่ไม่มีข้อมูลที่จะแสดง"
-                : "ยังไม่มีประวัติการเข้าออกในระบบ"
+              : "ยังไม่มีประวัติการเข้าออกยานพาหนะในระบบ"
           }
           actions={
             activeFilters.length > 0
@@ -747,19 +670,7 @@ export default function PassageLogs() {
                     variant: "outline",
                   },
                 ]
-              : useFallbackData
-                ? [
-                    {
-                      key: "retry",
-                      label: "ลองเชื่อมต่อใหม่",
-                      onClick: () => {
-                        setUseFallbackData(false);
-                        refetch();
-                      },
-                      variant: "default",
-                    },
-                  ]
-                : []
+              : []
           }
         />
       ) : (

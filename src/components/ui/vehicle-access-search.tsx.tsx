@@ -1,6 +1,6 @@
-// src/components/ui/passage-log-search.tsx
+// src/components/ui/vehicle-access-search.tsx
 import { useState } from "react";
-import { Search, Filter, X, Calendar } from "lucide-react";
+import { Search, Filter, X, Calendar, Car } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -17,18 +17,18 @@ import {
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
 import {
-  PASSAGE_STATUS,
-  VERIFICATION_METHODS,
-  PASSAGE_TYPES,
-} from "@/utils/passageLogUtils";
+  VEHICLE_TIERS,
+  GATE_STATES,
+  THAI_AREA_CODES,
+} from "@/utils/vehicleAccessUtils";
 
-interface PassageLogSearchProps {
+interface VehicleAccessSearchProps {
   onSearch: (filters: {
-    visitorName?: string;
-    passageType?: "entry" | "exit";
-    locationArea?: string;
-    verificationMethod?: string;
-    status?: string;
+    licensePlate?: string;
+    tier?: string;
+    areaCode?: string;
+    gateState?: string;
+    isSuccess?: boolean;
     dateRange?: {
       start?: string;
       end?: string;
@@ -36,42 +36,23 @@ interface PassageLogSearchProps {
   }) => void;
 }
 
-const statusOptions = Object.entries(PASSAGE_STATUS).map(([key, value]) => ({
-  value: key,
-  label: value.label,
-}));
-
-const verificationMethodOptions = Object.entries(VERIFICATION_METHODS).map(
-  ([key, value]) => ({
-    value: key,
-    label: value.label,
-  })
-);
-
-const passageTypeOptions = Object.entries(PASSAGE_TYPES).map(
-  ([key, value]) => ({
-    value: key,
-    label: value.label,
-  })
-);
-
-export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
-  const [visitorName, setVisitorName] = useState("");
-  const [passageType, setPassageType] = useState("");
-  const [locationArea, setLocationArea] = useState("");
-  const [verificationMethod, setVerificationMethod] = useState("");
-  const [status, setStatus] = useState("");
+export function VehicleAccessSearch({ onSearch }: VehicleAccessSearchProps) {
+  const [licensePlate, setLicensePlate] = useState("");
+  const [tier, setTier] = useState("");
+  const [areaCode, setAreaCode] = useState("");
+  const [gateState, setGateState] = useState("");
+  const [isSuccess, setIsSuccess] = useState<boolean | undefined>(undefined);
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 
   const handleSearch = () => {
     onSearch({
-      visitorName: visitorName || undefined,
-      passageType: (passageType as "entry" | "exit") || undefined,
-      locationArea: locationArea || undefined,
-      verificationMethod: verificationMethod || undefined,
-      status: status || undefined,
+      licensePlate: licensePlate || undefined,
+      tier: tier || undefined,
+      areaCode: areaCode || undefined,
+      gateState: gateState || undefined,
+      isSuccess: isSuccess,
       dateRange:
         startDate || endDate
           ? {
@@ -83,33 +64,56 @@ export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
   };
 
   const handleReset = () => {
-    setVisitorName("");
-    setPassageType("");
-    setLocationArea("");
-    setVerificationMethod("");
-    setStatus("");
+    setLicensePlate("");
+    setTier("");
+    setAreaCode("");
+    setGateState("");
+    setIsSuccess(undefined);
     setStartDate("");
     setEndDate("");
     onSearch({});
   };
 
   const hasActiveFilters =
-    visitorName ||
-    passageType ||
-    locationArea ||
-    verificationMethod ||
-    status ||
+    licensePlate ||
+    tier ||
+    areaCode ||
+    gateState ||
+    isSuccess !== undefined ||
     startDate ||
     endDate;
+
   const activeFilterCount = [
-    visitorName,
-    passageType,
-    locationArea,
-    verificationMethod,
-    status,
+    licensePlate,
+    tier,
+    areaCode,
+    gateState,
+    isSuccess !== undefined ? "status" : "",
     startDate,
     endDate,
   ].filter(Boolean).length;
+
+  const tierOptions = Object.entries(VEHICLE_TIERS).map(([key, value]) => ({
+    value: key,
+    label: value.label,
+  }));
+
+  const gateStateOptions = Object.entries(GATE_STATES).map(([key, value]) => ({
+    value: key,
+    label: value.label,
+  }));
+
+  const statusOptions = [
+    { value: "true", label: "สำเร็จ" },
+    { value: "false", label: "ล้มเหลว" },
+  ];
+
+  const areaCodeOptions = Object.entries(THAI_AREA_CODES).map(
+    ([key, value]) => ({
+      value: key,
+      label: value,
+    })
+  );
 
   return (
     <div className="space-y-3">
@@ -118,9 +122,9 @@ export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="ค้นหาชื่อผู้เยี่ยม..."
-            value={visitorName}
-            onChange={(e) => setVisitorName(e.target.value)}
+            placeholder="ค้นหาป้ายทะเบียน... (เช่น กข 1234, 1กค234)"
+            value={licensePlate}
+            onChange={(e) => setLicensePlate(e.target.value)}
             className="pl-10"
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
@@ -158,15 +162,15 @@ export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
                 )}
               </div>
 
-              {/* Passage Type Filter */}
+              {/* Vehicle Tier Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">ประเภทการผ่าน</label>
-                <Select value={passageType} onValueChange={setPassageType}>
+                <label className="text-sm font-medium">ประเภทยานพาหนะ</label>
+                <Select value={tier} onValueChange={setTier}>
                   <SelectTrigger>
                     <SelectValue placeholder="เลือกประเภท" />
                   </SelectTrigger>
                   <SelectContent>
-                    {passageTypeOptions.map((option) => (
+                    {tierOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -175,17 +179,32 @@ export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
                 </Select>
               </div>
 
-              {/* Verification Method Filter */}
+              {/* Area Code Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">วิธีการยืนยัน</label>
-                <Select
-                  value={verificationMethod}
-                  onValueChange={setVerificationMethod}>
+                <label className="text-sm font-medium">จังหวัด</label>
+                <Select value={areaCode} onValueChange={setAreaCode}>
                   <SelectTrigger>
-                    <SelectValue placeholder="เลือกวิธียืนยัน" />
+                    <SelectValue placeholder="เลือกจังหวัด" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {areaCodeOptions.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Gate State Filter */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">สถานะประตู</label>
+                <Select value={gateState} onValueChange={setGateState}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="เลือกสถานะ" />
                   </SelectTrigger>
                   <SelectContent>
-                    {verificationMethodOptions.map((option) => (
+                    {gateStateOptions.map((option) => (
                       <SelectItem key={option.value} value={option.value}>
                         {option.label}
                       </SelectItem>
@@ -194,10 +213,14 @@ export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
                 </Select>
               </div>
 
-              {/* Status Filter */}
+              {/* Success Status Filter */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">สถานะ</label>
-                <Select value={status} onValueChange={setStatus}>
+                <label className="text-sm font-medium">สถานะการผ่าน</label>
+                <Select
+                  value={isSuccess === undefined ? "" : isSuccess.toString()}
+                  onValueChange={(value) =>
+                    setIsSuccess(value === "" ? undefined : value === "true")
+                  }>
                   <SelectTrigger>
                     <SelectValue placeholder="เลือกสถานะ" />
                   </SelectTrigger>
@@ -262,58 +285,67 @@ export function PassageLogSearch({ onSearch }: PassageLogSearchProps) {
         <div className="flex flex-wrap gap-2 items-center">
           <span className="text-sm text-gray-600">ตัวกรองที่เลือก:</span>
 
-          {visitorName && (
+          {licensePlate && (
             <Badge variant="secondary" className="gap-1">
-              ชื่อผู้เยี่ยม: {visitorName}
+              <Car className="h-3 w-3" />
+              ป้ายทะเบียน: {licensePlate}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-red-500"
                 onClick={() => {
-                  setVisitorName("");
+                  setLicensePlate("");
                   handleSearch();
                 }}
               />
             </Badge>
           )}
 
-          {passageType && (
+          {tier && (
             <Badge variant="secondary" className="gap-1">
-              ประเภท:{" "}
-              {passageTypeOptions.find((s) => s.value === passageType)?.label}
+              ประเภท: {VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS]?.label}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-red-500"
                 onClick={() => {
-                  setPassageType("");
+                  setTier("");
                   handleSearch();
                 }}
               />
             </Badge>
           )}
 
-          {verificationMethod && (
+          {areaCode && (
             <Badge variant="secondary" className="gap-1">
-              วิธียืนยัน:{" "}
-              {
-                verificationMethodOptions.find(
-                  (s) => s.value === verificationMethod
-                )?.label
-              }
+              จังหวัด:{" "}
+              {THAI_AREA_CODES[areaCode as keyof typeof THAI_AREA_CODES]}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-red-500"
                 onClick={() => {
-                  setVerificationMethod("");
+                  setAreaCode("");
                   handleSearch();
                 }}
               />
             </Badge>
           )}
 
-          {status && (
+          {gateState && (
             <Badge variant="secondary" className="gap-1">
-              สถานะ: {statusOptions.find((s) => s.value === status)?.label}
+              ประตู: {GATE_STATES[gateState as keyof typeof GATE_STATES]?.label}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-red-500"
                 onClick={() => {
-                  setStatus("");
+                  setGateState("");
+                  handleSearch();
+                }}
+              />
+            </Badge>
+          )}
+
+          {isSuccess !== undefined && (
+            <Badge variant="secondary" className="gap-1">
+              สถานะ: {isSuccess ? "สำเร็จ" : "ล้มเหลว"}
+              <X
+                className="h-3 w-3 cursor-pointer hover:text-red-500"
+                onClick={() => {
+                  setIsSuccess(undefined);
                   handleSearch();
                 }}
               />
