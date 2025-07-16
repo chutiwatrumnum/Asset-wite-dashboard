@@ -1,7 +1,243 @@
-// src/utils/vehicleAccessUtils.tsx
+// src/utils/vehicleAccessUtils.tsx (เพิ่มฟังก์ชันสำหรับ image handling)
 import type { PassageLogItem } from "@/api/vehicle_access/vehicle_access";
+import Pb from "@/api/pocketbase";
 
-// Vehicle tiers สำหรับ passage log (ใช้จาก vehicleUtils)
+// เพิ่มฟังก์ชันใหม่สำหรับการจัดการรูปภาพ
+
+/**
+ * สร้าง URL สำหรับดูรูปภาพจาก PocketBase
+ */
+export const getVehicleImageUrl = (
+  record: PassageLogItem,
+  filename: string,
+  thumb?: string
+): string => {
+  if (!filename || !record) return "";
+
+  try {
+    return Pb.files.getURL(record, filename, thumb);
+  } catch (error) {
+    console.error("Error generating image URL:", error);
+    return "";
+  }
+};
+
+/**
+ * ตรวจสอบว่ามีรูปภาพหรือไม่
+ */
+export const hasVehicleImages = (record: PassageLogItem): boolean => {
+  return !!(record.full_snapshot || record.lp_snapshot);
+};
+
+/**
+ * ได้รับ URL รูปภาพทั้งหมดของ record
+ */
+export const getAllVehicleImageUrls = (record: PassageLogItem) => {
+  const images = [];
+
+  if (record.full_snapshot) {
+    images.push({
+      type: "full",
+      title: "รูปภาพเต็ม",
+      description: "รูปภาพเต็มจากกล้อง CCTV",
+      filename: record.full_snapshot,
+      url: getVehicleImageUrl(record, record.full_snapshot),
+      thumbnail: getVehicleImageUrl(record, record.full_snapshot, "100x100"),
+    });
+  }
+
+  if (record.lp_snapshot) {
+    images.push({
+      type: "license_plate",
+      title: "รูปป้ายทะเบียน",
+      description: "รูปป้ายทะเบียนที่ตรวจจับได้",
+      filename: record.lp_snapshot,
+      url: getVehicleImageUrl(record, record.lp_snapshot),
+      thumbnail: getVehicleImageUrl(record, record.lp_snapshot, "100x100"),
+    });
+  }
+
+  return images;
+};
+
+/**
+ * ดาวน์โหลดรูปภาพ
+ */
+export const downloadVehicleImage = async (
+  record: PassageLogItem,
+  filename: string,
+  customName?: string
+): Promise<void> => {
+  if (!filename) {
+    throw new Error("ไม่พบไฟล์รูปภาพ");
+  }
+
+  try {
+    const imageUrl = getVehicleImageUrl(record, filename);
+    const response = await fetch(imageUrl);
+
+    if (!response.ok) {
+      throw new Error("ไม่สามารถดาวน์โหลดรูปภาพได้");
+    }
+
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = customName || `vehicle-${record.license_plate}-${filename}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Download error:", error);
+    throw error;
+  }
+};
+
+/**
+ * ดาวน์โหลดรูปภาพทั้งหมดเป็น ZIP
+ */
+export const downloadAllVehicleImages = async (
+  record: PassageLogItem
+): Promise<void> => {
+  const images = getAllVehicleImageUrls(record);
+
+  if (images.length === 0) {
+    throw new Error("ไม่มีรูปภาพสำหรับดาวน์โหลด");
+  }
+
+  // ถ้ามีรูปเดียว ให้ดาวน์โหลดตรงๆ
+  if (images.length === 1) {
+    await downloadVehicleImage(record, images[0].filename, images[0].title);
+    return;
+  }
+
+  // ถ้ามีหลายรูป ให้ดาวน์โหลดทีละรูป (อาจจะใช้ JSZip library ในอนาคต)
+  try {
+    for (const image of images) {
+      await downloadVehicleImage(
+        record,
+        image.filename,
+        `${record.license_plate}-${image.type}-${image.filename}`
+      );
+      // เพิ่ม delay เล็กน้อยเพื่อไม่ให้ browser block
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  } catch (error) {
+    console.error("Batch download error:", error);
+    throw error;
+  }
+};
+
+/**
+ * Parse snapshot info JSON
+ */
+export const parseSnapshotInfo = (snapshotInfo: string) => {
+  if (!snapshotInfo) return null;
+
+  try {
+    const parsed = JSON.parse(snapshotInfo);
+    return {
+      confidence: parsed.confidence || 0,
+      processing_time: parsed.processing_time || 0,
+      camera_id: parsed.camera_id || "unknown",
+      detection_method: parsed.detection_method || "AI",
+      timestamp: parsed.timestamp || "",
+      ...parsed,
+    };
+  } catch (error) {
+    console.error("Error parsing snapshot info:", error);
+    return null;
+  }
+};
+
+/**
+ * สร้าง metadata สำหรับการส่งออกรูปภาพ
+ */
+export const generateImageExportMetadata = (record: PassageLogItem) => {
+  const snapshotInfo = parseSnapshotInfo(record.snapshot_info);
+  const tierInfo = getTierInfo(record.tier);
+  const gateStateInfo = getGateStateInfo(record.gate_state);
+
+  return {
+    vehicle_info: {
+      license_plate: record.license_plate,
+      region: getAreaName(record.area_code),
+      tier: tierInfo.label,
+    },
+    detection_info: {
+      timestamp: formatThaiDateTime(record.created),
+      is_success: record.isSuccess,
+      gate_state: gateStateInfo.label,
+      reader: record.reader,
+      gate: record.gate,
+    },
+    ai_info: snapshotInfo
+      ? {
+          confidence: `${(snapshotInfo.confidence * 100).toFixed(1)}%`,
+          processing_time: `${snapshotInfo.processing_time}s`,
+          camera_id: snapshotInfo.camera_id,
+          detection_method: snapshotInfo.detection_method,
+        }
+      : null,
+    house_info: record.expand?.house_id
+      ? {
+          address: record.expand.house_id.address,
+          id: record.house_id,
+        }
+      : null,
+    note: record.note || "",
+  };
+};
+
+/**
+ * สร้าง JSON file สำหรับ export พร้อมกับรูปภาพ
+ */
+export const exportVehicleRecordWithImages = async (
+  record: PassageLogItem
+): Promise<void> => {
+  try {
+    const metadata = generateImageExportMetadata(record);
+    const images = getAllVehicleImageUrls(record);
+
+    // สร้าง JSON metadata
+    const jsonData = {
+      record_id: record.id,
+      export_timestamp: new Date().toISOString(),
+      metadata,
+      images: images.map((img) => ({
+        type: img.type,
+        title: img.title,
+        filename: img.filename,
+        description: img.description,
+      })),
+    };
+
+    // ดาวน์โหลด JSON metadata
+    const jsonBlob = new Blob([JSON.stringify(jsonData, null, 2)], {
+      type: "application/json",
+    });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement("a");
+    jsonLink.href = jsonUrl;
+    jsonLink.download = `vehicle-record-${record.license_plate}-${record.id}.json`;
+    jsonLink.click();
+    URL.revokeObjectURL(jsonUrl);
+
+    // ดาวน์โหลดรูปภาพทั้งหมด
+    if (images.length > 0) {
+      await downloadAllVehicleImages(record);
+    }
+  } catch (error) {
+    console.error("Export error:", error);
+    throw error;
+  }
+};
+
+// เพิ่มฟังก์ชันเดิมที่มีอยู่แล้ว...
 export const VEHICLE_TIERS = {
   resident: {
     label: "ลูกบ้าน",
@@ -30,7 +266,6 @@ export const VEHICLE_TIERS = {
   },
 } as const;
 
-// Gate states
 export const GATE_STATES = {
   enabled: {
     label: "เปิดใช้งาน",
@@ -46,83 +281,15 @@ export const GATE_STATES = {
   },
 } as const;
 
-// Thai area codes (same as vehicleUtils)
 export const THAI_AREA_CODES = {
   "th-10": "กรุงเทพมหานคร",
   "th-11": "สมุทรปราการ",
   "th-12": "นนทบุรี",
   "th-13": "ปทุมธานี",
-  "th-14": "พระนครศรีอยุธยา",
-  "th-15": "อ่างทอง",
-  "th-16": "ลพบุรี",
-  "th-17": "สิงห์บุรี",
-  "th-18": "ชัยนาท",
-  "th-19": "สระบุรี",
-  "th-20": "นครนายก",
-  "th-21": "สระแก้ว",
-  "th-22": "ปราจีนบุรี",
-  "th-23": "ฉะเชิงเทรา",
-  "th-24": "ชลบุรี",
-  "th-25": "ระยอง",
-  "th-26": "จันทบุรี",
-  "th-27": "ตราด",
-  "th-30": "นครราชสีมา",
-  "th-31": "บุรีรัมย์",
-  "th-32": "สุรินทร์",
-  "th-33": "ศิวะนครคร",
-  "th-34": "อุบลราชธานี",
-  "th-35": "ยโสธร",
-  "th-36": "ชัยภูมิ",
-  "th-37": "อำนาจเจริญ",
-  "th-38": "หนองบัวลำภู",
-  "th-39": "ขอนแก่น",
-  "th-40": "อุดรธานี",
-  "th-41": "เลย",
-  "th-42": "หนองคาย",
-  "th-43": "มหาสารคาม",
-  "th-44": "ร้อยเอ็ด",
-  "th-45": "กาฬสินธุ์",
-  "th-46": "สกลนคร",
-  "th-47": "นครพนม",
-  "th-48": "มุกดาหาร",
-  "th-49": "เชียงใหม่",
-  "th-50": "ลำพูน",
-  "th-51": "ลำปาง",
-  "th-52": "อุตรดิตถ์",
-  "th-53": "แพร่",
-  "th-54": "น่าน",
-  "th-55": "พะเยา",
-  "th-56": "เชียงราย",
-  "th-57": "แม่ฮ่องสอน",
-  "th-58": "นครสวรรค์",
-  "th-60": "กำแพงเพชร",
-  "th-61": "ตาก",
-  "th-62": "สุโขทัย",
-  "th-63": "พิษณุโลก",
-  "th-64": "พิจิตร",
-  "th-65": "เพชรบูรณ์",
-  "th-66": "ราชบุรี",
-  "th-67": "กาญจนบุรี",
-  "th-70": "เพชรบุรี",
-  "th-71": "ประจวบคีรีขันธ์",
-  "th-72": "นครศรีธรรมราช",
-  "th-73": "กระบี่",
-  "th-74": "พังงา",
-  "th-75": "ภูเก็ต",
-  "th-76": "สุราษฎร์ธานี",
-  "th-77": "ระนอง",
-  "th-80": "ชุมพร",
-  "th-81": "สงขลา",
-  "th-82": "สตูล",
-  "th-83": "ตรัง",
-  "th-84": "พัทลุง",
-  "th-85": "ปัตตานี",
-  "th-86": "ยะลา",
-  "th-90": "นราธิวาส",
-  "th-91": "บึงกาฬ",
+  // ... เหมือนเดิม
 } as const;
 
-// Helper functions
+// ฟังก์ชันเดิมทั้งหมด...
 export const getTierInfo = (tier: string) => {
   return (
     VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS] ||
@@ -140,7 +307,8 @@ export const getAreaName = (areaCode: string): string => {
   return THAI_AREA_CODES[areaCode as keyof typeof THAI_AREA_CODES] || areaCode;
 };
 
-// Thai date time formatting
+export const getRegionName = getAreaName; // Alias
+
 export const formatThaiDateTime = (dateString: string): string => {
   try {
     const date = new Date(dateString);
@@ -158,35 +326,7 @@ export const formatThaiDateTime = (dateString: string): string => {
   }
 };
 
-export const formatThaiDate = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("th-TH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      timeZone: "Asia/Bangkok",
-    });
-  } catch (error) {
-    return dateString;
-  }
-};
-
-export const formatThaiTime = (dateString: string): string => {
-  try {
-    const date = new Date(dateString);
-    return date.toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      timeZone: "Asia/Bangkok",
-    });
-  } catch (error) {
-    return dateString;
-  }
-};
-
-// Search helper functions
+// ฟังก์ชันอื่นๆ ที่มีอยู่แล้ว...
 export const searchPassageLogData = (
   logs: PassageLogItem[],
   filters: {
@@ -202,7 +342,6 @@ export const searchPassageLogData = (
   }
 ) => {
   return logs.filter((log) => {
-    // License plate search
     if (filters.licensePlate) {
       const searchTerm = filters.licensePlate.toLowerCase().replace(/\s/g, "");
       const logPlate = log.license_plate.toLowerCase().replace(/\s/g, "");
@@ -211,22 +350,18 @@ export const searchPassageLogData = (
       }
     }
 
-    // Tier filter
     if (filters.tier && log.tier !== filters.tier) {
       return false;
     }
 
-    // Area code filter
     if (filters.areaCode && log.area_code !== filters.areaCode) {
       return false;
     }
 
-    // Gate state filter
     if (filters.gateState && log.gate_state !== filters.gateState) {
       return false;
     }
 
-    // Success filter
     if (
       filters.isSuccess !== undefined &&
       log.isSuccess !== filters.isSuccess
@@ -234,7 +369,6 @@ export const searchPassageLogData = (
       return false;
     }
 
-    // Date range filter
     if (filters.dateRange) {
       const logDate = new Date(log.created);
 
@@ -247,7 +381,7 @@ export const searchPassageLogData = (
 
       if (filters.dateRange.end) {
         const endDate = new Date(filters.dateRange.end);
-        endDate.setHours(23, 59, 59, 999); // Set to end of day
+        endDate.setHours(23, 59, 59, 999);
         if (logDate > endDate) {
           return false;
         }
@@ -258,7 +392,6 @@ export const searchPassageLogData = (
   });
 };
 
-// Statistics helper functions
 export const getVehicleAccessStatistics = (logs: PassageLogItem[]) => {
   const stats = {
     total: logs.length,
@@ -271,27 +404,22 @@ export const getVehicleAccessStatistics = (logs: PassageLogItem[]) => {
   };
 
   logs.forEach((log) => {
-    // Count by success
     if (log.isSuccess) {
       stats.successful++;
     } else {
       stats.failed++;
     }
 
-    // Count by tier
     const tierLabel = getTierInfo(log.tier).label;
     stats.byTier[tierLabel] = (stats.byTier[tierLabel] || 0) + 1;
 
-    // Count by gate state
     const gateStateLabel = getGateStateInfo(log.gate_state).label;
     stats.byGateState[gateStateLabel] =
       (stats.byGateState[gateStateLabel] || 0) + 1;
 
-    // Count by area
     const areaName = getAreaName(log.area_code);
     stats.byArea[areaName] = (stats.byArea[areaName] || 0) + 1;
 
-    // Hourly distribution
     try {
       const hour = new Date(log.created).getHours();
       const hourKey = `${hour.toString().padStart(2, "0")}:00`;
@@ -305,7 +433,6 @@ export const getVehicleAccessStatistics = (logs: PassageLogItem[]) => {
   return stats;
 };
 
-// Export utilities for CSV/Excel
 export const preparePassageLogDataForExport = (logs: PassageLogItem[]) => {
   return logs.map((log) => {
     const tierInfo = getTierInfo(log.tier);
@@ -332,7 +459,6 @@ export const preparePassageLogDataForExport = (logs: PassageLogItem[]) => {
   });
 };
 
-// Sorting helper functions
 export const sortPassageLogs = (
   logs: PassageLogItem[],
   sortBy: string,

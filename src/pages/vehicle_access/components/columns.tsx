@@ -1,8 +1,14 @@
-// src/pages/vehicle-access/components/columns.tsx
+// src/pages/vehicle_access/components/columns.tsx (Updated with Shadcn-native image viewer)
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, Eye, Camera } from "lucide-react";
+import {
+  CheckCircle,
+  XCircle,
+  Eye,
+  Camera,
+  Image as ImageIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PassageLogItem } from "@/api/vehicle_access/vehicle_access";
 import {
@@ -10,55 +16,117 @@ import {
   getGateStateInfo,
   getAreaName,
   formatThaiDateTime,
+  getAllVehicleImageUrls,
+  hasVehicleImages,
 } from "@/utils/vehicleAccessUtils";
+import {
+  useImageViewer,
+  ImageLightbox,
+} from "@/components/ui/image-viewer-shadcn";
+import { toast } from "sonner";
 
 const TimeZone = "Asia/Bangkok";
 const columnHelper = createColumnHelper<PassageLogItem>();
 
-// Helper component for viewing snapshots
-const SnapshotViewer = ({
-  fullSnapshot,
-  lpSnapshot,
-}: {
-  fullSnapshot?: string;
-  lpSnapshot?: string;
-}) => {
-  const handleViewSnapshot = (type: "full" | "lp") => {
-    const snapshot = type === "full" ? fullSnapshot : lpSnapshot;
-    if (snapshot) {
-      // ในที่นี้อาจจะต้องสร้าง URL สำหรับดูรูปภาพ
-      // หรือเปิด modal แสดงรูปภาพ
-      console.log(`View ${type} snapshot:`, snapshot);
-      // TODO: Implement image viewer modal
+// Enhanced SnapshotViewer Component with Shadcn Image Viewer
+const SnapshotViewer = ({ record }: { record: PassageLogItem }) => {
+  const { showImage, showImages, ImageViewer } = useImageViewer();
+
+  const images = getAllVehicleImageUrls(record);
+  const hasImages = hasVehicleImages(record);
+
+  const handleViewSingle = (imageType: "full" | "lp") => {
+    const image = images.find((img) => img.type === imageType);
+    if (image && image.url) {
+      showImage(image.url, image.title, image.description);
+    } else {
+      toast.error("ไม่สามารถโหลดรูปภาพได้");
     }
   };
 
+  const handleViewAll = () => {
+    if (images.length > 0) {
+      const imageData = images.map((img) => ({
+        src: img.url,
+        title: img.title,
+        description: img.description,
+        alt: img.title,
+      }));
+      showImages(imageData, 0);
+    } else {
+      toast.warning("ไม่มีรูปภาพสำหรับแสดง");
+    }
+  };
+
+  if (!hasImages) {
+    return (
+      <div className="flex justify-center items-center text-gray-400">
+        <span className="text-xs">ไม่มีรูป</span>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex gap-1">
-      {fullSnapshot && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={() => handleViewSnapshot("full")}
-          title="ดูรูปภาพเต็ม">
-          <Camera className="h-3 w-3" />
-        </Button>
-      )}
-      {lpSnapshot && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0"
-          onClick={() => handleViewSnapshot("lp")}
-          title="ดูรูปป้ายทะเบียน">
-          <Eye className="h-3 w-3" />
-        </Button>
-      )}
-    </div>
+    <>
+      <div className="flex gap-1 justify-center">
+        {/* Single image buttons */}
+        {record.full_snapshot && (
+          <ImageLightbox
+            src={images.find((img) => img.type === "full")?.url}
+            title="รูปภาพเต็ม"
+            description="รูปภาพเต็มจากกล้อง CCTV">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              title="ดูรูปภาพเต็ม">
+              <Camera className="h-3 w-3 text-blue-600" />
+            </Button>
+          </ImageLightbox>
+        )}
+
+        {record.lp_snapshot && (
+          <ImageLightbox
+            src={images.find((img) => img.type === "license_plate")?.url}
+            title="รูปป้ายทะเบียน"
+            description="รูปป้ายทะเบียนที่ตรวจจับได้">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 p-0"
+              title="ดูรูปป้ายทะเบียน">
+              <Eye className="h-3 w-3 text-green-600" />
+            </Button>
+          </ImageLightbox>
+        )}
+
+        {/* View all images button (when there are multiple images) */}
+        {images.length > 1 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 w-6 p-0"
+            onClick={handleViewAll}
+            title="ดูรูปทั้งหมด">
+            <ImageIcon className="h-3 w-3 text-purple-600" />
+          </Button>
+        )}
+
+        {/* Image count badge */}
+        <div className="flex items-center">
+          <Badge variant="outline" className="h-4 px-1 text-[10px]">
+            {images.length}
+          </Badge>
+        </div>
+      </div>
+
+      {/* Shadcn Image Viewer */}
+      {ImageViewer}
+    </>
   );
 };
 
+// Enhanced columns with Shadcn image support
 export const columns = [
   columnHelper.accessor("id", {
     cell: (info) => info.getValue(),
@@ -84,13 +152,21 @@ export const columns = [
     enableSorting: true,
   }),
 
-  // ป้ายทะเบียน
+  // ป้ายทะเบียน with image indicator
   columnHelper.accessor("license_plate", {
     header: () => <div className="text-center">ป้ายทะเบียน</div>,
     cell: (info) => {
+      const record = info.row.original;
+      const hasImages = hasVehicleImages(record);
+
       return (
-        <div className="text-center min-w-[120px] font-semibold">
-          {info.getValue()}
+        <div className="text-center min-w-[120px]">
+          <div className="font-semibold flex items-center justify-center gap-1">
+            {info.getValue()}
+            {hasImages && (
+              <Camera className="h-3 w-3 text-blue-500" title="มีรูปภาพ" />
+            )}
+          </div>
         </div>
       );
     },
@@ -234,17 +310,14 @@ export const columns = [
     },
   }),
 
-  // รูปภาพ
+  // รูปภาพ - Enhanced with Shadcn image viewer
   columnHelper.accessor("full_snapshot", {
     header: () => <div className="text-center">รูปภาพ</div>,
     cell: (info) => {
       const rowData = info.row.original;
       return (
-        <div className="flex justify-center items-center">
-          <SnapshotViewer
-            fullSnapshot={rowData.full_snapshot}
-            lpSnapshot={rowData.lp_snapshot}
-          />
+        <div className="flex justify-center items-center min-w-[80px]">
+          <SnapshotViewer record={rowData} />
         </div>
       );
     },

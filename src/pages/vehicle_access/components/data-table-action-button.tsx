@@ -1,6 +1,13 @@
-// src/pages/vehicle_access/components/data-table-action-button.tsx
+// src/pages/vehicle_access/components/data-table-action-button.tsx (Updated with image viewer)
 import { useState } from "react";
-import { Eye, Download, Trash2, MoreHorizontal } from "lucide-react";
+import {
+  Eye,
+  Download,
+  Trash2,
+  MoreHorizontal,
+  Camera,
+  Image as ImageIcon,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -25,17 +32,21 @@ import {
   getRegionName,
   parseSnapshotInfo,
   formatThaiDateTime,
+  getAllVehicleImageUrls,
+  hasVehicleImages,
+  downloadAllVehicleImages,
+  exportVehicleRecordWithImages,
 } from "@/utils/vehicleAccessUtils";
-import { VehicleAccessItem } from "@/api/vehicle_access/vehicle_access";
+import type { PassageLogItem } from "@/api/vehicle_access/vehicle_access";
 import { useDeleteVehicleAccessMutation } from "@/react-query/manage/vehicle_access/vehicle_access";
 import { useConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { useImageViewer, MultiImageViewer } from "@/components/ui/image-viewer";
 import { toast } from "sonner";
 import {
   CheckCircle,
   XCircle,
   Car,
   MapPin,
-  Camera,
   Shield,
   Home,
   Calendar,
@@ -44,7 +55,7 @@ import {
 
 interface VehicleAccessActionButtonProps {
   info: {
-    original: VehicleAccessItem;
+    original: PassageLogItem;
   };
 }
 
@@ -52,14 +63,18 @@ export default function VehicleAccessActionButton({
   info,
 }: VehicleAccessActionButtonProps) {
   const [detailsOpen, setDetailsOpen] = useState(false);
+  const [imagesViewerOpen, setImagesViewerOpen] = useState(false);
   const vehicleAccess = info.original;
   const { showConfirmation, confirmationDialog } = useConfirmationDialog();
+  const { isOpen, showImage, closeImage, imageViewer } = useImageViewer();
   const deleteVehicleAccessMutation = useDeleteVehicleAccessMutation();
 
   const tierInfo = getTierInfo(vehicleAccess.tier);
   const gateStateInfo = getGateStateInfo(vehicleAccess.gate_state);
   const regionName = getRegionName(vehicleAccess.area_code);
   const snapshotInfo = parseSnapshotInfo(vehicleAccess.snapshot_info);
+  const images = getAllVehicleImageUrls(vehicleAccess);
+  const hasImages = hasVehicleImages(vehicleAccess);
 
   const handleDelete = () => {
     showConfirmation({
@@ -96,6 +111,8 @@ export default function VehicleAccessActionButton({
         กล้อง: snapshotInfo?.camera_id || "-",
         หมายเหตุ: vehicleAccess.note || "",
         วันที่บันทึก: formatThaiDateTime(vehicleAccess.created),
+        จำนวนรูปภาพ: images.length,
+        รายชื่อไฟล์รูปภาพ: images.map((img) => img.filename).join(", "),
       };
 
       const jsonString = JSON.stringify(exportData, null, 2);
@@ -113,6 +130,45 @@ export default function VehicleAccessActionButton({
     }
   };
 
+  const handleDownloadImages = async () => {
+    if (!hasImages) {
+      toast.warning("ไม่มีรูปภาพสำหรับดาวน์โหลด");
+      return;
+    }
+
+    try {
+      await downloadAllVehicleImages(vehicleAccess);
+      toast.success("ดาวน์โหลดรูปภาพสำเร็จ");
+    } catch (error) {
+      console.error("Download images error:", error);
+      toast.error("เกิดข้อผิดพลาดในการดาวน์โหลดรูปภาพ");
+    }
+  };
+
+  const handleExportComplete = async () => {
+    try {
+      await exportVehicleRecordWithImages(vehicleAccess);
+      toast.success("ส่งออกข้อมูลและรูปภาพสำเร็จ");
+    } catch (error) {
+      console.error("Export complete error:", error);
+      toast.error("เกิดข้อผิดพลาดในการส่งออกข้อมูล");
+    }
+  };
+
+  const handleViewImages = () => {
+    if (images.length === 0) {
+      toast.warning("ไม่มีรูปภาพสำหรับแสดง");
+      return;
+    }
+
+    if (images.length === 1) {
+      const image = images[0];
+      showImage(image.url, image.title, image.description);
+    } else {
+      setImagesViewerOpen(true);
+    }
+  };
+
   return (
     <>
       <DropdownMenu>
@@ -125,15 +181,39 @@ export default function VehicleAccessActionButton({
         <DropdownMenuContent align="end">
           <DropdownMenuLabel>การดำเนินการ</DropdownMenuLabel>
           <DropdownMenuSeparator />
+
           <DropdownMenuItem onClick={() => setDetailsOpen(true)}>
             <Eye className="mr-2 h-4 w-4" />
             ดูรายละเอียด
           </DropdownMenuItem>
+
+          {/* Image related actions */}
+          {hasImages && (
+            <>
+              <DropdownMenuItem onClick={handleViewImages}>
+                <Camera className="mr-2 h-4 w-4" />
+                ดูรูปภาพ ({images.length})
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={handleDownloadImages}>
+                <ImageIcon className="mr-2 h-4 w-4" />
+                ดาวน์โหลดรูปภาพ
+              </DropdownMenuItem>
+            </>
+          )}
+
           <DropdownMenuItem onClick={handleDownloadData}>
             <Download className="mr-2 h-4 w-4" />
-            ดาวน์โหลดข้อมูล
+            ดาวน์โหลดข้อมูล JSON
           </DropdownMenuItem>
+
+          <DropdownMenuItem onClick={handleExportComplete}>
+            <FileText className="mr-2 h-4 w-4" />
+            ส่งออกครบถ้วน
+          </DropdownMenuItem>
+
           <DropdownMenuSeparator />
+
           <DropdownMenuItem
             onClick={handleDelete}
             className="text-red-600 focus:text-red-600">
@@ -171,8 +251,14 @@ export default function VehicleAccessActionButton({
                     <label className="text-sm font-medium text-gray-500">
                       ป้ายทะเบียน
                     </label>
-                    <div className="text-lg font-semibold">
+                    <div className="text-lg font-semibold flex items-center gap-2">
                       {vehicleAccess.license_plate}
+                      {hasImages && (
+                        <Badge variant="outline" className="text-xs">
+                          <Camera className="h-3 w-3 mr-1" />
+                          {images.length} รูป
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -303,6 +389,104 @@ export default function VehicleAccessActionButton({
               </Card>
             )}
 
+            {/* Images Section - Enhanced */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Camera className="h-5 w-5" />
+                  รูปภาพที่บันทึก
+                  {hasImages && (
+                    <Badge variant="outline" className="ml-2">
+                      {images.length} รูป
+                    </Badge>
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {hasImages ? (
+                  <div className="space-y-4">
+                    {/* Image thumbnails grid */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {images.map((image, index) => (
+                        <Card key={index} className="overflow-hidden">
+                          <CardContent className="p-3">
+                            <div className="aspect-video bg-gray-100 rounded mb-2 overflow-hidden">
+                              {image.thumbnail ? (
+                                <img
+                                  src={image.thumbnail}
+                                  alt={image.title}
+                                  className="w-full h-full object-cover cursor-pointer hover:scale-105 transition-transform"
+                                  onClick={() =>
+                                    showImage(
+                                      image.url,
+                                      image.title,
+                                      image.description
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <div
+                                  className="w-full h-full flex items-center justify-center cursor-pointer hover:bg-gray-200 transition-colors"
+                                  onClick={() =>
+                                    showImage(
+                                      image.url,
+                                      image.title,
+                                      image.description
+                                    )
+                                  }>
+                                  <Camera className="h-8 w-8 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            <div className="text-center">
+                              <Badge
+                                variant="outline"
+                                className={
+                                  image.type === "full"
+                                    ? "bg-purple-50 text-purple-700"
+                                    : "bg-blue-50 text-blue-700"
+                                }>
+                                {image.title}
+                              </Badge>
+                              <div className="text-xs text-gray-500 mt-1">
+                                {image.filename}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+
+                    {/* Action buttons for images */}
+                    <div className="flex gap-2 justify-center pt-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleViewImages}
+                        className="gap-2">
+                        <Eye className="h-4 w-4" />
+                        ดูรูปภาพ
+                      </Button>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadImages}
+                        className="gap-2">
+                        <Download className="h-4 w-4" />
+                        ดาวน์โหลด
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500 py-8">
+                    <Camera className="h-12 w-12 mx-auto mb-2 text-gray-300" />
+                    <p>ไม่มีรูปภาพที่บันทึก</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
             {/* Additional Info */}
             <Card>
               <CardHeader>
@@ -344,53 +528,22 @@ export default function VehicleAccessActionButton({
                 </div>
               </CardContent>
             </Card>
-
-            {/* Images Section */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Camera className="h-5 w-5" />
-                  รูปภาพที่บันทึก
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  {vehicleAccess.full_snapshot && (
-                    <div className="text-center">
-                      <Badge
-                        variant="outline"
-                        className="bg-purple-50 text-purple-700 mb-2">
-                        รูปภาพเต็ม
-                      </Badge>
-                      <div className="text-sm text-gray-500">
-                        มีรูปภาพเต็มในระบบ
-                      </div>
-                    </div>
-                  )}
-                  {vehicleAccess.lp_snapshot && (
-                    <div className="text-center">
-                      <Badge
-                        variant="outline"
-                        className="bg-blue-50 text-blue-700 mb-2">
-                        รูปป้ายทะเบียน
-                      </Badge>
-                      <div className="text-sm text-gray-500">
-                        มีรูปป้ายทะเบียนในระบบ
-                      </div>
-                    </div>
-                  )}
-                  {!vehicleAccess.full_snapshot &&
-                    !vehicleAccess.lp_snapshot && (
-                      <div className="col-span-2 text-center text-gray-500">
-                        ไม่มีรูปภาพที่บันทึก
-                      </div>
-                    )}
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Image Viewers */}
+      {imageViewer}
+
+      <MultiImageViewer
+        open={imagesViewerOpen}
+        onOpenChange={setImagesViewerOpen}
+        images={images.map((img) => ({
+          src: img.url,
+          title: img.title,
+          description: img.description,
+        }))}
+      />
 
       {confirmationDialog}
     </>
