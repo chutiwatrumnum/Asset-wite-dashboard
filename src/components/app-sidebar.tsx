@@ -1,4 +1,4 @@
-// src/components/app-sidebar.tsx (อัปเดต)
+// src/components/app-sidebar.tsx (อัปเดต - เพิ่มเมนู vehicle-access)
 import * as React from "react";
 import Pb from "@/api/pocketbase.tsx";
 import { NavMain } from "@/components/nav-main";
@@ -63,86 +63,21 @@ const data = {
       title: "บัตรเชิญ (E-invitation)",
       url: "/invitations",
       icon: LucideCalendar,
-      // items: [
-      //   {
-      //     title: "บัตรเชิญทั้งหมด",
-      //     url: "/invitations",
-      //   },
-      //   {
-      //     title: "บัตรเชิญที่ใช้งานได้",
-      //     url: "/invitations?status=active",
-      //   },
-      //   {
-      //     title: "บัตรเชิญที่หมดอายุ",
-      //     url: "/invitations?status=expired",
-      //   },
-      // ],
     },
-    // {
-    //   title: "นัดหมาย",
-    //   url: "/appointments",
-    //   icon: LucideCalendar,
-    // },
     {
       title: "จัดการยานพาหนะ",
       url: "/vehicles",
       icon: LucideCar,
-      // items: [
-      //   {
-      //     title: "ลูกบ้าน & เจ้าหน้าที่",
-      //     url: "/vehicles?tier=resident,staff",
-      //   },
-      //   {
-      //     title: "บุคคลภายนอก",
-      //     url: "/vehicles?tier=invited,unknown",
-      //   },
-      //   {
-      //     title: "รายการทั้งหมด",
-      //     url: "/vehicles",
-      //   },
-      // ],
     },
     {
       title: "ระบบเข้าออกยานพาหนะ",
       url: "/vehicle-access",
       icon: Camera,
-      // items: [
-      //   {
-      //     title: "การเข้าออกทั้งหมด",
-      //     url: "/vehicle-access",
-      //   },
-      //   {
-      //     title: "การเข้าออกวันนี้",
-      //     url: "/vehicle-access?date=today",
-      //   },
-      //   {
-      //     title: "รายงานสถิติ",
-      //     url: "/vehicle-access?view=statistics",
-      //   },
-      // ],
     },
     {
       title: "ประวัติการเข้าออก",
       url: "/history-in-out",
       icon: LucideFileClock,
-      // items: [
-      //   {
-      //     title: "การนัดหมาย",
-      //     url: "/appointments",
-      //   },
-      //   {
-      //     title: "ยานพาหนะ",
-      //     url: "/vehicle-history",
-      //   },
-      //   {
-      //     title: "บัตรเชิญ",
-      //     url: "/invitation-history",
-      //   },
-      //   {
-      //     title: "ระบบ AI รู้จำป้าย",
-      //     url: "/vehicle-access",
-      //   },
-      // ],
     },
   ],
   projects: [

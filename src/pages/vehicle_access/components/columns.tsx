@@ -1,99 +1,112 @@
-// src/pages/vehicle_access/components/columns.tsx
+// src/pages/vehicle-access/components/columns.tsx
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
-import DataTableColumnHeader from "./data-table-column-header";
-import { VehicleAccessItem } from "@/api/vehicle_access/vehicle_access";
 import { Badge } from "@/components/ui/badge";
+import { CheckCircle, XCircle, Eye, Camera } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import type { PassageLogItem } from "@/api/vehicle_access/vehicle_access";
 import {
   getTierInfo,
   getGateStateInfo,
-  getRegionName,
-  parseSnapshotInfo,
+  getAreaName,
   formatThaiDateTime,
 } from "@/utils/vehicleAccessUtils";
-import {
-  Car,
-  MapPin,
-  Camera,
-  CheckCircle,
-  XCircle,
-  Shield,
-  Calendar,
-  Zap,
-  Eye,
-  Home,
-} from "lucide-react";
 
 const TimeZone = "Asia/Bangkok";
-const columnHelper = createColumnHelper<VehicleAccessItem>();
+const columnHelper = createColumnHelper<PassageLogItem>();
+
+// Helper component for viewing snapshots
+const SnapshotViewer = ({
+  fullSnapshot,
+  lpSnapshot,
+}: {
+  fullSnapshot?: string;
+  lpSnapshot?: string;
+}) => {
+  const handleViewSnapshot = (type: "full" | "lp") => {
+    const snapshot = type === "full" ? fullSnapshot : lpSnapshot;
+    if (snapshot) {
+      // ในที่นี้อาจจะต้องสร้าง URL สำหรับดูรูปภาพ
+      // หรือเปิด modal แสดงรูปภาพ
+      console.log(`View ${type} snapshot:`, snapshot);
+      // TODO: Implement image viewer modal
+    }
+  };
+
+  return (
+    <div className="flex gap-1">
+      {fullSnapshot && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={() => handleViewSnapshot("full")}
+          title="ดูรูปภาพเต็ม">
+          <Camera className="h-3 w-3" />
+        </Button>
+      )}
+      {lpSnapshot && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 w-6 p-0"
+          onClick={() => handleViewSnapshot("lp")}
+          title="ดูรูปป้ายทะเบียน">
+          <Eye className="h-3 w-3" />
+        </Button>
+      )}
+    </div>
+  );
+};
 
 export const columns = [
-  // Hidden ID column for selection
   columnHelper.accessor("id", {
     cell: (info) => info.getValue(),
     enableHiding: false,
   }),
 
-  // 1. ป้ายทะเบียน
-  columnHelper.accessor("license_plate", {
-    header: () => <DataTableColumnHeader title="ป้ายทะเบียน" />,
+  // วันที่เวลา
+  columnHelper.accessor("created", {
+    header: () => <div className="text-center">วันที่เวลา</div>,
     cell: (info) => {
-      const rowData = info.row.original;
-      const regionName = getRegionName(rowData.area_code);
-
+      const createdTime = new Date(info.getValue());
       return (
-        <div className="min-w-[120px]">
-          <div className="flex items-center gap-2">
-            <Car className="h-4 w-4 text-blue-500" />
-            <div>
-              <div className="font-semibold">{info.getValue()}</div>
-              <div className="text-xs text-gray-500">{regionName}</div>
-            </div>
+        <div className="text-center min-w-[140px]">
+          <div className="text-sm font-medium">
+            {formatInTimeZone(createdTime, TimeZone, "dd MMM yyyy")}
           </div>
-        </div>
-      );
-    },
-    enableHiding: false,
-  }),
-
-  // 2. ประเภทยานพาหนะ
-  columnHelper.accessor("tier", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="ประเภท" />
-      </div>
-    ),
-    cell: (info) => {
-      const tierInfo = getTierInfo(info.getValue());
-
-      return (
-        <div className="flex justify-center items-center min-w-[100px]">
-          <Badge
-            variant="outline"
-            className={`text-xs ${tierInfo.color} gap-1`}>
-            {tierInfo.label}
-          </Badge>
+          <div className="text-xs text-gray-500">
+            {formatInTimeZone(createdTime, TimeZone, "HH:mm:ss")}
+          </div>
         </div>
       );
     },
     enableSorting: true,
   }),
 
-  // 3. สถานะการผ่าน
+  // ป้ายทะเบียน
+  columnHelper.accessor("license_plate", {
+    header: () => <div className="text-center">ป้ายทะเบียน</div>,
+    cell: (info) => {
+      return (
+        <div className="text-center min-w-[120px] font-semibold">
+          {info.getValue()}
+        </div>
+      );
+    },
+    enableHiding: true,
+  }),
+
+  // ผลการเข้าออก
   columnHelper.accessor("isSuccess", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="สถานะ" />
-      </div>
-    ),
+    header: () => <div className="text-center">ผลการเข้าออก</div>,
     cell: (info) => {
       const isSuccess = info.getValue();
-
       return (
         <div className="flex justify-center items-center">
           <Badge
             variant={isSuccess ? "default" : "destructive"}
-            className="text-xs gap-1">
+            className="gap-1">
             {isSuccess ? (
               <CheckCircle className="h-3 w-3" />
             ) : (
@@ -107,130 +120,62 @@ export const columns = [
     enableSorting: true,
   }),
 
-  // 4. ประตูและเครื่องอ่าน
-  columnHelper.accessor("gate", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="ประตู/เครื่องอ่าน" />
-      </div>
-    ),
+  // ประเภทยานพาหนะ
+  columnHelper.accessor("tier", {
+    header: () => <div className="text-center">ประเภทยานพาหนะ</div>,
     cell: (info) => {
-      const rowData = info.row.original;
-      const gateStateInfo = getGateStateInfo(rowData.gate_state);
+      const tier = info.getValue();
+      const tierInfo = getTierInfo(tier);
 
       return (
-        <div className="flex justify-center items-center min-w-[140px]">
-          <div className="text-center">
-            <div className="flex items-center gap-1 justify-center">
-              <Shield className="h-3 w-3 text-gray-500" />
-              <span className="text-sm font-medium">{info.getValue()}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              Reader: {rowData.reader}
-            </div>
-            <Badge
-              variant="outline"
-              className={`text-xs mt-1 ${gateStateInfo.color}`}>
-              {gateStateInfo.label}
-            </Badge>
-          </div>
+        <div className="flex justify-center items-center">
+          <Badge variant="outline" className={tierInfo.color}>
+            {tierInfo.label}
+          </Badge>
         </div>
       );
     },
     enableSorting: true,
   }),
 
-  // 5. รูปภาพ
-  columnHelper.display({
-    id: "snapshots",
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="รูปภาพ" />
-      </div>
-    ),
+  // จังหวัด
+  columnHelper.accessor("area_code", {
+    header: () => <div className="text-center">จังหวัด</div>,
     cell: (info) => {
-      const rowData = info.row.original;
-      const hasFullSnapshot =
-        rowData.full_snapshot && rowData.full_snapshot !== "";
-      const hasLpSnapshot = rowData.lp_snapshot && rowData.lp_snapshot !== "";
+      const areaCode = info.getValue();
+      const areaName = getAreaName(areaCode);
 
       return (
-        <div className="flex justify-center items-center min-w-[80px]">
-          <div className="text-center">
-            <div className="flex gap-1 justify-center">
-              {hasFullSnapshot && (
-                <Badge
-                  variant="outline"
-                  className="text-xs bg-purple-50 text-purple-700">
-                  <Camera className="h-3 w-3 mr-1" />
-                  Full
-                </Badge>
-              )}
-              {hasLpSnapshot && (
-                <Badge
-                  variant="outline"
-                  className="text-xs bg-blue-50 text-blue-700">
-                  <Car className="h-3 w-3 mr-1" />
-                  LP
-                </Badge>
-              )}
-            </div>
-            {!hasFullSnapshot && !hasLpSnapshot && (
-              <span className="text-xs text-gray-400">ไม่มีรูป</span>
-            )}
-          </div>
+        <div className="text-center min-w-[100px]">
+          <span className="text-xs bg-gray-100 px-2 py-1 rounded">
+            {areaName}
+          </span>
         </div>
       );
     },
   }),
 
-  // 6. ข้อมูล AI Processing
-  columnHelper.accessor("snapshot_info", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="AI Processing" />
-      </div>
-    ),
+  // สถานะประตู
+  columnHelper.accessor("gate_state", {
+    header: () => <div className="text-center">สถานะประตู</div>,
     cell: (info) => {
-      const snapshotInfo = parseSnapshotInfo(info.getValue());
-
-      if (!snapshotInfo) {
-        return (
-          <div className="flex justify-center items-center">
-            <span className="text-xs text-gray-400">ไม่มีข้อมูล</span>
-          </div>
-        );
-      }
+      const gateState = info.getValue();
+      const gateStateInfo = getGateStateInfo(gateState);
 
       return (
-        <div className="flex justify-center items-center min-w-[120px]">
-          <div className="text-center">
-            <div className="text-xs">
-              <span className="font-medium">
-                {(snapshotInfo.confidence * 100).toFixed(1)}%
-              </span>
-            </div>
-            <div className="text-xs text-gray-500">
-              {snapshotInfo.processing_time}s
-            </div>
-            <div className="text-xs text-gray-500">
-              {snapshotInfo.camera_id}
-            </div>
-          </div>
+        <div className="flex justify-center items-center">
+          <Badge variant="outline" className={gateStateInfo.color}>
+            {gateStateInfo.label}
+          </Badge>
         </div>
       );
     },
-    enableSorting: false,
-    enableHiding: true,
+    enableSorting: true,
   }),
 
-  // 7. บ้านเกี่ยวข้อง
+  // บ้าน
   columnHelper.accessor("house_id", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="บ้าน" />
-      </div>
-    ),
+    header: () => <div className="text-center">บ้าน</div>,
     cell: (info) => {
       const houseId = info.getValue();
       const rowData = info.row.original;
@@ -238,85 +183,94 @@ export const columns = [
 
       if (!houseId) {
         return (
-          <div className="flex justify-center items-center">
+          <div className="text-center">
             <span className="text-xs text-gray-400">ไม่ระบุ</span>
           </div>
         );
       }
 
       return (
-        <div className="flex justify-center items-center min-w-[100px]">
-          <div className="text-center">
-            <div className="flex items-center gap-1 justify-center">
-              <Home className="h-3 w-3 text-gray-500" />
-              <span className="text-sm">
-                {houseData?.address || houseData?.name || houseId}
-              </span>
+        <div className="text-center min-w-[100px]">
+          {houseData ? (
+            <div className="text-sm font-medium">
+              {houseData.address || houseData.house_number || "บ้าน"}
             </div>
-          </div>
+          ) : (
+            <span className="text-sm text-gray-500">บ้าน</span>
+          )}
         </div>
       );
     },
     enableSorting: true,
-    enableHiding: true,
   }),
 
-  // 8. หมายเหตุ
+  // รีดเดอร์/ประตู
+  columnHelper.accessor("reader", {
+    header: () => <div className="text-center">รีดเดอร์/ประตู</div>,
+    cell: (info) => {
+      const rowData = info.row.original;
+      const readerData = rowData.expand?.reader;
+      const gateData = rowData.expand?.gate;
+
+      return (
+        <div className="text-center min-w-[100px]">
+          <div className="text-xs space-y-1">
+            {readerData && (
+              <div className="text-gray-600">
+                R: {readerData.name || rowData.reader}
+              </div>
+            )}
+            {gateData && (
+              <div className="text-gray-600">
+                G: {gateData.name || rowData.gate}
+              </div>
+            )}
+            {!readerData && !gateData && (
+              <span className="text-gray-400">ไม่ระบุ</span>
+            )}
+          </div>
+        </div>
+      );
+    },
+  }),
+
+  // รูปภาพ
+  columnHelper.accessor("full_snapshot", {
+    header: () => <div className="text-center">รูปภาพ</div>,
+    cell: (info) => {
+      const rowData = info.row.original;
+      return (
+        <div className="flex justify-center items-center">
+          <SnapshotViewer
+            fullSnapshot={rowData.full_snapshot}
+            lpSnapshot={rowData.lp_snapshot}
+          />
+        </div>
+      );
+    },
+    enableSorting: false,
+  }),
+
+  // หมายเหตุ
   columnHelper.accessor("note", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="หมายเหตุ" />
-      </div>
-    ),
+    header: () => <div className="text-center">หมายเหตุ</div>,
     cell: (info) => {
       const note = info.getValue();
-
-      if (!note || note.trim() === "") {
+      if (!note) {
         return (
-          <div className="flex justify-center items-center">
+          <div className="text-center">
             <span className="text-xs text-gray-400">-</span>
           </div>
         );
       }
 
       return (
-        <div className="flex justify-center items-center min-w-[120px]">
-          <div className="text-center">
-            <span className="text-sm" title={note}>
-              {note.length > 30 ? `${note.substring(0, 30)}...` : note}
-            </span>
-          </div>
+        <div className="text-center min-w-[100px] max-w-[200px]">
+          <span className="text-xs text-gray-600 truncate" title={note}>
+            {note}
+          </span>
         </div>
       );
     },
-    enableSorting: false,
-    enableHiding: true,
-  }),
-
-  // 9. วันที่บันทึก
-  columnHelper.accessor("created", {
-    header: () => (
-      <div className="flex justify-center items-center">
-        <DataTableColumnHeader title="วันที่บันทึก" />
-      </div>
-    ),
-    cell: (info) => {
-      const createdTime = new Date(info.getValue());
-      return (
-        <div className="flex justify-center items-center min-w-[140px]">
-          <div className="text-center">
-            <div className="text-sm flex items-center gap-1 justify-center">
-              <Calendar className="h-3 w-3 text-gray-500" />
-              {formatInTimeZone(createdTime, TimeZone, "dd MMM yyyy")}
-            </div>
-            <div className="text-xs text-gray-500">
-              {formatInTimeZone(createdTime, TimeZone, "HH:mm")}
-            </div>
-          </div>
-        </div>
-      );
-    },
-    enableSorting: true,
-    enableHiding: true,
   }),
 ];

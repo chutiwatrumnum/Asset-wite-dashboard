@@ -1,100 +1,132 @@
 // src/utils/vehicleAccessUtils.tsx
-import {
-  VehicleAccessItem,
-  SnapshotInfo,
-} from "@/api/vehicle_access/vehicle_access";
+import type { PassageLogItem } from "@/api/vehicle_access/vehicle_access";
 
-// Vehicle tier definitions
+// Vehicle tiers สำหรับ passage log (ใช้จาก vehicleUtils)
 export const VEHICLE_TIERS = {
   resident: {
     label: "ลูกบ้าน",
-    color: "bg-blue-100 text-blue-800 border-blue-200",
-    description: "ยานพาหนะของลูกบ้าน",
+    color: "bg-blue-100 text-blue-800",
     priority: 1,
   },
   staff: {
     label: "เจ้าหน้าที่",
-    color: "bg-green-100 text-green-800 border-green-200",
-    description: "ยานพาหนะของเจ้าหน้าที่",
+    color: "bg-green-100 text-green-800",
     priority: 2,
   },
-  guest: {
+  "invited visitor": {
     label: "แขก",
-    color: "bg-yellow-100 text-yellow-800 border-yellow-200",
-    description: "ยานพาหนะของแขก",
+    color: "bg-yellow-100 text-yellow-800",
     priority: 3,
   },
-  unknown: {
+  "unknown visitor": {
     label: "ไม่ทราบ",
-    color: "bg-gray-100 text-gray-800 border-gray-200",
-    description: "ยานพาหนะที่ไม่ทราบประเภท",
+    color: "bg-gray-100 text-gray-800",
     priority: 4,
+  },
+  blacklisted: {
+    label: "บัญชีดำ",
+    color: "bg-red-100 text-red-800",
+    priority: 5,
   },
 } as const;
 
-// Gate state definitions
+// Gate states
 export const GATE_STATES = {
   enabled: {
-    label: "ใช้งานได้",
+    label: "เปิดใช้งาน",
     color: "bg-green-100 text-green-800",
-    description: "ประตูพร้อมใช้งาน",
   },
   disabled: {
     label: "ปิดใช้งาน",
     color: "bg-red-100 text-red-800",
-    description: "ประตูไม่พร้อมใช้งาน",
+  },
+  maintenance: {
+    label: "ปรับปรุง",
+    color: "bg-yellow-100 text-yellow-800",
   },
 } as const;
 
-// Thai area codes (จังหวัด)
+// Thai area codes (same as vehicleUtils)
 export const THAI_AREA_CODES = {
-  "th-BT": "กรุงเทพมหานคร",
-  "th-NT": "นนทบุรี",
-  "th-PL": "ปทุมธานี",
-  "th-SP": "สมุทรปราการ",
-  "th-SN": "สมุทรสงคราม",
-  "th-AC": "อ่างทอง",
-  "th-LB": "ลพบุรี",
-  "th-PB": "เพชรบุรี",
-  "th-HH": "หัวหิน",
-  "th-CK": "ฉะเชิงเทรา",
-  "th-CB": "ชลบุรี",
-  "th-RY": "ระยอง",
-  "th-TT": "ตราด",
-  "th-KK": "ขอนแก่น",
-  "th-UD": "อุดรธานี",
-  "th-NP": "นครพนม",
-  "th-BK": "บึงกาฬ",
-  "th-SK": "สกลนคร",
-  "th-NW": "หนองคาย",
-  "th-LE": "เลย",
-  "th-PH": "พิษณุโลก",
-  "th-SL": "สุโขทัย",
-  "th-UK": "อุตรดิตถ์",
-  "th-NAN": "น่าน",
-  "th-PE": "แพร่",
-  "th-CM": "เชียงใหม่",
-  "th-CR": "เชียงราย",
-  "th-LG": "ลำปาง",
-  "th-LP": "ลำพูน",
-  "th-MS": "แม่ฮ่องสอน",
-  "th-TK": "ตาก",
-  "th-KP": "กำแพงเพชร",
-  "th-NST": "นครสวรรค์",
-  "th-UTH": "อุทัยธานี",
-  "th-CPH": "จันทบุรี",
-  "th-PC": "ประจวบคีรีขันธ์",
-  "th-RO": "ราชบุรี",
-  "th-KN": "กาญจนบุรี",
-  "th-SPK": "สุพรรณบุรี",
-  "th-NSK": "นครปฐม",
-  "th-STH": "สมุทรสาคร",
+  "th-10": "กรุงเทพมหานคร",
+  "th-11": "สมุทรปราการ",
+  "th-12": "นนทบุรี",
+  "th-13": "ปทุมธานี",
+  "th-14": "พระนครศรีอยุธยา",
+  "th-15": "อ่างทอง",
+  "th-16": "ลพบุรี",
+  "th-17": "สิงห์บุรี",
+  "th-18": "ชัยนาท",
+  "th-19": "สระบุรี",
+  "th-20": "นครนายก",
+  "th-21": "สระแก้ว",
+  "th-22": "ปราจีนบุรี",
+  "th-23": "ฉะเชิงเทรา",
+  "th-24": "ชลบุรี",
+  "th-25": "ระยอง",
+  "th-26": "จันทบุรี",
+  "th-27": "ตราด",
+  "th-30": "นครราชสีมา",
+  "th-31": "บุรีรัมย์",
+  "th-32": "สุรินทร์",
+  "th-33": "ศิวะนครคร",
+  "th-34": "อุบลราชธานี",
+  "th-35": "ยโสธร",
+  "th-36": "ชัยภูมิ",
+  "th-37": "อำนาจเจริญ",
+  "th-38": "หนองบัวลำภู",
+  "th-39": "ขอนแก่น",
+  "th-40": "อุดรธานี",
+  "th-41": "เลย",
+  "th-42": "หนองคาย",
+  "th-43": "มหาสารคาม",
+  "th-44": "ร้อยเอ็ด",
+  "th-45": "กาฬสินธุ์",
+  "th-46": "สกลนคร",
+  "th-47": "นครพนม",
+  "th-48": "มุกดาหาร",
+  "th-49": "เชียงใหม่",
+  "th-50": "ลำพูน",
+  "th-51": "ลำปาง",
+  "th-52": "อุตรดิตถ์",
+  "th-53": "แพร่",
+  "th-54": "น่าน",
+  "th-55": "พะเยา",
+  "th-56": "เชียงราย",
+  "th-57": "แม่ฮ่องสอน",
+  "th-58": "นครสวรรค์",
+  "th-60": "กำแพงเพชร",
+  "th-61": "ตาก",
+  "th-62": "สุโขทัย",
+  "th-63": "พิษณุโลก",
+  "th-64": "พิจิตร",
+  "th-65": "เพชรบูรณ์",
+  "th-66": "ราชบุรี",
+  "th-67": "กาญจนบุรี",
+  "th-70": "เพชรบุรี",
+  "th-71": "ประจวบคีรีขันธ์",
+  "th-72": "นครศรีธรรมราช",
+  "th-73": "กระบี่",
+  "th-74": "พังงา",
+  "th-75": "ภูเก็ต",
+  "th-76": "สุราษฎร์ธานี",
+  "th-77": "ระนอง",
+  "th-80": "ชุมพร",
+  "th-81": "สงขลา",
+  "th-82": "สตูล",
+  "th-83": "ตรัง",
+  "th-84": "พัทลุง",
+  "th-85": "ปัตตานี",
+  "th-86": "ยะลา",
+  "th-90": "นราธิวาส",
+  "th-91": "บึงกาฬ",
 } as const;
 
-// Utility functions
+// Helper functions
 export const getTierInfo = (tier: string) => {
   return (
-    VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS] || VEHICLE_TIERS.unknown
+    VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS] ||
+    VEHICLE_TIERS["unknown visitor"]
   );
 };
 
@@ -104,105 +136,64 @@ export const getGateStateInfo = (gateState: string) => {
   );
 };
 
-export const getRegionName = (areaCode: string): string => {
+export const getAreaName = (areaCode: string): string => {
   return THAI_AREA_CODES[areaCode as keyof typeof THAI_AREA_CODES] || areaCode;
 };
 
-// Snapshot info parsing
-export const parseSnapshotInfo = (
-  snapshotInfoString: string | any
-): SnapshotInfo | null => {
-  // ตรวจสอบว่าเป็น null, undefined หรือ empty
-  if (!snapshotInfoString) {
-    return null;
-  }
-
-  // ถ้าเป็น object อยู่แล้ว ให้ return โดยตรง
-  if (typeof snapshotInfoString === "object") {
-    try {
-      return {
-        confidence: snapshotInfoString.confidence || 0,
-        processing_time: snapshotInfoString.processing_time || 0,
-        camera_id: snapshotInfoString.camera_id || "UNKNOWN",
-        ...snapshotInfoString,
-      };
-    } catch (error) {
-      console.error("Error processing snapshot object:", error);
-      return null;
-    }
-  }
-
-  // ถ้าไม่ใช่ string ให้แปลงเป็น string ก่อน
-  if (typeof snapshotInfoString !== "string") {
-    try {
-      snapshotInfoString = String(snapshotInfoString);
-    } catch (error) {
-      console.error("Error converting to string:", error);
-      return null;
-    }
-  }
-
-  // ตรวจสอบว่าเป็น empty string หลังจากแปลงแล้ว
-  if (!snapshotInfoString || snapshotInfoString.trim() === "") {
-    return null;
-  }
-
-  // ลองแปลง JSON string เป็น object
+// Thai date time formatting
+export const formatThaiDateTime = (dateString: string): string => {
   try {
-    const parsed = JSON.parse(snapshotInfoString);
-    return {
-      confidence: parsed.confidence || 0,
-      processing_time: parsed.processing_time || 0,
-      camera_id: parsed.camera_id || "UNKNOWN",
-      ...parsed,
-    };
+    const date = new Date(dateString);
+    return date.toLocaleString("th-TH", {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Asia/Bangkok",
+    });
   } catch (error) {
-    console.error("Error parsing snapshot info JSON:", error);
-
-    // ถ้า parse ไม่ได้ ลองตรวจสอบว่าเป็น plain text หรือไม่
-    try {
-      // ถ้าเป็น string ธรรมดา ให้สร้าง object เริ่มต้น
-      return {
-        confidence: 0,
-        processing_time: 0,
-        camera_id: snapshotInfoString.substring(0, 20) || "UNKNOWN", // ใช้ข้อความบางส่วนเป็น camera_id
-        raw_data: snapshotInfoString,
-      };
-    } catch (fallbackError) {
-      console.error("Fallback parsing failed:", fallbackError);
-      return null;
-    }
+    return dateString;
   }
 };
 
-// Image handling
-export const getImageUrl = (imagePath: string, baseUrl?: string): string => {
-  if (!imagePath) return "";
-
-  // If it's already a full URL, return as is
-  if (imagePath.startsWith("http://") || imagePath.startsWith("https://")) {
-    return imagePath;
+export const formatThaiDate = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString("th-TH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      timeZone: "Asia/Bangkok",
+    });
+  } catch (error) {
+    return dateString;
   }
-
-  // If it's a PocketBase file reference, construct the URL
-  if (baseUrl) {
-    return `${baseUrl}/${imagePath}`;
-  }
-
-  return imagePath;
 };
 
-// Search and filter functions
-export const searchVehicleAccessLogs = (
-  logs: VehicleAccessItem[],
+export const formatThaiTime = (dateString: string): string => {
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleTimeString("th-TH", {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      timeZone: "Asia/Bangkok",
+    });
+  } catch (error) {
+    return dateString;
+  }
+};
+
+// Search helper functions
+export const searchPassageLogData = (
+  logs: PassageLogItem[],
   filters: {
     licensePlate?: string;
     tier?: string;
     areaCode?: string;
     gateState?: string;
-    gate?: string;
-    reader?: string;
-    region?: string;
     isSuccess?: boolean;
     dateRange?: {
       start?: string;
@@ -211,11 +202,11 @@ export const searchVehicleAccessLogs = (
   }
 ) => {
   return logs.filter((log) => {
-    // License plate search (fuzzy matching)
+    // License plate search
     if (filters.licensePlate) {
-      const searchTerm = filters.licensePlate.toLowerCase().replace(/\s+/g, "");
-      const licensePlate = log.license_plate.toLowerCase().replace(/\s+/g, "");
-      if (!licensePlate.includes(searchTerm)) {
+      const searchTerm = filters.licensePlate.toLowerCase().replace(/\s/g, "");
+      const logPlate = log.license_plate.toLowerCase().replace(/\s/g, "");
+      if (!logPlate.includes(searchTerm)) {
         return false;
       }
     }
@@ -235,25 +226,7 @@ export const searchVehicleAccessLogs = (
       return false;
     }
 
-    // Gate filter
-    if (filters.gate && log.gate !== filters.gate) {
-      return false;
-    }
-
-    // Reader filter
-    if (filters.reader && log.reader !== filters.reader) {
-      return false;
-    }
-
-    // Region filter
-    if (filters.region) {
-      const regionName = getRegionName(log.area_code);
-      if (!regionName.toLowerCase().includes(filters.region.toLowerCase())) {
-        return false;
-      }
-    }
-
-    // Success status filter
+    // Success filter
     if (
       filters.isSuccess !== undefined &&
       log.isSuccess !== filters.isSuccess
@@ -274,6 +247,7 @@ export const searchVehicleAccessLogs = (
 
       if (filters.dateRange.end) {
         const endDate = new Date(filters.dateRange.end);
+        endDate.setHours(23, 59, 59, 999); // Set to end of day
         if (logDate > endDate) {
           return false;
         }
@@ -284,23 +258,20 @@ export const searchVehicleAccessLogs = (
   });
 };
 
-// Statistics calculation
-export const getVehicleAccessStatistics = (logs: VehicleAccessItem[]) => {
+// Statistics helper functions
+export const getVehicleAccessStatistics = (logs: PassageLogItem[]) => {
   const stats = {
     total: logs.length,
     successful: 0,
     failed: 0,
     byTier: {} as Record<string, number>,
     byGateState: {} as Record<string, number>,
-    byAreaCode: {} as Record<string, number>,
-    byGate: {} as Record<string, number>,
-    byReader: {} as Record<string, number>,
-    recentActivity: [] as VehicleAccessItem[],
-    topRegions: [] as Array<{ region: string; count: number }>,
+    byArea: {} as Record<string, number>,
+    hourlyDistribution: {} as Record<string, number>,
   };
 
   logs.forEach((log) => {
-    // Count by success status
+    // Count by success
     if (log.isSuccess) {
       stats.successful++;
     } else {
@@ -316,114 +287,56 @@ export const getVehicleAccessStatistics = (logs: VehicleAccessItem[]) => {
     stats.byGateState[gateStateLabel] =
       (stats.byGateState[gateStateLabel] || 0) + 1;
 
-    // Count by area code
-    const regionName = getRegionName(log.area_code);
-    stats.byAreaCode[regionName] = (stats.byAreaCode[regionName] || 0) + 1;
+    // Count by area
+    const areaName = getAreaName(log.area_code);
+    stats.byArea[areaName] = (stats.byArea[areaName] || 0) + 1;
 
-    // Count by gate
-    stats.byGate[log.gate] = (stats.byGate[log.gate] || 0) + 1;
-
-    // Count by reader
-    stats.byReader[log.reader] = (stats.byReader[log.reader] || 0) + 1;
+    // Hourly distribution
+    try {
+      const hour = new Date(log.created).getHours();
+      const hourKey = `${hour.toString().padStart(2, "0")}:00`;
+      stats.hourlyDistribution[hourKey] =
+        (stats.hourlyDistribution[hourKey] || 0) + 1;
+    } catch (error) {
+      // Skip if date parsing fails
+    }
   });
-
-  // Get recent activity (last 10 records)
-  stats.recentActivity = logs
-    .sort(
-      (a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()
-    )
-    .slice(0, 10);
-
-  // Get top regions
-  stats.topRegions = Object.entries(stats.byAreaCode)
-    .map(([region, count]) => ({ region, count }))
-    .sort((a, b) => b.count - a.count)
-    .slice(0, 5);
 
   return stats;
 };
 
-// Export data preparation
-export const prepareVehicleAccessDataForExport = (
-  logs: VehicleAccessItem[]
-) => {
+// Export utilities for CSV/Excel
+export const preparePassageLogDataForExport = (logs: PassageLogItem[]) => {
   return logs.map((log) => {
     const tierInfo = getTierInfo(log.tier);
     const gateStateInfo = getGateStateInfo(log.gate_state);
-    const regionName = getRegionName(log.area_code);
-    const snapshotInfo = parseSnapshotInfo(log.snapshot_info);
+    const areaName = getAreaName(log.area_code);
 
     return {
-      รหัสบันทึก: log.id,
       ป้ายทะเบียน: log.license_plate,
-      ประเภทยานพาหนะ: tierInfo.label,
-      จังหวัด: regionName,
-      รหัสพื้นที่: log.area_code,
-      ภูมิภาค: log.region || "-",
-      ประตู: log.gate,
-      เครื่องอ่าน: log.reader,
+      ผลการเข้าออก: log.isSuccess ? "สำเร็จ" : "ล้มเหลว",
+      ระดับยานพาหนะ: tierInfo.label,
       สถานะประตู: gateStateInfo.label,
-      สถานะการผ่าน: log.isSuccess ? "สำเร็จ" : "ล้มเหลว",
-      บ้านเกี่ยวข้อง: log.house_id || "-",
-      ความมั่นใจ_AI: snapshotInfo
-        ? `${(snapshotInfo.confidence * 100).toFixed(1)}%`
-        : "-",
-      เวลาประมวลผล_AI: snapshotInfo ? `${snapshotInfo.processing_time}s` : "-",
-      กล้อง: snapshotInfo?.camera_id || "-",
+      จังหวัด: areaName,
+      ภูมิภาค: log.region || "",
+      บ้าน: log.house_id || "",
+      รีดเดอร์: log.reader || "",
+      ประตู: log.gate || "",
+      รูปภาพเต็ม: log.full_snapshot || "",
+      รูปป้ายทะเบียน: log.lp_snapshot || "",
+      ข้อมูลรูปภาพ: log.snapshot_info || "",
       หมายเหตุ: log.note || "",
-      วันที่บันทึก: new Date(log.created).toLocaleDateString("th-TH"),
-      เวลาบันทึก: new Date(log.created).toLocaleTimeString("th-TH"),
-      อัปเดตล่าสุด: new Date(log.updated).toLocaleDateString("th-TH"),
+      วันที่เวลา: formatThaiDateTime(log.created),
+      อัปเดตล่าสุด: formatThaiDateTime(log.updated),
     };
   });
 };
 
-// Date formatting utilities
-export const formatThaiDateTime = (dateString: string): string => {
-  try {
-    return new Date(dateString).toLocaleString("th-TH", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Bangkok",
-    });
-  } catch {
-    return dateString;
-  }
-};
-
-export const formatThaiDate = (dateString: string): string => {
-  try {
-    return new Date(dateString).toLocaleDateString("th-TH", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      timeZone: "Asia/Bangkok",
-    });
-  } catch {
-    return dateString;
-  }
-};
-
-export const formatTime = (dateString: string): string => {
-  try {
-    return new Date(dateString).toLocaleTimeString("th-TH", {
-      hour: "2-digit",
-      minute: "2-digit",
-      timeZone: "Asia/Bangkok",
-    });
-  } catch {
-    return dateString;
-  }
-};
-
-// Sorting utilities
-export const sortVehicleAccessLogs = (
-  logs: VehicleAccessItem[],
+// Sorting helper functions
+export const sortPassageLogs = (
+  logs: PassageLogItem[],
   sortBy: string,
-  sortOrder: "asc" | "desc" = "asc"
+  sortOrder: "asc" | "desc" = "desc"
 ) => {
   return [...logs].sort((a, b) => {
     let valueA: any;
@@ -431,32 +344,32 @@ export const sortVehicleAccessLogs = (
 
     switch (sortBy) {
       case "license_plate":
-        valueA = a.license_plate.toLowerCase();
-        valueB = b.license_plate.toLowerCase();
+        valueA = a.license_plate.replace(/\s/g, "").toLowerCase();
+        valueB = b.license_plate.replace(/\s/g, "").toLowerCase();
         break;
       case "tier":
         valueA = getTierInfo(a.tier).priority;
         valueB = getTierInfo(b.tier).priority;
         break;
-      case "created":
-        valueA = new Date(a.created).getTime();
-        valueB = new Date(b.created).getTime();
-        break;
-      case "region":
-        valueA = getRegionName(a.area_code).toLowerCase();
-        valueB = getRegionName(b.area_code).toLowerCase();
-        break;
-      case "gate":
-        valueA = a.gate.toLowerCase();
-        valueB = b.gate.toLowerCase();
-        break;
       case "isSuccess":
         valueA = a.isSuccess ? 1 : 0;
         valueB = b.isSuccess ? 1 : 0;
         break;
+      case "area_code":
+        valueA = getAreaName(a.area_code);
+        valueB = getAreaName(b.area_code);
+        break;
+      case "gate_state":
+        valueA = a.gate_state;
+        valueB = b.gate_state;
+        break;
+      case "created":
+        valueA = new Date(a.created).getTime();
+        valueB = new Date(b.created).getTime();
+        break;
       default:
-        valueA = a[sortBy as keyof VehicleAccessItem] || "";
-        valueB = b[sortBy as keyof VehicleAccessItem] || "";
+        valueA = a[sortBy as keyof PassageLogItem];
+        valueB = b[sortBy as keyof PassageLogItem];
     }
 
     if (valueA < valueB) {
@@ -467,34 +380,4 @@ export const sortVehicleAccessLogs = (
     }
     return 0;
   });
-};
-
-// Validation functions
-export const validateLicensePlate = (licensePlate: string): string | null => {
-  if (!licensePlate || licensePlate.trim().length === 0) {
-    return "กรุณากรอกป้ายทะเบียน";
-  }
-
-  const trimmed = licensePlate.trim();
-  if (trimmed.length < 2) {
-    return "ป้ายทะเบียนต้องมีอย่างน้อย 2 ตัวอักษร";
-  }
-
-  if (trimmed.length > 20) {
-    return "ป้ายทะเบียนต้องไม่เกิน 20 ตัวอักษร";
-  }
-
-  return null;
-};
-
-export const validateAreaCode = (areaCode: string): string | null => {
-  if (!areaCode || areaCode.trim().length === 0) {
-    return "กรุณาเลือกรหัสจังหวัด";
-  }
-
-  if (!THAI_AREA_CODES[areaCode as keyof typeof THAI_AREA_CODES]) {
-    return "รหัสจังหวัดไม่ถูกต้อง";
-  }
-
-  return null;
 };

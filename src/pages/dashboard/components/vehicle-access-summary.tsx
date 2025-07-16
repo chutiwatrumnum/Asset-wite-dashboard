@@ -1,4 +1,4 @@
-// src/pages/dashboard/components/vehicle-access-summary.tsx
+// src/pages/dashboard/components/vehicle-access-summary.tsx (แก้ไขแล้ว)
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import {
   Eye,
   Camera,
 } from "lucide-react";
-import { useRecentVehicleAccessQuery } from "@/react-query/manage/vehicle_access/vehicle_access";
+import { useRecentPassageLogQuery } from "@/react-query/manage/vehicle_access/vehicle_access"; // ✅ แก้ชื่อ
 import {
   getVehicleAccessStatistics,
   formatThaiDateTime,
@@ -24,7 +24,7 @@ interface VehicleAccessSummaryProps {
 }
 
 export function VehicleAccessSummary({ className }: VehicleAccessSummaryProps) {
-  const { data: recentAccess, isLoading } = useRecentVehicleAccessQuery(24);
+  const { data: recentAccess, isLoading } = useRecentPassageLogQuery(24); // ✅ แก้ชื่อ
 
   if (isLoading) {
     return (
@@ -173,7 +173,7 @@ export function VehicleAccessStatusMonitor({
     data: recentAccess,
     refetch,
     isLoading,
-  } = useRecentVehicleAccessQuery(1); // Last hour
+  } = useRecentPassageLogQuery(1); // ✅ แก้ชื่อ
 
   const latestAccess = recentAccess?.[0];
   const recentFailures =

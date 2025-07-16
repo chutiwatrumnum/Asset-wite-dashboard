@@ -1,30 +1,29 @@
 // src/api/vehicle_access/vehicle_access.ts
 import Pb from "../pocketbase";
 
-const collectionName = "passage_log"; // ใช้ collection เดิมแต่ปรับ concept
+const collectionName = "passage_log";
 
-// Types สำหรับ Vehicle Access Control
-export interface VehicleAccessItem {
+// Types
+export interface PassageLogItem {
     collectionId: string;
     collectionName: string;
     id: string;
     isSuccess: boolean;
-    tier: "resident" | "staff" | "guest" | "unknown";
-    reader: string;
-    gate: string;
+    tier: string;
+    reader: string; // RELATION_RECORD_ID
+    gate: string; // RELATION_RECORD_ID
     house_id: string;
-    gate_state: "enabled" | "disabled";
+    gate_state: string;
     license_plate: string;
     region: string;
     area_code: string;
-    full_snapshot: string;
-    lp_snapshot: string;
-    snapshot_info: string;
+    full_snapshot: string; // filename.jpg
+    lp_snapshot: string; // filename.jpg
+    snapshot_info: string; // JSON
     note: string;
     created: string;
     updated: string;
-
-    // Expanded relations (ถ้ามี)
+    // Expanded relation fields
     expand?: {
         house_id?: any;
         reader?: any;
@@ -32,82 +31,60 @@ export interface VehicleAccessItem {
     };
 }
 
-export interface SnapshotInfo {
-    confidence: number;
-    processing_time: number;
-    camera_id: string;
-    [key: string]: any;
-}
-
-export interface VehicleAccessRequest {
+export interface PassageLogRequest {
     page?: number;
     perPage?: number;
     sort?: string;
     filter?: string;
 }
 
-export interface VehicleAccessResponse {
-    items: VehicleAccessItem[];
+export interface PassageLogResponse {
+    items: PassageLogItem[];
     page: number;
     perPage: number;
     totalItems: number;
     totalPages: number;
 }
 
-export interface NewVehicleAccessRequest {
-    id?: string;
-    isSuccess?: boolean;
-    tier: "resident" | "staff" | "guest" | "unknown";
-    reader: string;
-    gate: string;
-    house_id?: string;
-    gate_state?: "enabled" | "disabled";
-    license_plate: string;
-    region?: string;
-    area_code: string;
-    full_snapshot?: File | string;
-    lp_snapshot?: File | string;
-    snapshot_info?: string;
-    note?: string;
-}
-
 // API Functions
-const getVehicleAccess = async (request: VehicleAccessRequest): Promise<VehicleAccessResponse> => {
+const getPassageLog = async (request: PassageLogRequest): Promise<PassageLogResponse> => {
     try {
-        const vehicleAccessList = await Pb.collection(collectionName).getList<VehicleAccessItem>(
+        const passageLogList = await Pb.collection(collectionName).getList<PassageLogItem>(
             request.page || 1,
-            request.perPage || 50,
+            request.perPage || 10,
             {
                 filter: request.filter || "",
                 sort: request.sort || "-created",
-                expand: "house_id,reader,gate",
+                expand: "house_id,reader,gate", // Expand related records
             }
         );
-        return vehicleAccessList;
+        return passageLogList;
     } catch (error) {
-        console.error("Error fetching vehicle access list:", error);
+        console.error("Error fetching passage log list:", error);
         throw error;
     }
 };
 
-const getAllVehicleAccess = async (): Promise<VehicleAccessItem[]> => {
+const getAllPassageLog = async (): Promise<PassageLogItem[]> => {
     try {
-        const vehicleAccessList = await Pb.collection(collectionName).getFullList<VehicleAccessItem>({
+        const passageLogList = await Pb.collection(collectionName).getFullList<PassageLogItem>({
             sort: "-created",
             expand: "house_id,reader,gate",
-            requestKey: `getAllVehicleAccess_${Date.now()}`,
+            requestKey: `getAllPassageLog_${Date.now()}`, // เพิ่ม unique key
         });
-        return vehicleAccessList;
+        return passageLogList;
     } catch (error) {
-        console.error("Error fetching all vehicle access:", error);
+        console.error("Error fetching all passage logs:", error);
+        // ตรวจสอบว่าเป็น auto-cancellation หรือไม่
         if (error && typeof error === 'object' && 'message' in error) {
             const errorMessage = (error as Error).message;
             if (errorMessage.includes('autocancelled') || errorMessage.includes('aborted')) {
+                // ลองใหม่หลังจาก delay สั้นๆ
                 await new Promise(resolve => setTimeout(resolve, 100));
-                return await Pb.collection(collectionName).getFullList<VehicleAccessItem>({
+                return await Pb.collection(collectionName).getFullList<PassageLogItem>({
                     sort: "-created",
                     expand: "house_id,reader,gate",
-                    requestKey: `getAllVehicleAccess_retry_${Date.now()}`,
+                    requestKey: `getAllPassageLog_retry_${Date.now()}`,
                 });
             }
         }
@@ -115,200 +92,197 @@ const getAllVehicleAccess = async (): Promise<VehicleAccessItem[]> => {
     }
 };
 
-const getVehicleAccessById = async (id: string): Promise<VehicleAccessItem> => {
+const getPassageLogById = async (id: string): Promise<PassageLogItem> => {
     try {
-        const vehicleAccess = await Pb.collection(collectionName).getOne<VehicleAccessItem>(id, {
+        const passageLog = await Pb.collection(collectionName).getOne<PassageLogItem>(id, {
             expand: "house_id,reader,gate",
         });
-        return vehicleAccess;
+        return passageLog;
     } catch (error) {
-        console.error(`Error fetching vehicle access with id ${id}:`, error);
+        console.error(`Error fetching passage log with id ${id}:`, error);
         throw error;
     }
 };
 
-const getRecentVehicleAccess = async (withinHours: number = 24): Promise<VehicleAccessItem[]> => {
+// Get passage logs by license plate
+const getPassageLogByLicensePlate = async (licensePlate: string): Promise<PassageLogItem[]> => {
+    try {
+        if (!licensePlate?.trim()) {
+            throw new Error("License plate is required");
+        }
+
+        const passageLogs = await Pb.collection(collectionName).getFullList<PassageLogItem>({
+            filter: `license_plate = "${licensePlate.trim()}"`,
+            expand: "house_id,reader,gate",
+            sort: "-created",
+        });
+        return passageLogs;
+    } catch (error) {
+        console.error(`Error fetching passage logs with license plate ${licensePlate}:`, error);
+        throw error;
+    }
+};
+
+// Get passage logs by success status
+const getPassageLogsBySuccess = async (isSuccess: boolean): Promise<PassageLogItem[]> => {
+    try {
+        const passageLogs = await Pb.collection(collectionName).getFullList<PassageLogItem>({
+            filter: `isSuccess = ${isSuccess}`,
+            expand: "house_id,reader,gate",
+            sort: "-created",
+        });
+        return passageLogs;
+    } catch (error) {
+        console.error(`Error fetching passage logs with success status ${isSuccess}:`, error);
+        throw error;
+    }
+};
+
+// Get passage logs by tier
+const getPassageLogsByTier = async (tier: string): Promise<PassageLogItem[]> => {
+    try {
+        if (!tier) {
+            throw new Error("Tier is required");
+        }
+
+        const passageLogs = await Pb.collection(collectionName).getFullList<PassageLogItem>({
+            filter: `tier = "${tier}"`,
+            expand: "house_id,reader,gate",
+            sort: "-created",
+        });
+        return passageLogs;
+    } catch (error) {
+        console.error(`Error fetching passage logs with tier ${tier}:`, error);
+        throw error;
+    }
+};
+
+// Get passage logs by house
+const getPassageLogsByHouse = async (houseId: string): Promise<PassageLogItem[]> => {
+    try {
+        if (!houseId) {
+            throw new Error("House ID is required");
+        }
+
+        const passageLogs = await Pb.collection(collectionName).getFullList<PassageLogItem>({
+            filter: `house_id = "${houseId}"`,
+            expand: "house_id,reader,gate",
+            sort: "-created",
+        });
+        return passageLogs;
+    } catch (error) {
+        console.error(`Error fetching passage logs for house ${houseId}:`, error);
+        throw error;
+    }
+};
+
+// Get recent passage logs (within specified hours)
+const getRecentPassageLogs = async (withinHours: number = 24): Promise<PassageLogItem[]> => {
     try {
         const now = new Date();
         const pastDate = new Date();
         pastDate.setHours(now.getHours() - withinHours);
 
-        const vehicleAccessList = await Pb.collection(collectionName).getFullList<VehicleAccessItem>({
-            filter: `created>="${pastDate.toISOString()}"`,
+        const passageLogs = await Pb.collection(collectionName).getFullList<PassageLogItem>({
+            filter: `created >= "${pastDate.toISOString()}"`,
             expand: "house_id,reader,gate",
             sort: "-created",
-            requestKey: `getRecentVehicleAccess_${withinHours}_${Date.now()}`,
+            requestKey: `getRecentPassageLogs_${withinHours}_${Date.now()}`,
         });
-        return vehicleAccessList;
+        return passageLogs;
     } catch (error) {
-        console.error(`Error fetching recent vehicle access:`, error);
+        console.error(`Error fetching recent passage logs:`, error);
+        // ตรวจสอบ auto-cancellation
+        if (error && typeof error === 'object' && 'message' in error) {
+            const errorMessage = (error as Error).message;
+            if (errorMessage.includes('autocancelled') || errorMessage.includes('aborted')) {
+                // ลองใหม่
+                await new Promise(resolve => setTimeout(resolve, 100));
+                const now = new Date();
+                const pastDate = new Date();
+                pastDate.setHours(now.getHours() - withinHours);
+
+                return await Pb.collection(collectionName).getFullList<PassageLogItem>({
+                    filter: `created >= "${pastDate.toISOString()}"`,
+                    expand: "house_id,reader,gate",
+                    sort: "-created",
+                    requestKey: `getRecentPassageLogs_retry_${withinHours}_${Date.now()}`,
+                });
+            }
+        }
         throw error;
     }
 };
 
-const createVehicleAccess = async (data: NewVehicleAccessRequest): Promise<VehicleAccessItem> => {
-    try {
-        console.log("Creating vehicle access with request:", data);
-
-        const formData = new FormData();
-
-        // Required fields
-        formData.append("tier", data.tier);
-        formData.append("reader", data.reader);
-        formData.append("gate", data.gate);
-        formData.append("license_plate", data.license_plate);
-        formData.append("area_code", data.area_code);
-
-        // Optional fields
-        if (data.isSuccess !== undefined) formData.append("isSuccess", data.isSuccess.toString());
-        if (data.house_id) formData.append("house_id", data.house_id);
-        if (data.gate_state) formData.append("gate_state", data.gate_state);
-        if (data.region) formData.append("region", data.region);
-        if (data.note) formData.append("note", data.note);
-        if (data.snapshot_info) formData.append("snapshot_info", data.snapshot_info);
-
-        // File uploads
-        if (data.full_snapshot instanceof File) {
-            formData.append("full_snapshot", data.full_snapshot);
-        } else if (typeof data.full_snapshot === 'string' && data.full_snapshot) {
-            formData.append("full_snapshot", data.full_snapshot);
-        }
-
-        if (data.lp_snapshot instanceof File) {
-            formData.append("lp_snapshot", data.lp_snapshot);
-        } else if (typeof data.lp_snapshot === 'string' && data.lp_snapshot) {
-            formData.append("lp_snapshot", data.lp_snapshot);
-        }
-
-        const result = await Pb.collection(collectionName).create<VehicleAccessItem>(formData);
-        console.log("Vehicle access created successfully:", result);
-        return result;
-    } catch (error) {
-        console.error("Error creating vehicle access:", error);
-        throw error;
-    }
-};
-
-const updateVehicleAccess = async (data: NewVehicleAccessRequest): Promise<VehicleAccessItem> => {
-    if (!data.id) {
-        throw new Error("Vehicle Access ID is required for editing");
-    }
-
-    try {
-        const formData = new FormData();
-
-        // Update fields
-        formData.append("tier", data.tier);
-        formData.append("reader", data.reader);
-        formData.append("gate", data.gate);
-        formData.append("license_plate", data.license_plate);
-        formData.append("area_code", data.area_code);
-
-        if (data.isSuccess !== undefined) formData.append("isSuccess", data.isSuccess.toString());
-        if (data.house_id) formData.append("house_id", data.house_id);
-        if (data.gate_state) formData.append("gate_state", data.gate_state);
-        if (data.region) formData.append("region", data.region);
-        if (data.note) formData.append("note", data.note);
-        if (data.snapshot_info) formData.append("snapshot_info", data.snapshot_info);
-
-        // File uploads
-        if (data.full_snapshot instanceof File) {
-            formData.append("full_snapshot", data.full_snapshot);
-        }
-        if (data.lp_snapshot instanceof File) {
-            formData.append("lp_snapshot", data.lp_snapshot);
-        }
-
-        const result = await Pb.collection(collectionName).update<VehicleAccessItem>(data.id, formData);
-        return result;
-    } catch (error) {
-        console.error("Error updating vehicle access:", error);
-        throw error;
-    }
-};
-
-const deleteVehicleAccess = async (id: string): Promise<null> => {
-    try {
-        if (!id) {
-            throw new Error("Vehicle Access ID is required");
-        }
-        await Pb.collection(collectionName).delete(id);
-        return null;
-    } catch (error) {
-        console.error(`Error deleting vehicle access with id ${id}:`, error);
-        throw error;
-    }
-};
-
-// Search function
-const searchVehicleAccess = async (searchParams: {
+// Advanced search function
+const searchPassageLogs = async (searchParams: {
     licensePlate?: string;
     tier?: string;
     areaCode?: string;
-    gateState?: string;
-    gate?: string;
-    reader?: string;
     houseId?: string;
+    isSuccess?: boolean;
+    gateState?: string;
     startDate?: string;
     endDate?: string;
-    isSuccess?: boolean;
-}): Promise<VehicleAccessItem[]> => {
+}): Promise<PassageLogItem[]> => {
     try {
         const filters: string[] = [];
 
         if (searchParams.licensePlate) {
-            filters.push(`license_plate~"${searchParams.licensePlate}"`);
+            filters.push(`license_plate ~ "${searchParams.licensePlate}"`);
         }
+
         if (searchParams.tier) {
-            filters.push(`tier="${searchParams.tier}"`);
+            filters.push(`tier = "${searchParams.tier}"`);
         }
+
         if (searchParams.areaCode) {
-            filters.push(`area_code="${searchParams.areaCode}"`);
+            filters.push(`area_code = "${searchParams.areaCode}"`);
         }
-        if (searchParams.gateState) {
-            filters.push(`gate_state="${searchParams.gateState}"`);
-        }
-        if (searchParams.gate) {
-            filters.push(`gate="${searchParams.gate}"`);
-        }
-        if (searchParams.reader) {
-            filters.push(`reader="${searchParams.reader}"`);
-        }
+
         if (searchParams.houseId) {
-            filters.push(`house_id="${searchParams.houseId}"`);
+            filters.push(`house_id = "${searchParams.houseId}"`);
         }
+
         if (searchParams.isSuccess !== undefined) {
-            filters.push(`isSuccess=${searchParams.isSuccess}`);
+            filters.push(`isSuccess = ${searchParams.isSuccess}`);
         }
+
+        if (searchParams.gateState) {
+            filters.push(`gate_state = "${searchParams.gateState}"`);
+        }
+
         if (searchParams.startDate) {
-            filters.push(`created>="${searchParams.startDate}"`);
+            filters.push(`created >= "${searchParams.startDate}"`);
         }
+
         if (searchParams.endDate) {
-            filters.push(`created<="${searchParams.endDate}"`);
+            filters.push(`created <= "${searchParams.endDate}"`);
         }
 
         const filter = filters.length > 0 ? filters.join(" && ") : "";
 
-        const vehicleAccessList = await Pb.collection(collectionName).getFullList<VehicleAccessItem>({
+        const passageLogs = await Pb.collection(collectionName).getFullList<PassageLogItem>({
             filter: filter,
             expand: "house_id,reader,gate",
             sort: "-created",
         });
 
-        return vehicleAccessList;
+        return passageLogs;
     } catch (error) {
-        console.error("Error searching vehicle access:", error);
+        console.error("Error searching passage logs:", error);
         throw error;
     }
 };
 
 export {
-    getVehicleAccess,
-    getAllVehicleAccess,
-    getVehicleAccessById,
-    getRecentVehicleAccess,
-    createVehicleAccess,
-    updateVehicleAccess,
-    deleteVehicleAccess,
-    searchVehicleAccess,
+    getPassageLog,
+    getAllPassageLog,
+    getPassageLogById,
+    getPassageLogByLicensePlate,
+    getPassageLogsBySuccess,
+    getPassageLogsByTier,
+    getPassageLogsByHouse,
+    getRecentPassageLogs,
+    searchPassageLogs,
 };

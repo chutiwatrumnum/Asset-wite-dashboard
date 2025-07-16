@@ -1,24 +1,26 @@
 // src/react-query/manage/vehicle_access/index.ts
 import {
-    useVehicleAccessListQuery,
-    useVehicleAccessAllListQuery,
-    useVehicleAccessByIdQuery,
-    useRecentVehicleAccessQuery,
-    useSearchVehicleAccessQuery,
-    useCreateVehicleAccessMutation,
-    useEditVehicleAccessMutation,
-    useDeleteVehicleAccessMutation,
-    useBulkDeleteVehicleAccessMutation
-} from './vehicle_access';
+    usePassageLogListQuery,
+    usePassageLogAllListQuery,
+    usePassageLogByIdQuery,
+    usePassageLogByLicensePlateQuery,
+    usePassageLogsBySuccessQuery,
+    usePassageLogsByTierQuery,
+    usePassageLogsByHouseQuery,
+    useRecentPassageLogQuery,
+    useRecentVehicleAccessQuery, // เพิ่ม alias
+    useSearchPassageLogQuery
+} from './vehicle_access'
 
 export {
-    useVehicleAccessListQuery,
-    useVehicleAccessAllListQuery,
-    useVehicleAccessByIdQuery,
-    useRecentVehicleAccessQuery,
-    useSearchVehicleAccessQuery,
-    useCreateVehicleAccessMutation,
-    useEditVehicleAccessMutation,
-    useDeleteVehicleAccessMutation,
-    useBulkDeleteVehicleAccessMutation
-};
+    usePassageLogListQuery,
+    usePassageLogAllListQuery,
+    usePassageLogByIdQuery,
+    usePassageLogByLicensePlateQuery,
+    usePassageLogsBySuccessQuery,
+    usePassageLogsByTierQuery,
+    usePassageLogsByHouseQuery,
+    useRecentPassageLogQuery,
+    useRecentVehicleAccessQuery, // export alias
+    useSearchPassageLogQuery
+}
