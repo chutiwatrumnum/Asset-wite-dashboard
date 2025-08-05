@@ -21,6 +21,7 @@ import { Route as AuthenticatedVehicleAccessImport } from './routes/_authenticat
 import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
 import { Route as AuthenticatedResidentsImport } from './routes/_authenticated/residents'
 import { Route as AuthenticatedInvitationsImport } from './routes/_authenticated/invitations'
+import { Route as AuthenticatedExternalVehiclesImport } from './routes/_authenticated/external-vehicles'
 import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
 
 // Create/Update Routes
@@ -86,6 +87,13 @@ const AuthenticatedInvitationsRoute = AuthenticatedInvitationsImport.update({
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 
+const AuthenticatedExternalVehiclesRoute =
+  AuthenticatedExternalVehiclesImport.update({
+    id: '/external-vehicles',
+    path: '/external-vehicles',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
+
 const AuthenticatedDashboardRoute = AuthenticatedDashboardImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -138,6 +146,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardImport
       parentRoute: typeof AuthenticatedImport
     }
+    '/_authenticated/external-vehicles': {
+      id: '/_authenticated/external-vehicles'
+      path: '/external-vehicles'
+      fullPath: '/external-vehicles'
+      preLoaderRoute: typeof AuthenticatedExternalVehiclesImport
+      parentRoute: typeof AuthenticatedImport
+    }
     '/_authenticated/invitations': {
       id: '/_authenticated/invitations'
       path: '/invitations'
@@ -180,6 +195,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteChildren {
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedExternalVehiclesRoute: typeof AuthenticatedExternalVehiclesRoute
   AuthenticatedInvitationsRoute: typeof AuthenticatedInvitationsRoute
   AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
   AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
@@ -189,6 +205,7 @@ interface AuthenticatedRouteChildren {
 
 const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedExternalVehiclesRoute: AuthenticatedExternalVehiclesRoute,
   AuthenticatedInvitationsRoute: AuthenticatedInvitationsRoute,
   AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
   AuthenticatedSaffRoute: AuthenticatedSaffRoute,
@@ -207,6 +224,7 @@ export interface FileRoutesByFullPath {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/external-vehicles': typeof AuthenticatedExternalVehiclesRoute
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
@@ -221,6 +239,7 @@ export interface FileRoutesByTo {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/external-vehicles': typeof AuthenticatedExternalVehiclesRoute
   '/invitations': typeof AuthenticatedInvitationsRoute
   '/residents': typeof AuthenticatedResidentsRoute
   '/saff': typeof AuthenticatedSaffRoute
@@ -236,6 +255,7 @@ export interface FileRoutesById {
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/external-vehicles': typeof AuthenticatedExternalVehiclesRoute
   '/_authenticated/invitations': typeof AuthenticatedInvitationsRoute
   '/_authenticated/residents': typeof AuthenticatedResidentsRoute
   '/_authenticated/saff': typeof AuthenticatedSaffRoute
@@ -252,6 +272,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/dashboard'
+    | '/external-vehicles'
     | '/invitations'
     | '/residents'
     | '/saff'
@@ -265,6 +286,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/dashboard'
+    | '/external-vehicles'
     | '/invitations'
     | '/residents'
     | '/saff'
@@ -278,6 +300,7 @@ export interface FileRouteTypes {
     | '/line-app'
     | '/login'
     | '/_authenticated/dashboard'
+    | '/_authenticated/external-vehicles'
     | '/_authenticated/invitations'
     | '/_authenticated/residents'
     | '/_authenticated/saff'
@@ -329,6 +352,7 @@ export const routeTree = rootRoute
       "filePath": "_authenticated.ts",
       "children": [
         "/_authenticated/dashboard",
+        "/_authenticated/external-vehicles",
         "/_authenticated/invitations",
         "/_authenticated/residents",
         "/_authenticated/saff",
@@ -344,6 +368,10 @@ export const routeTree = rootRoute
     },
     "/_authenticated/dashboard": {
       "filePath": "_authenticated/dashboard.tsx",
+      "parent": "/_authenticated"
+    },
+    "/_authenticated/external-vehicles": {
+      "filePath": "_authenticated/external-vehicles.tsx",
       "parent": "/_authenticated"
     },
     "/_authenticated/invitations": {

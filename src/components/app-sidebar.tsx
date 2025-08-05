@@ -1,4 +1,4 @@
-// src/components/app-sidebar.tsx (อัปเดต - เพิ่มเมนู vehicle-access)
+// src/components/app-sidebar.tsx (อัปเดต - เพิ่มเมนู external-vehicles)
 import * as React from "react";
 import Pb from "@/api/pocketbase.tsx";
 import { NavMain } from "@/components/nav-main";
@@ -18,6 +18,7 @@ import {
   GlassesIcon,
   Camera,
   Activity,
+  UserCheck,
 } from "lucide-react";
 import {
   Sidebar,
@@ -68,6 +69,11 @@ const data = {
       title: "จัดการยานพาหนะ",
       url: "/vehicles",
       icon: LucideCar,
+    },
+    {
+      title: "ยานพาหนะภายนอก",
+      url: "/external-vehicles",
+      icon: UserCheck,
     },
     {
       title: "ระบบเข้าออกยานพาหนะ",
