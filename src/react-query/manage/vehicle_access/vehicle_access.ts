@@ -16,6 +16,7 @@ import {
     PassageLogResponse,
     PassageLogItem
 } from "@/api/vehicle_access/vehicle_access";
+import Pb from "@/api/pocketbase";
 
 // เพิ่ม delete function ใน API layer
 const deletePassageLog = async (id: string): Promise<void> => {
