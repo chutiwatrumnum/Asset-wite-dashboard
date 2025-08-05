@@ -1,4 +1,4 @@
-// src/pages/external_vehicle/components/columns.tsx
+// src/pages/external_vehicle/components/columns.tsx - แก้ไข column ที่มีปัญหา
 import { createColumnHelper } from "@tanstack/react-table";
 import { formatInTimeZone } from "date-fns-tz";
 import DataTableColumnHeader from "./data-table-column-header";
@@ -26,7 +26,7 @@ export const columns = [
     header: () => <DataTableColumnHeader title="ชื่อ-นามสกุล" />,
     cell: (info) => {
       const visitor = info.row.original;
-      const genderInfo = getGenderInfo(visitor.gender);
+      const genderInfo = getGenderInfo(visitor.gender || "other");
 
       return (
         <div className="min-w-[150px]">
@@ -34,7 +34,7 @@ export const columns = [
             <span className="text-base">{genderInfo.icon}</span>
             <div>
               <div className="font-semibold">
-                {visitor.first_name} {visitor.last_name}
+                {visitor.first_name || ""} {visitor.last_name || ""}
               </div>
               <div className="text-xs text-gray-500">{genderInfo.label}</div>
             </div>
@@ -45,7 +45,7 @@ export const columns = [
     enableSorting: true,
   }),
 
-  // ป้ายทะเบียน
+  // ป้ายทะเบียน - แก้ไขให้ safe
   columnHelper.accessor("vehicle", {
     header: () => (
       <div className="flex justify-center items-center">
@@ -54,14 +54,29 @@ export const columns = [
     ),
     cell: (info) => {
       const vehicle = info.getValue();
-      const provinceName = getProvinceName(vehicle.area_code);
+
+      // เช็คว่า vehicle มีข้อมูลหรือไม่
+      if (!vehicle) {
+        return (
+          <div className="flex justify-center items-center">
+            <div className="text-center text-gray-400">
+              <Car className="h-4 w-4 mx-auto mb-1" />
+              <span className="text-xs">ไม่มีข้อมูล</span>
+            </div>
+          </div>
+        );
+      }
+
+      const licensePlate = vehicle.license_plate || "ไม่ระบุ";
+      const areaCode = vehicle.area_code || "";
+      const provinceName = areaCode ? getProvinceName(areaCode) : "ไม่ระบุ";
 
       return (
         <div className="flex justify-center items-center">
           <div className="text-center">
             <div className="flex items-center gap-1 justify-center">
               <Car className="h-4 w-4 text-blue-600" />
-              <span className="font-semibold">{vehicle.license_plate}</span>
+              <span className="font-semibold">{licensePlate}</span>
             </div>
             <div className="text-xs text-gray-500 mt-1">{provinceName}</div>
           </div>
@@ -79,9 +94,9 @@ export const columns = [
       </div>
     ),
     cell: (info) => {
-      const idCard = info.getValue();
+      const idCard = info.getValue() || "";
 
-      if (!idCard) {
+      if (!idCard || idCard.trim() === "") {
         return (
           <div className="flex justify-center items-center">
             <span className="text-xs text-gray-400">ไม่ระบุ</span>
@@ -145,11 +160,15 @@ export const columns = [
       </div>
     ),
     cell: (info) => {
-      const authorizedAreas = info.getValue();
+      const authorizedAreas = info.getValue() || [];
       const rowData = info.row.original;
       const areaData = rowData.expand?.authorized_area;
 
-      if (!authorizedAreas || authorizedAreas.length === 0) {
+      if (
+        !authorizedAreas ||
+        !Array.isArray(authorizedAreas) ||
+        authorizedAreas.length === 0
+      ) {
         return (
           <div className="flex justify-center items-center">
             <span className="text-xs text-gray-400">ไม่ระบุ</span>
@@ -164,11 +183,11 @@ export const columns = [
               <MapPin className="h-3 w-3" />
               {authorizedAreas.length} พื้นที่
             </Badge>
-            {areaData && areaData.length > 0 && (
+            {areaData && Array.isArray(areaData) && areaData.length > 0 && (
               <div className="text-xs text-gray-500 max-w-[100px] truncate">
                 {areaData
                   .slice(0, 2)
-                  .map((area: any) => area.name)
+                  .map((area: any) => area?.name || "ไม่ระบุ")
                   .join(", ")}
                 {areaData.length > 2 && ` +${areaData.length - 2}`}
               </div>
@@ -206,7 +225,7 @@ export const columns = [
               <User className="h-3 w-3 text-blue-600" />
               {issuerData ? (
                 <span className="text-sm">
-                  {issuerData.first_name} {issuerData.last_name}
+                  {issuerData.first_name || ""} {issuerData.last_name || ""}
                 </span>
               ) : (
                 <span className="text-xs text-gray-500">เจ้าหน้าที่</span>
@@ -250,7 +269,7 @@ export const columns = [
 
           {stamperData && (
             <div className="text-xs text-gray-500 text-center">
-              {stamperData.first_name} {stamperData.last_name}
+              {stamperData.first_name || ""} {stamperData.last_name || ""}
             </div>
           )}
 
@@ -273,9 +292,9 @@ export const columns = [
       </div>
     ),
     cell: (info) => {
-      const note = info.getValue();
+      const note = info.getValue() || "";
 
-      if (!note) {
+      if (!note || note.trim() === "") {
         return (
           <div className="flex justify-center items-center">
             <span className="text-xs text-gray-400">-</span>

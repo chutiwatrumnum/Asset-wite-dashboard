@@ -1,4 +1,4 @@
-// src/utils/visitorUtils.tsx
+// src/utils/visitorUtils.tsx - ไฟล์เต็มที่แก้ไขแล้ว
 import type { VisitorItem } from "@/api/external_vehicle/visitor";
 
 // Gender definitions
@@ -137,15 +137,19 @@ export const isValidExternalVehicleStatus = (
   return Object.keys(EXTERNAL_VEHICLE_STATUS).includes(status);
 };
 
-// Info getter functions
-export const getGenderInfo = (gender: string) => {
-  if (isValidGender(gender)) {
-    return VISITOR_GENDERS[gender];
+// Info getter functions - แก้ไขให้รับ optional parameters
+export const getGenderInfo = (gender?: string) => {
+  if (!gender || !isValidGender(gender)) {
+    return VISITOR_GENDERS.other; // Default fallback
   }
-  return VISITOR_GENDERS.other; // Default fallback
+  return VISITOR_GENDERS[gender];
 };
 
-export const getProvinceName = (areaCode: string): string => {
+export const getProvinceName = (areaCode?: string): string => {
+  if (!areaCode || typeof areaCode !== "string") {
+    return "ไม่ระบุ";
+  }
+
   if (isValidProvinceCode(areaCode)) {
     return THAI_PROVINCES[areaCode];
   }
@@ -256,7 +260,7 @@ export const getVisitorDisplayStatus = (visitor: VisitorItem) => {
   return EXTERNAL_VEHICLE_STATUS.active;
 };
 
-// Search helper function
+// Search helper function - แก้ไขให้ safe
 export const searchVisitors = (
   visitors: VisitorItem[],
   filters: {
@@ -274,28 +278,30 @@ export const searchVisitors = (
   }
 ) => {
   return visitors.filter((visitor) => {
-    // First name search
+    // First name search - แก้ไขให้ safe
     if (filters.firstName) {
       const searchTerm = filters.firstName.toLowerCase();
-      const visitorFirstName = visitor.first_name.toLowerCase();
+      const visitorFirstName = (visitor.first_name || "").toLowerCase();
       if (!visitorFirstName.includes(searchTerm)) {
         return false;
       }
     }
 
-    // Last name search
+    // Last name search - แก้ไขให้ safe
     if (filters.lastName) {
       const searchTerm = filters.lastName.toLowerCase();
-      const visitorLastName = visitor.last_name.toLowerCase();
+      const visitorLastName = (visitor.last_name || "").toLowerCase();
       if (!visitorLastName.includes(searchTerm)) {
         return false;
       }
     }
 
-    // License plate search (fuzzy matching)
+    // License plate search (fuzzy matching) - แก้ไขให้ safe
     if (filters.licensePlate) {
       const searchTerm = normalizeLicensePlate(filters.licensePlate);
-      const visitorPlate = normalizeLicensePlate(visitor.vehicle.license_plate);
+      const visitorPlate = visitor.vehicle?.license_plate
+        ? normalizeLicensePlate(visitor.vehicle.license_plate)
+        : "";
       if (!visitorPlate.includes(searchTerm)) {
         return false;
       }
@@ -311,17 +317,21 @@ export const searchVisitors = (
       return false;
     }
 
-    // ID Card search
+    // ID Card search - แก้ไขให้ safe
     if (filters.idCard) {
       const searchTerm = filters.idCard.replace(/\D/g, "");
-      const visitorIdCard = visitor.id_card.replace(/\D/g, "");
+      const visitorIdCard = (visitor.id_card || "").replace(/\D/g, "");
       if (!visitorIdCard.includes(searchTerm)) {
         return false;
       }
     }
 
-    // Area code filter
-    if (filters.areaCode && visitor.vehicle.area_code !== filters.areaCode) {
+    // Area code filter - แก้ไขให้ safe
+    if (
+      filters.areaCode &&
+      (!visitor.vehicle?.area_code ||
+        visitor.vehicle.area_code !== filters.areaCode)
+    ) {
       return false;
     }
 
@@ -349,7 +359,7 @@ export const searchVisitors = (
   });
 };
 
-// Statistics helper functions
+// Statistics helper functions - แก้ไขให้ safe
 export const getVisitorStatistics = (visitors: VisitorItem[]) => {
   const stats = {
     total: visitors.length,
@@ -365,8 +375,13 @@ export const getVisitorStatistics = (visitors: VisitorItem[]) => {
   const yesterday = new Date(today.getTime() - 24 * 60 * 60 * 1000);
 
   visitors.forEach((visitor) => {
+    // Safe gender info
     const genderLabel = getGenderInfo(visitor.gender).label;
-    const provinceName = getProvinceName(visitor.vehicle.area_code);
+
+    // Safe province name - แก้ไขให้ safe
+    const areaCode = visitor.vehicle?.area_code || "";
+    const provinceName = areaCode ? getProvinceName(areaCode) : "ไม่ระบุ";
+
     const createdDate = new Date(visitor.created);
 
     // Count by gender
@@ -376,7 +391,8 @@ export const getVisitorStatistics = (visitors: VisitorItem[]) => {
     stats.byProvince[provinceName] = (stats.byProvince[provinceName] || 0) + 1;
 
     // Count by house (if expand data is available)
-    const houseLabel = visitor.expand?.house_id?.address || visitor.house_id;
+    const houseLabel =
+      visitor.expand?.house_id?.address || visitor.house_id || "ไม่ระบุ";
     stats.byHouse[houseLabel] = (stats.byHouse[houseLabel] || 0) + 1;
 
     // Count recent visitors
@@ -393,29 +409,33 @@ export const getVisitorStatistics = (visitors: VisitorItem[]) => {
   return stats;
 };
 
-// Export utilities for CSV/Excel
+// Export utilities for CSV/Excel - แก้ไขให้ safe
 export const prepareVisitorDataForExport = (visitors: VisitorItem[]) => {
   return visitors.map((visitor) => {
     const genderInfo = getGenderInfo(visitor.gender);
-    const provinceName = getProvinceName(visitor.vehicle.area_code);
+
+    // Safe area code and province name
+    const areaCode = visitor.vehicle?.area_code || "";
+    const provinceName = areaCode ? getProvinceName(areaCode) : "ไม่ระบุ";
+
     const status = getVisitorDisplayStatus(visitor);
 
     return {
-      ชื่อ: visitor.first_name,
-      นามสกุล: visitor.last_name,
+      ชื่อ: visitor.first_name || "",
+      นามสกุล: visitor.last_name || "",
       เพศ: genderInfo.label,
       เลขบัตรประชาชน: visitor.id_card || "",
-      ป้ายทะเบียน: visitor.vehicle.license_plate,
+      ป้ายทะเบียน: visitor.vehicle?.license_plate || "ไม่ระบุ",
       จังหวัด: provinceName,
-      บ้าน: visitor.expand?.house_id?.address || visitor.house_id,
+      บ้าน: visitor.expand?.house_id?.address || visitor.house_id || "ไม่ระบุ",
       พื้นที่อนุญาต: visitor.expand?.authorized_area
         ? visitor.expand.authorized_area
-            .map((area: any) => area.name)
+            .map((area: any) => area?.name || "ไม่ระบุ")
             .join(", ")
-        : `${visitor.authorized_area.length} พื้นที่`,
+        : `${(visitor.authorized_area || []).length} พื้นที่`,
       ผู้สร้าง: visitor.expand?.issuer
         ? `${visitor.expand.issuer.first_name || ""} ${visitor.expand.issuer.last_name || ""}`.trim()
-        : visitor.issuer,
+        : visitor.issuer || "ระบบ",
       ผู้อนุมัติ: visitor.expand?.stamper
         ? `${visitor.expand.stamper.first_name || ""} ${visitor.expand.stamper.last_name || ""}`.trim()
         : visitor.stamper || "",
@@ -430,7 +450,7 @@ export const prepareVisitorDataForExport = (visitors: VisitorItem[]) => {
   });
 };
 
-// Sorting helper functions
+// Sorting helper functions - แก้ไขให้ safe
 export const sortVisitors = (
   visitors: VisitorItem[],
   sortBy: string,
@@ -442,28 +462,28 @@ export const sortVisitors = (
 
     switch (sortBy) {
       case "first_name":
-        valueA = a.first_name.toLowerCase();
-        valueB = b.first_name.toLowerCase();
+        valueA = (a.first_name || "").toLowerCase();
+        valueB = (b.first_name || "").toLowerCase();
         break;
       case "last_name":
-        valueA = a.last_name.toLowerCase();
-        valueB = b.last_name.toLowerCase();
+        valueA = (a.last_name || "").toLowerCase();
+        valueB = (b.last_name || "").toLowerCase();
         break;
       case "license_plate":
-        valueA = normalizeLicensePlate(a.vehicle.license_plate);
-        valueB = normalizeLicensePlate(b.vehicle.license_plate);
+        valueA = normalizeLicensePlate(a.vehicle?.license_plate || "");
+        valueB = normalizeLicensePlate(b.vehicle?.license_plate || "");
         break;
       case "gender":
         valueA = getGenderInfo(a.gender).label;
         valueB = getGenderInfo(b.gender).label;
         break;
       case "province":
-        valueA = getProvinceName(a.vehicle.area_code);
-        valueB = getProvinceName(b.vehicle.area_code);
+        valueA = getProvinceName(a.vehicle?.area_code);
+        valueB = getProvinceName(b.vehicle?.area_code);
         break;
       case "house":
-        valueA = a.expand?.house_id?.address || a.house_id;
-        valueB = b.expand?.house_id?.address || b.house_id;
+        valueA = a.expand?.house_id?.address || a.house_id || "";
+        valueB = b.expand?.house_id?.address || b.house_id || "";
         break;
       case "created":
         valueA = new Date(a.created).getTime();
@@ -474,8 +494,8 @@ export const sortVisitors = (
         valueB = new Date(b.updated).getTime();
         break;
       default:
-        valueA = a[sortBy as keyof VisitorItem];
-        valueB = b[sortBy as keyof VisitorItem];
+        valueA = a[sortBy as keyof VisitorItem] || "";
+        valueB = b[sortBy as keyof VisitorItem] || "";
     }
 
     if (valueA < valueB) {
@@ -490,13 +510,13 @@ export const sortVisitors = (
 
 // Helper function to generate full name
 export const getVisitorFullName = (visitor: VisitorItem): string => {
-  return `${visitor.first_name} ${visitor.last_name}`.trim();
+  return `${visitor.first_name || ""} ${visitor.last_name || ""}`.trim();
 };
 
 // Helper function to get display name for UI
 export const getVisitorDisplayName = (visitor: VisitorItem): string => {
   const fullName = getVisitorFullName(visitor);
-  const licensePlate = visitor.vehicle.license_plate;
+  const licensePlate = visitor.vehicle?.license_plate || "ไม่ระบุ";
   return `${fullName} (${licensePlate})`;
 };
 

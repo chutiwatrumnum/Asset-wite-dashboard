@@ -342,6 +342,7 @@ const editVisitor = async (visitorReq: newVisitorRequest): Promise<VisitorItem> 
 };
 
 // Additional function for partial updates (PATCH-like behavior)
+
 const patchVisitor = async (
     id: string,
     patchData: Partial<Omit<newVisitorRequest, 'id'>>
@@ -388,7 +389,7 @@ const stampVisitor = async (
 
         const updateData = {
             stamper: stamperId || Pb.authStore.record?.id || "",
-            stamped_time: formatDateTimeField(stampedTime) || new Date().toISOString()
+            stamped_time: stampedTime || new Date().toISOString()
         };
 
         const result = await Pb.collection(collectionName).update<VisitorItem>(id, updateData);
