@@ -80,11 +80,11 @@ const data = {
       url: "/vehicle-access",
       icon: Camera,
     },
-    {
-      title: "ประวัติการเข้าออก",
-      url: "/history-in-out",
-      icon: LucideFileClock,
-    },
+    // {
+    //   title: "ประวัติการเข้าออก",
+    //   url: "/history-in-out",
+    //   icon: LucideFileClock,
+    // },
   ],
   projects: [
     {

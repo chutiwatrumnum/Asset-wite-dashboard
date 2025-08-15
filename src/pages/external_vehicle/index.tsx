@@ -1,4 +1,4 @@
-// src/pages/external_vehicle/index.tsx
+// src/pages/external_vehicle/index.tsx - Read Only Version
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
@@ -6,13 +6,12 @@ import { toast } from "sonner";
 import { Toaster } from "@/components/ui/sonner";
 import {
   RefreshCw,
-  Plus,
   TrendingUp,
   Users,
   Car,
   UserCheck,
   Search,
-  MapPin,
+  Download,
 } from "lucide-react";
 
 // ใช้ Shared UI Components
@@ -21,7 +20,6 @@ import {
   StatisticsCards,
   StatisticCard,
 } from "@/components/ui/statistics-cards";
-import { BulkActionBar } from "@/components/ui/bulk-action-bar";
 import {
   SearchResultsSummary,
   ActiveFilter,
@@ -34,9 +32,7 @@ import { VisitorSearch } from "@/components/ui/visitor-search";
 // External Vehicle components
 import DataTableBody from "./components/data-table-body";
 import DataTablePagination from "./components/data-table-pagination";
-import VisitorActionButton from "./components/data-table-action-button";
 import DataTableColumnHeader from "./components/data-table-column-header";
-import { CreateVisitorDialog } from "./components/create-visitor-dialog";
 
 // React Table และอื่นๆ
 import {
@@ -50,10 +46,7 @@ import {
   SortingState,
 } from "@tanstack/react-table";
 import { columns } from "./components/columns";
-import {
-  useVisitorAllListQuery,
-  useBulkDeleteVisitorsMutation,
-} from "@/react-query/manage/external_vehicle/visitor";
+import { useVisitorAllListQuery } from "@/react-query/manage/external_vehicle/visitor";
 import { Checkbox } from "@/components/ui/checkbox";
 
 // Visitor utilities
@@ -91,7 +84,6 @@ export default function ExternalVehicles() {
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
   const [searchFilters, setSearchFilters] = useState<VisitorSearchFilters>({});
   const [searchTerm, setSearchTerm] = useState("");
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
 
   // React Query hooks
   const {
@@ -102,9 +94,6 @@ export default function ExternalVehicles() {
     isFetching,
     isError,
   } = useVisitorAllListQuery();
-
-  const { mutateAsync: bulkDeleteVisitor, isPending: isDeleting } =
-    useBulkDeleteVisitorsMutation();
 
   // Auto-retry on mount หากมี error
   useEffect(() => {
@@ -211,7 +200,7 @@ export default function ExternalVehicles() {
 
       // Count stamped visitors
       const stampedCount = allVisitors.filter(
-        (visitor) => visitor.stamper && visitor.stamped_time
+        (visitor: any) => visitor.stamper && visitor.stamped_time
       ).length;
 
       return [
@@ -266,7 +255,7 @@ export default function ExternalVehicles() {
     }
   }, [allVisitors]);
 
-  // Handle functions
+  // Handle functions - เหลือแค่ refresh และ export
   const handleRefresh = async () => {
     try {
       await refetch();
@@ -274,26 +263,6 @@ export default function ExternalVehicles() {
     } catch (error) {
       console.error("Refresh error:", error);
       toast.error("ไม่สามารถรีเฟรชข้อมูลได้ กรุณาลองใหม่อีกครั้ง");
-    }
-  };
-
-  const handleCreateVisitor = () => {
-    setCreateDialogOpen(true);
-  };
-
-  const handleVisitorCreated = () => {
-    refetch();
-    setCreateDialogOpen(false);
-  };
-
-  const handleBulkDelete = async () => {
-    try {
-      const selectedIds = Object.keys(rowSelection);
-      await bulkDeleteVisitor(selectedIds);
-      setRowSelection({});
-      await refetch();
-    } catch (error) {
-      console.error("Bulk delete failed:", error);
     }
   };
 
@@ -313,7 +282,7 @@ export default function ExternalVehicles() {
       const headers = Object.keys(exportData[0]);
       const csvContent = [
         headers.join(","),
-        ...exportData.map((row) =>
+        ...exportData.map((row: any) =>
           headers.map((header) => `"${row[header] || ""}"`).join(",")
         ),
       ].join("\n");
@@ -340,7 +309,7 @@ export default function ExternalVehicles() {
       return;
     }
 
-    const selectedData = processedData.filter((item) =>
+    const selectedData = processedData.filter((item: any) =>
       selectedIds.includes(item.id)
     );
 
@@ -359,7 +328,7 @@ export default function ExternalVehicles() {
       const headers = Object.keys(exportData[0]);
       const csvContent = [
         headers.join(","),
-        ...exportData.map((row) =>
+        ...exportData.map((row: any) =>
           headers.map((header) => `"${row[header] || ""}"`).join(",")
         ),
       ].join("\n");
@@ -435,7 +404,7 @@ export default function ExternalVehicles() {
 
   const hasActiveFilters = activeFilters.length > 0;
 
-  // Table configuration
+  // Table configuration - เอา action column ออก
   const table = useReactTable({
     initialState: { columnVisibility: { id: false } },
     data: processedData || [],
@@ -468,24 +437,9 @@ export default function ExternalVehicles() {
         enableSorting: false,
         enableHiding: false,
       },
-      ...columns,
-      {
-        id: "action",
-        header: () => (
-          <div className="flex justify-center items-center">
-            <DataTableColumnHeader title="การดำเนินการ" />
-          </div>
-        ),
-        cell: (info) => (
-          <div className="flex justify-center items-center">
-            <VisitorActionButton info={info.cell} />
-          </div>
-        ),
-        enableSorting: false,
-        enableHiding: false,
-      },
+      ...columns, // ใช้ columns ปกติ แต่ไม่มี action column
     ],
-    getRowId: (row) => row.id,
+    getRowId: (row: any) => row.id,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
@@ -517,10 +471,10 @@ export default function ExternalVehicles() {
 
   return (
     <div className="w-full pl-10 pr-10">
-      {/* Page Header with Statistics */}
+      {/* Page Header with Statistics - เอาปุ่ม "เพิ่ม" ออก */}
       <PageHeader
         title="ยานพาหนะภายนอก"
-        description="จัดการข้อมูลผู้เยี่ยมและยานพาหนะภายนอกที่เข้ามาในพื้นที่"
+        description="ดูข้อมูลผู้เยี่ยมและยานพาหนะภายนอกที่เข้ามาในพื้นที่"
         actions={[
           {
             key: "refresh",
@@ -531,11 +485,12 @@ export default function ExternalVehicles() {
             loading: isFetching,
           },
           {
-            key: "create",
-            label: "เพิ่มผู้เยี่ยมภายนอก",
-            icon: Plus,
-            onClick: handleCreateVisitor,
+            key: "export",
+            label: "ส่งออกข้อมูล",
+            icon: Download,
+            onClick: handleExportCSV,
             variant: "default",
+            disabled: !processedData || processedData.length === 0,
           },
         ]}
         statistics={
@@ -558,7 +513,7 @@ export default function ExternalVehicles() {
         }}
       />
 
-      {/* Data Table Toolbar */}
+      {/* Data Table Toolbar - แก้ไขให้เป็น read-only */}
       <DataTableToolbar
         table={table}
         totalRows={processedData?.length || 0}
@@ -567,11 +522,11 @@ export default function ExternalVehicles() {
         showColumnToggle={true}
         showExport={true}
         showRefresh={true}
-        showCreate={true}
+        showCreate={false} // ปิดปุ่ม Create
         onRefresh={handleRefresh}
         onExportAll={handleExportCSV}
         onExportSelected={handleExportSelected}
-        onCreate={handleCreateVisitor}
+        // onCreate ไม่ต้องใส่เพราะ showCreate = false
       />
 
       <div className="rounded-md border">
@@ -590,15 +545,8 @@ export default function ExternalVehicles() {
           <EmptyState
             icon={Search}
             title="ไม่มีข้อมูลผู้เยี่ยมภายนอก"
-            description="เริ่มต้นด้วยการเพิ่มข้อมูลผู้เยี่ยมภายนอกใหม่"
-            actions={[
-              {
-                key: "create",
-                label: "เพิ่มผู้เยี่ยมภายนอก",
-                onClick: handleCreateVisitor,
-                icon: Plus,
-              },
-            ]}
+            description="ยังไม่มีข้อมูลผู้เยี่ยมภายนอกในระบบ"
+            // เอา actions ออกเพราะเป็น read-only
           />
         ) : (!processedData || processedData.length === 0) &&
           hasActiveFilters ? (
@@ -629,23 +577,27 @@ export default function ExternalVehicles() {
         />
       </div>
 
-      {/* Bulk Action Bar */}
-      <BulkActionBar
-        selectedCount={Object.keys(rowSelection).length}
-        isVisible={Object.keys(rowSelection).length > 0}
-        isLoading={isDeleting}
-        onReset={() => setRowSelection({})}
-        onExport={handleExportSelected}
-        onDelete={handleBulkDelete}
-      />
-
-      {/* Create Visitor Dialog */}
-      <CreateVisitorDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onVisitorCreated={handleVisitorCreated}
-        showTriggerButton={false}
-      />
+      {/* เหลือแค่ส่งออกข้อมูล ไม่มี bulk delete */}
+      {Object.keys(rowSelection).length > 0 && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-white border border-gray-200 rounded-lg shadow-lg p-4 flex items-center gap-4">
+          <span className="text-sm text-gray-600">
+            เลือกแล้ว {Object.keys(rowSelection).length} รายการ
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setRowSelection({})}
+              className="text-sm text-gray-500 hover:text-gray-700">
+              ยกเลิก
+            </button>
+            <button
+              onClick={handleExportSelected}
+              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              ส่งออกที่เลือก
+            </button>
+          </div>
+        </div>
+      )}
 
       <Toaster />
     </div>

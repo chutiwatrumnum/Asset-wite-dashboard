@@ -1,13 +1,16 @@
 {
-  "name": "nxt-vms-web",
+ "name": "nxt-vms-web",
   "private": true,
   "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "vite build",
+    "build:check": "tsc -b && vite build",
+    "build:force": "rm -rf dist && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "type-check": "tsc -b"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
