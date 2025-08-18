@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx - แก้ไขปัญหา vehicleData undefined
+// src/pages/vehicle/components/create-vehicle-dialog.tsx - แก้ไขปัญหา house_id
 "use client";
 
 import type React from "react";
@@ -118,194 +118,190 @@ export function CreateVehicleDrawer({
     }
   }, [form, open]);
 
-  const handleSubmit = async (values: FormSchema) => {
-    // ✅ ประกาศ vehicleData ที่นี่เพื่อให้ accessible ใน catch block
-    let vehicleData: newVehicleRequest | null = null;
+ const handleSubmit = async (values: FormSchema) => {
+   setIsLoading(true);
 
-    try {
-      setIsLoading(true);
-      console.log("=== Create Vehicle Form Submit ===");
-      console.log("Form values:", values);
+   let vehicleData: newVehicleRequest | null = null;
 
-      // ตรวจสอบสถานะการล็อกอิน
-      const currentUser = Pb.getCurrentUser();
-      const isLoggedIn = Pb.isLoggedIn();
-      const isUsingVMS = Pb.isUsingVMS();
+   try {
+     console.log("=== Create Vehicle Form Submit ===");
+     console.log("Form values:", values);
 
-      console.log("Auth Status:", {
-        currentUser: currentUser?.email,
-        isLoggedIn,
-        isUsingVMS,
-        userRole: currentUser?.role,
-        houseId: currentUser?.house_id,
-      });
+     // ✅ ตรวจสอบสถานะการล็อกอิน
+     const currentUser = Pb.getCurrentUser();
+     const isLoggedIn = Pb.isLoggedIn();
+     const isUsingVMS = Pb.isUsingVMS();
 
-      if (!currentUser || !currentUser.id) {
-        throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
-      }
+     console.log("Auth Status:", {
+       currentUser: currentUser,
+       isLoggedIn,
+       isUsingVMS,
+       userRole: currentUser?.role,
+       houseId: currentUser?.house_id,
+     });
 
-      if (!isLoggedIn) {
-        throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
-      }
+     if (!currentUser || !currentUser.id) {
+       throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
+     }
 
-      // ตรวจสอบสิทธิ์ในการสร้างยานพาหนะ
-      const allowedRoles = ["master", "staff", "Project Super Admin"];
-      if (!allowedRoles.includes(currentUser.role)) {
-        throw new Error("คุณไม่มีสิทธิ์ในการสร้างยานพาหนะ");
-      }
+     if (!isLoggedIn) {
+       throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+     }
 
-      // ✅ เตรียมข้อมูลสำหรับส่งไป API ภายใน try block
-      vehicleData = {
-        license_plate: values.license_plate.trim().toUpperCase(),
-        tier: "guest", // ใช้ guest เป็น default
-        area_code: values.area_code,
-        house_id: currentUser.house_id || "",
-        authorized_area: values.authorized_area || [],
-        start_time: values.start_time || undefined,
-        expire_time: values.expire_time || undefined,
-        invitation: "",
-        stamper: currentUser.id,
-        stamped_time: new Date().toISOString(),
-        issuer: currentUser.id,
-        note: values.note?.trim() || "",
-      };
+     // ✅ ตรวจสอบสิทธิ์ในการสร้างยานพาหนะ
+     const allowedRoles = ["master", "staff", "Project Super Admin"];
+     if (!allowedRoles.includes(currentUser.role)) {
+       throw new Error("คุณไม่มีสิทธิ์ในการสร้างยานพาหนะ");
+     }
 
-      console.log("Vehicle data to create:", vehicleData);
-      console.log("API Mode:", isUsingVMS ? "VMS" : "PocketBase");
+     // ✅ ตรวจสอบ house_id - ต้องมีข้อมูลจริง
+     const houseId = currentUser.house_id;
 
-      if (isUsingVMS) {
-        console.log("VMS Config:", Pb.getVMSConfig());
+     if (!houseId || houseId.trim() === "") {
+       throw new Error("ไม่พบข้อมูล house_id กรุณาติดต่อผู้ดูแลระบบ");
+     }
 
-        // ✅ เช็คว่า VMS config มีครบหรือไม่
-        const vmsConfig = Pb.getVMSConfig();
-        if (!vmsConfig?.vmsUrl || !vmsConfig?.vmsToken) {
-          throw new Error("VMS configuration is missing. Please login again.");
-        }
-      }
+     // ✅ ตรวจสอบรูปแบบ house_id ให้ถูกต้อง (PocketBase ID format)
+     if (houseId.includes("-") && houseId.length > 20) {
+       throw new Error(
+         "ข้อมูล house_id ไม่ถูกต้อง (UUID format) กรุณาตรวจสอบการล็อกอิน"
+       );
+     }
 
-      // เรียก API
-      const result = await createVehicle(vehicleData);
-      console.log("Vehicle created successfully:", result);
+     console.log("✅ Using house_id:", houseId);
 
-      toast.success("เพิ่มยานพาหนะสำเร็จแล้ว", {
-        description: `เพิ่มยานพาหนะ ${values.license_plate} เรียบร้อยแล้ว`,
-        duration: 4000,
-      });
+     if (isUsingVMS) {
+       // ✅ เช็คว่า VMS config มีครบหรือไม่
+       const vmsConfig = Pb.getVMSConfig();
+       if (!vmsConfig?.vmsUrl || !vmsConfig?.vmsToken) {
+         throw new Error("VMS configuration is missing. Please login again.");
+       }
 
-      form.reset();
-      setIsDirty(false);
-      setOpen(false);
-      onVehicleCreated();
-    } catch (error) {
-      console.error("Create vehicle failed:", error);
+       console.log("VMS Config check:", {
+         vmsUrl: vmsConfig.vmsUrl,
+         hasToken: !!vmsConfig.vmsToken,
+       });
+     }
 
-      // ✅ ปรับปรุง error handling ให้ดีขึ้น
-      let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มยานพาหนะ";
+     // ✅ เตรียมข้อมูลสำหรับส่งไป API (แยกระหว่าง VMS และ PocketBase)
+     if (isUsingVMS) {
+       // ✅ สำหรับ VMS - ส่งเฉพาะข้อมูลที่จำเป็น
+       vehicleData = {
+         license_plate: values.license_plate.trim().toUpperCase(),
+         tier: "staff", // ใช้ guest เป็น default
+         area_code: values.area_code,
+         house_id: houseId,
+         authorized_area: values.authorized_area || [],
+         start_time: values.start_time || undefined,
+         expire_time: values.expire_time || undefined,
+         // ✅ ไม่ส่ง fields เหล่านี้ไป VMS
+         // invitation: "",
+         // stamper: currentUser.id,
+         // stamped_time: new Date().toISOString(),
+         // issuer: currentUser.id,
+         // note: values.note?.trim() || "",
+       };
+     } else {
+       // ✅ สำหรับ PocketBase - ส่งข้อมูลครบ
+       vehicleData = {
+         license_plate: values.license_plate.trim().toUpperCase(),
+         tier: "staff",
+         area_code: values.area_code,
+         house_id: houseId,
+         authorized_area: values.authorized_area || [],
+         start_time: values.start_time || undefined,
+         expire_time: values.expire_time || undefined,
+         invitation: "",
+         stamper: currentUser.id,
+         stamped_time: new Date().toISOString(),
+         issuer: currentUser.id,
+         note: values.note?.trim() || "",
+       };
+     }
 
-      if (error instanceof Error) {
-        errorMessage = error.message;
+     console.log("Vehicle data to create:", vehicleData);
+     console.log("API Mode:", isUsingVMS ? "VMS" : "PocketBase");
 
-        // ✅ จัดการ error messages เฉพาะ
-        if (error.message.includes("quota exceeded")) {
-          errorMessage = "ปริมาณการใช้งานเกินกำหนด กรุณาติดต่อผู้ดูแลระบบ";
-        } else if (
-          error.message.includes("401") ||
-          error.message.includes("unauthorized")
-        ) {
-          errorMessage = "ไม่ได้รับอนุญาตให้เข้าถึง กรุณาเข้าสู่ระบบใหม่";
-        } else if (
-          error.message.includes("403") ||
-          error.message.includes("forbidden")
-        ) {
-          errorMessage = "ไม่มีสิทธิ์ในการสร้างยานพาหนะ";
-        } else if (error.message.includes("500")) {
-          errorMessage = "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง";
-        }
-      } else if (error && typeof error === "object") {
-        // จัดการ error จาก API
-        if ("response" in error) {
-          const apiError = error as any;
+     // เรียก API
+     const result = await createVehicle(vehicleData);
+     console.log("Vehicle created successfully:", result);
 
-          if (apiError.response?.data?.message) {
-            errorMessage = apiError.response.data.message;
-          } else if (apiError.response?.data?.data) {
-            // จัดการ validation errors
-            const validationErrors = apiError.response.data.data;
-            const errorMessages = Object.entries(validationErrors)
-              .map(([field, error]: [string, any]) => {
-                const message = error.message || error.toString();
-                return `${field}: ${message}`;
-              })
-              .join(", ");
-            errorMessage = errorMessages;
-          } else if (apiError.response?.status) {
-            // จัดการ HTTP status codes
-            switch (apiError.response.status) {
-              case 400:
-                errorMessage =
-                  "ข้อมูลที่ส่งไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง";
-                break;
-              case 401:
-                errorMessage = "ไม่ได้รับอนุญาตให้เข้าถึง กรุณาเข้าสู่ระบบใหม่";
-                break;
-              case 403:
-                errorMessage = "ไม่มีสิทธิ์ในการสร้างยานพาหนะ";
-                break;
-              case 404:
-                errorMessage = "ไม่พบ API endpoint กรุณาติดต่อผู้ดูแลระบบ";
-                break;
-              case 429:
-                errorMessage = "มีการใช้งานมากเกินไป กรุณารอสักครู่แล้วลองใหม่";
-                break;
-              case 500:
-                errorMessage =
-                  "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง";
-                break;
-              default:
-                errorMessage = `เกิดข้อผิดพลาด HTTP ${apiError.response.status}`;
-            }
-          }
-        } else if ("message" in error) {
-          errorMessage = (error as any).message;
-        }
-      }
+     toast.success("เพิ่มยานพาหนะสำเร็จแล้ว", {
+       description: `เพิ่มยานพาหนะ ${values.license_plate} เรียบร้อยแล้ว`,
+       duration: 4000,
+     });
 
-      // แสดง toast error พร้อมรายละเอียดเพิ่มเติม
-      toast.error("ไม่สามารถเพิ่มยานพาหนะได้", {
-        description: errorMessage,
-        duration: 8000,
-      });
+     form.reset();
+     setIsDirty(false);
+     setOpen(false);
+     onVehicleCreated();
+   } catch (error) {
+     console.error("Create vehicle failed:", error);
 
-      // ✅ เพิ่ม debug information สำหรับการแก้ไขปัญหา
-      console.group("🔍 Debug Information");
-      console.log("Error details:", error);
-      console.log("Current user:", Pb.getCurrentUser());
-      console.log("Auth status:", Pb.isLoggedIn());
-      console.log("VMS mode:", Pb.isUsingVMS());
-      console.log("Form values:", values);
-      console.log("Vehicle data:", vehicleData); // ✅ ตอนนี้ vehicleData จะไม่ undefined แล้ว
+     // ✅ ปรับปรุง error handling ให้ดีขึ้น
+     let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มยานพาหนะ";
 
-      if (Pb.isUsingVMS()) {
-        console.log("VMS Config:", Pb.getVMSConfig());
-        console.log("VMS Token exists:", !!Pb.getVMSConfig()?.vmsToken);
-      }
+     if (error instanceof Error) {
+       errorMessage = error.message;
 
-      console.groupEnd();
+       // ✅ จัดการ error messages เฉพาะ
+       if (error.message.includes("quota exceeded")) {
+         errorMessage =
+           "ปริมาณการใช้งานเกินกำหนด กรุณาติดต่อผู้ดูแลระบบ หรือลองใหม่ในภายหลัง";
+       } else if (error.message.includes("house_id")) {
+         errorMessage =
+           "ข้อมูล house_id ไม่ถูกต้อง กรุณาล็อกเอาท์แล้วเข้าสู่ระบบใหม่";
+       } else if (error.message.includes("UUID format")) {
+         errorMessage =
+           "พบข้อมูล house_id ในรูปแบบที่ผิด กรุณาล็อกเอาท์แล้วเข้าสู่ระบบใหม่";
+       } else if (
+         error.message.includes("validation") ||
+         error.message.includes("ข้อมูลไม่ผ่านการตรวจสอบ")
+       ) {
+         errorMessage =
+           "ข้อมูลที่กรอกไม่ถูกต้องตามข้อกำหนด กรุณาตรวจสอบอีกครั้ง";
+       }
+     }
 
-      // ถ้าเป็น auth error ให้เปลี่ยนเส้นทางไปหน้า login
-      if (
-        errorMessage.includes("เข้าสู่ระบบ") ||
-        errorMessage.includes("401") ||
-        errorMessage.includes("unauthorized")
-      ) {
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 2000);
-      }
-    } finally {
-      setIsLoading(false);
-    }
-  };
+     // แสดง toast error พร้อมรายละเอียดเพิ่มเติม
+     toast.error("ไม่สามารถเพิ่มยานพาหนะได้", {
+       description: errorMessage,
+       duration: 8000,
+     });
+
+     // ✅ เพิ่ม debug information สำหรับการแก้ไขปัญหา
+     console.group("🔍 Debug Information");
+     console.log("Error details:", error);
+     console.log("Current user:", Pb.getCurrentUser());
+     console.log("House ID:", Pb.getCurrentUser()?.house_id);
+     console.log("House ID format check:", {
+       value: Pb.getCurrentUser()?.house_id,
+       isUUID:
+         Pb.getCurrentUser()?.house_id?.includes("-") &&
+         Pb.getCurrentUser()?.house_id?.length > 20,
+       expectedFormat: "PocketBase ID (15 chars, no dashes)",
+     });
+     console.log("Form values:", values);
+     console.log("Vehicle data:", vehicleData);
+
+     // ✅ แสดงข้อมูลที่จะส่งไป API
+     console.log("API payload preview:", JSON.stringify(vehicleData, null, 2));
+     console.groupEnd();
+
+     // ถ้าเป็น house_id format error ให้แนะนำให้ล็อกเอาท์
+     if (errorMessage.includes("house_id") || errorMessage.includes("UUID")) {
+       setTimeout(() => {
+         if (
+           confirm("พบปัญหาข้อมูล house_id กรุณาล็อกเอาท์แล้วเข้าสู่ระบบใหม่")
+         ) {
+           window.location.href = "/login";
+         }
+       }, 2000);
+     }
+   } finally {
+     setIsLoading(false);
+   }
+ };
 
   const handleCancel = () => {
     form.reset();
@@ -346,15 +342,24 @@ export function CreateVehicleDrawer({
             {/* ✅ แสดงข้อมูล debug ถ้าอยู่ใน development mode */}
             {process.env.NODE_ENV === "development" && (
               <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                <div>
+                  <strong>Debug Info:</strong>
+                </div>
                 <div>Mode: {Pb.isUsingVMS() ? "VMS" : "PocketBase"}</div>
                 <div>User: {Pb.getCurrentUser()?.email}</div>
                 <div>Role: {Pb.getCurrentUser()?.role}</div>
-                <div>House ID: {Pb.getCurrentUser()?.house_id}</div>
+                <div>
+                  House ID: {Pb.getCurrentUser()?.house_id || "❌ Missing"}
+                </div>
                 {Pb.isUsingVMS() && (
                   <>
                     <div>VMS URL: {Pb.getVMSConfig()?.vmsUrl}</div>
                     <div>
                       VMS Token: {Pb.getVMSConfig()?.vmsToken ? "✅" : "❌"}
+                    </div>
+                    <div>
+                      Project ID:{" "}
+                      {Pb.getProjectInfo()?.myProjectId || "❌ Missing"}
                     </div>
                   </>
                 )}

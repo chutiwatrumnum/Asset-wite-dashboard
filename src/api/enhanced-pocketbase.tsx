@@ -40,25 +40,8 @@ class EnhancedPocketBase extends PocketBase {
       this.vmsConfig = { vmsUrl, vmsToken, projectInfo };
       this.isExternalMode = true;
 
-      const mockUser = {
-        id: `external-${projectInfo.myProjectId}`,
-        email: `${projectInfo.roleName}@${projectInfo.projectName}.vms`,
-        role: projectInfo.roleName,
-        house_id: projectInfo.myProjectId,
-        first_name: projectInfo.projectName || "External",
-        last_name: "User",
-        isExternal: true,
-        collectionName: "external_users",
-        collectionId: "external_collection",
-        created: new Date().toISOString(),
-        updated: new Date().toISOString(),
-        verified: true,
-        emailVisibility: false,
-        avatar: "",
-        authorized_area: [],
-      };
-
-      this.authStore.save(vmsToken, mockUser);
+      // ✅ ตั้งค่าเฉพาะ token ก่อน (ไม่ส่ง user record)
+      this.authStore.save(vmsToken, null);
 
       this.beforeSend = (url, options) => {
         if (this.isExternalMode && vmsToken) {
@@ -121,47 +104,120 @@ class EnhancedPocketBase extends PocketBase {
 
   public getCurrentUser() {
     if (this.isExternalMode) {
+      // ✅ ลำดับความสำคัญ: authStore.record > storage > null
       if (this.authStore.record) {
         return this.authStore.record;
       }
 
+      // ✅ ลองดึงจาก storage
       try {
-        const externalAuth = encryptStorage.getItem("externalAuth");
         const userRecord = encryptStorage.getItem("user");
-
-        return {
-          id: `external-${this.vmsConfig?.projectInfo?.myProjectId || "unknown"}`,
-          email: this.vmsConfig?.projectInfo?.roleName + "@external.vms" || "",
-          role:
-            localStorage.getItem("role") ||
-            this.vmsConfig?.projectInfo?.roleName ||
-            "guest",
-          first_name: this.vmsConfig?.projectInfo?.projectName || "External",
-          last_name: "User",
-          house_id: this.vmsConfig?.projectInfo?.myProjectId || "",
-          isExternal: true,
-          ...userRecord,
-          ...externalAuth?.projectInfo,
-        };
+        if (userRecord) {
+          console.log("📋 Retrieved user from storage:", userRecord);
+          return userRecord;
+        }
       } catch (storageError) {
         console.warn(
           "Warning: Could not access storage for user data:",
           storageError
         );
-
-        return {
-          id: `external-${this.vmsConfig?.projectInfo?.myProjectId || "unknown"}`,
-          email: this.vmsConfig?.projectInfo?.roleName + "@external.vms" || "",
-          role: this.vmsConfig?.projectInfo?.roleName || "guest",
-          first_name: this.vmsConfig?.projectInfo?.projectName || "External",
-          last_name: "User",
-          house_id: this.vmsConfig?.projectInfo?.myProjectId || "",
-          isExternal: true,
-        };
       }
+
+      // ✅ หากไม่มีข้อมูลใดๆ ให้ return null
+      console.warn("No user record found in VMS mode");
+      return null;
     } else {
       return this.authStore.record;
     }
+  }
+
+  public setCurrentUser(userRecord: any) {
+    if (this.isExternalMode && userRecord) {
+      console.log("🔧 Setting current user:", userRecord);
+
+      // ✅ ตั้งค่า authStore ด้วยข้อมูลใหม่
+      this.authStore.save(this.authStore.token, userRecord);
+
+      // ✅ บันทึกลง storage ด้วย
+      try {
+        encryptStorage.setItem("user", userRecord);
+        console.log("✅ User saved to storage");
+      } catch (error) {
+        console.warn("Could not save user to storage:", error);
+      }
+    }
+  }
+
+  public debugLoginStatus() {
+    console.log("=== Login Status Debug ===");
+    console.log("Mode:", this.isExternalMode ? "VMS" : "PocketBase");
+    console.log("isLoggedIn():", this.isLoggedIn());
+    console.log("getCurrentUser():", this.getCurrentUser());
+    console.log("authStore.isValid:", this.authStore.isValid);
+    console.log(
+      "authStore.token:",
+      this.authStore.token ? "exists" : "missing"
+    );
+    console.log(
+      "authStore.record:",
+      this.authStore.record ? "exists" : "missing"
+    );
+    console.log("localStorage.isLogged:", localStorage.getItem("isLogged"));
+    console.log(
+      "localStorage.loginMethod:",
+      localStorage.getItem("loginMethod")
+    );
+
+    if (this.isExternalMode) {
+      console.log("VMS Config:", this.vmsConfig ? "exists" : "missing");
+      try {
+        const externalAuth = encryptStorage.getItem("externalAuth");
+        const userRecord = encryptStorage.getItem("user");
+        console.log(
+          "encryptStorage.externalAuth:",
+          externalAuth ? "exists" : "missing"
+        );
+        console.log("encryptStorage.user:", userRecord ? "exists" : "missing");
+        if (userRecord) {
+          console.log("User details:", {
+            id: userRecord.id,
+            email: userRecord.email,
+            role: userRecord.role,
+            house_id: userRecord.house_id,
+          });
+        }
+      } catch (error) {
+        console.log("encryptStorage error:", error);
+      }
+    }
+    console.log("========================");
+  }
+
+  public getHouseId(): string {
+    const currentUser = this.getCurrentUser();
+
+    if (!currentUser) {
+      console.warn("No current user found");
+      return "";
+    }
+
+    const houseId = currentUser.house_id || "";
+    console.log("Getting house_id:", houseId);
+    return houseId;
+  }
+
+  public debugHouseId() {
+    console.log("=== House ID Debug Info ===");
+    console.log("Is External Mode:", this.isExternalMode);
+    console.log("Current User:", this.getCurrentUser());
+    console.log("House ID:", this.getHouseId());
+
+    if (this.isExternalMode) {
+      console.log("VMS Project Info:", this.vmsConfig?.projectInfo);
+      console.log("Project ID:", this.vmsConfig?.projectInfo?.myProjectId);
+    }
+
+    console.log("==============================");
   }
 
   public getCurrentRole(): string {
@@ -170,11 +226,11 @@ class EnhancedPocketBase extends PocketBase {
         this.authStore.record?.role ||
         localStorage.getItem("role") ||
         this.vmsConfig?.projectInfo?.roleName ||
-        "guest";
+        "staff";
       console.log("VMS Role:", role);
       return role;
     } else {
-      const role = this.authStore.record?.role || "guest";
+      const role = this.authStore.record?.role || "staff";
       console.log("PocketBase Role:", role);
       return role;
     }
@@ -184,24 +240,28 @@ class EnhancedPocketBase extends PocketBase {
     if (this.isExternalMode) {
       const isLogged = localStorage.getItem("isLogged") === "true";
       const hasValidToken = !!this.authStore.token;
-      const hasValidRecord = !!this.authStore.record;
-      const authStoreValid = this.authStore.isValid;
+      const currentUser = this.getCurrentUser();
+      const hasValidRecord = !!currentUser;
 
       console.log("VMS Login Check:", {
         isLogged,
         hasValidToken,
         hasValidRecord,
-        authStoreValid,
+        tokenLength: this.authStore.token?.length || 0,
+        userId: currentUser?.id || "none",
       });
 
-      return isLogged && hasValidToken && hasValidRecord;
+      // ✅ ตรวจสอบให้ครบทุกเงื่อนไข
+      const result = isLogged && hasValidToken && hasValidRecord;
+      console.log("VMS isLoggedIn result:", result);
+
+      return result;
     } else {
       const isValid = this.authStore.isValid;
       console.log("PocketBase Login Status:", isValid);
       return isValid;
     }
   }
-
   protected async request(url: string, options: any = {}) {
     if (this.isExternalMode && this.vmsConfig?.vmsToken) {
       options.headers = options.headers || {};

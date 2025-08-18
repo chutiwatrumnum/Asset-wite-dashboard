@@ -1,3 +1,4 @@
+// src/components/login-form.tsx - เพิ่ม import Pb
 import React, { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { Loader2, Globe } from "lucide-react";
 import { useExternalLoginMutation } from "@/react-query/login/external-login";
 import { MessageDialog } from "./modal";
+import Pb from "@/api/pocketbase"; // ✅ เพิ่ม import นี้
 
 type AuthInputs = {
   username: string;
@@ -31,13 +33,55 @@ export function LoginForm({ className }: React.ComponentProps<"form">) {
   const onSubmit = async (data: AuthInputs) => {
     setIsFormDisabled(true);
     try {
+      console.log("🔐 Starting login process...");
+
       await externalLogin({
         username: data.username,
         password: data.password,
       });
-      await navigate({ to: "/dashboard", replace: true });
+
+      console.log("✅ External login mutation completed");
+
+      // ✅ รอให้ระบบตั้งค่าเสร็จก่อน redirect
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      // ✅ ตรวจสอบสถานะการล็อกอินก่อน redirect
+      const isLoggedIn = Pb.isLoggedIn();
+      const currentUser = Pb.getCurrentUser();
+
+      console.log("Login status check:", {
+        isLoggedIn,
+        hasUser: !!currentUser,
+        userId: currentUser?.id,
+        userRole: currentUser?.role,
+      });
+
+      if (isLoggedIn && currentUser) {
+        console.log("✅ Login verification successful, redirecting...");
+        await navigate({ to: "/dashboard", replace: true });
+      } else {
+        console.warn("⚠️ Login verification failed");
+
+        // ✅ รอเพิ่มอีกนิดแล้วลองอีกครั้ง
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        const finalCheck = Pb.isLoggedIn();
+        const finalUser = Pb.getCurrentUser();
+
+        console.log("Final login check:", {
+          isLoggedIn: finalCheck,
+          hasUser: !!finalUser,
+        });
+
+        if (finalCheck && finalUser) {
+          console.log("✅ Final check successful, redirecting...");
+          await navigate({ to: "/dashboard", replace: true });
+        } else {
+          throw new Error("Login verification failed after retry");
+        }
+      }
     } catch (error: any) {
-      console.log(error);
+      console.error("❌ Login failed:", error);
       setErrorMessage({
         title: "Login Failed",
         description: error?.message || "Invalid username or password",

@@ -54,104 +54,149 @@ export const useExternalLoginMutation = () => {
                 throw error;
             }
         },
-        onSuccess: (data) => {
-            console.log("=== External Login Success ===");
-            console.log("Full response:", data);
+      onSuccess: async (data) => {
+  console.log("=== External Login Success ===");
+  console.log("Full response:", data);
 
+  try {
+    // ✅ ตั้งค่า localStorage ก่อน
+    localStorage.setItem("isLogged", "true");
+    localStorage.setItem("loginMethod", "external");
+    localStorage.setItem("role", data.projectInfo.roleName || "guest");
+
+    console.log("✅ LocalStorage set:", {
+      isLogged: localStorage.getItem("isLogged"),
+      loginMethod: localStorage.getItem("loginMethod"),
+      role: localStorage.getItem("role"),
+    });
+
+    // ✅ เก็บข้อมูล external auth อย่างปลอดภัย
+    try {
+      encryptStorage.setItem("externalAuth", {
+        accessToken: data.accessToken,
+        vmsUrl: data.vmsUrl,
+        vmsToken: data.vmsToken,
+        projectInfo: data.projectInfo,
+        loginTime: new Date().toISOString()
+      });
+      console.log("✅ External auth saved to encrypted storage");
+    } catch (storageError) {
+      console.warn("⚠️ Could not save to encrypted storage:", storageError);
+    }
+
+    // ✅ สลับไป VMS mode ก่อน (ไม่สร้าง mock user)
+    try {
+      Pb.switchToVMS(data.vmsUrl, data.vmsToken, data.projectInfo);
+      console.log("✅ Switched to VMS mode");
+    } catch (switchError) {
+      console.error("❌ Error switching to VMS:", switchError);
+      throw switchError;
+    }
+
+    // ✅ ดึงข้อมูล user จริงจาก VMS API (เปลี่ยนเป็น await)
+    const userRecord = await fetchUserData();
+    
+    if (userRecord) {
+      console.log("🎉 External login complete with real data");
+      console.log("Final house_id:", userRecord.house_id);
+      
+      // ✅ ตั้งค่า authStore ด้วยข้อมูลจริง
+      Pb.authStore.save(data.vmsToken, userRecord);
+      
+      console.log("✅ Auth setup complete, ready for redirect");
+    } else {
+      console.warn("⚠️ Could not fetch user data, using minimal setup");
+      
+      // ✅ หากไม่ได้ข้อมูล user ให้สร้างข้อมูลขั้นต่ำสำหรับ login
+      const minimalUser = {
+        id: `external-user`,
+        email: `${data.projectInfo.roleName}@vms.local`,
+        role: data.projectInfo.roleName,
+        first_name: data.projectInfo.projectName || "VMS",
+        last_name: "User",
+        house_id: "", // ✅ เว้นว่างไว้หากไม่มีข้อมูล
+        isExternal: true,
+        projectInfo: data.projectInfo,
+      };
+      
+      Pb.authStore.save(data.vmsToken, minimalUser);
+      console.log("✅ Minimal auth setup complete");
+    }
+
+    console.log("✅ External login setup complete");
+
+    // ✅ ฟังก์ชันดึงข้อมูล user จริง (ย้ายมาเป็น async function)
+    async function fetchUserData() {
+      try {
+        console.log("🔍 Fetching real user data from VMS...");
+        
+        // ✅ เรียก API เพื่อดึงข้อมูล user จริง
+        const userResponse = await fetch(`${data.vmsUrl}/api/collections/admin/records`, {
+          method: 'GET',
+          headers: {
+            'Authorization': data.vmsToken,
+            'Accept': 'application/json',
+          },
+        });
+
+        if (userResponse.ok) {
+          const userData = await userResponse.json();
+          console.log("📋 User data from VMS:", userData);
+
+          // ✅ หาข้อมูล user ที่ตรงกับ role ปัจจุบัน
+          let currentUserRecord = null;
+          
+          if (userData.items && userData.items.length > 0) {
+            // ลองหา user ที่มี role ตรงกัน
+            currentUserRecord = userData.items.find((user: any) => 
+              user.role === data.projectInfo.roleName
+            ) || userData.items[0]; // ถ้าไม่เจอให้ใช้คนแรก
+          }
+
+          if (currentUserRecord) {
+            console.log("✅ Found user record:", currentUserRecord);
+
+            // ✅ บันทึกข้อมูล user จริง
+            const realUserRecord = {
+              ...currentUserRecord,
+              isExternal: true,
+              projectInfo: data.projectInfo,
+              vmsUrl: data.vmsUrl,
+              vmsToken: data.vmsToken,
+            };
+
+            // ✅ บันทึกลง storage
             try {
-                // ✅ ตั้งค่า localStorage ก่อน
-                localStorage.setItem("isLogged", "true");
-                localStorage.setItem("loginMethod", "external");
-                localStorage.setItem("role", data.projectInfo.roleName || "guest");
-
-                console.log("✅ LocalStorage set:", {
-                    isLogged: localStorage.getItem("isLogged"),
-                    loginMethod: localStorage.getItem("loginMethod"),
-                    role: localStorage.getItem("role"),
-                });
-
-                // ✅ เก็บข้อมูล external auth อย่างปลอดภัย
-                try {
-                    encryptStorage.setItem("externalAuth", {
-                        accessToken: data.accessToken,
-                        vmsUrl: data.vmsUrl,
-                        vmsToken: data.vmsToken,
-                        projectInfo: data.projectInfo,
-                        loginTime: new Date().toISOString()
-                    });
-                    console.log("✅ External auth saved to encrypted storage");
-                } catch (storageError) {
-                    console.warn("⚠️ Could not save to encrypted storage:", storageError);
-                    // ไม่ต้อง throw error เพราะยังสามารถทำงานได้
-                }
-
-                // ✅ สร้าง complete user record
-                const userRecord = {
-                    id: `external-${data.projectInfo.myProjectId}`,
-                    email: `${data.projectInfo.roleName}@${data.projectInfo.projectName}.vms`,
-                    first_name: data.projectInfo.projectName || "External",
-                    last_name: "User",
-                    role: data.projectInfo.roleName,
-                    house_id: data.projectInfo.myProjectId,
-                    authorized_area: [],
-                    isExternal: true,
-                    collectionName: "external_users",
-                    collectionId: "external_collection",
-                    created: new Date().toISOString(),
-                    updated: new Date().toISOString(),
-                    verified: true,
-                    emailVisibility: false,
-                    avatar: "",
-                    projectInfo: data.projectInfo
-                };
-
-                try {
-                    encryptStorage.setItem("user", userRecord);
-                    console.log("✅ User record saved to encrypted storage");
-                } catch (storageError) {
-                    console.warn("⚠️ Could not save user record:", storageError);
-                }
-
-                console.log("✅ User record created:", userRecord);
-
-                // ✅ สลับไป VMS mode หลังจากตั้งค่าเสร็จ
-                try {
-                    Pb.switchToVMS(data.vmsUrl, data.vmsToken, data.projectInfo);
-
-                    // ✅ ทดสอบการทำงานของ auth system
-                    console.log("=== Testing Auth System ===");
-                    console.log("getCurrentUser():", Pb.getCurrentUser());
-                    console.log("getCurrentRole():", Pb.getCurrentRole());
-                    console.log("isLoggedIn():", Pb.isLoggedIn());
-                    console.log("authStore.isValid:", Pb.authStore.isValid);
-                    console.log("authStore.record:", Pb.authStore.record);
-                    console.log("authStore.token:", Pb.authStore.token);
-
-                    // ✅ ทดสอบการเชื่อมต่อ VMS (optional)
-                    setTimeout(async () => {
-                        try {
-                            console.log('🧪 Testing VMS connection...');
-                            await Pb.collection('_').getList(1, 1);
-                            console.log('✅ VMS connection test successful');
-                        } catch (testError) {
-                            console.warn('⚠️ VMS connection test failed:', testError);
-                        }
-                    }, 100);
-
-                } catch (switchError) {
-                    console.error("❌ Error switching to VMS:", switchError);
-                    throw switchError;
-                }
-
-                console.log("✅ External login setup complete");
-
-            } catch (error) {
-                console.error("❌ Error in onSuccess handler:", error);
-                // ล้างข้อมูลทั้งหมดเมื่อ error
-                this.onError(error as Error);
-                throw error;
+              encryptStorage.setItem("user", realUserRecord);
+              console.log("✅ Real user record saved");
+            } catch (storageError) {
+              console.warn("⚠️ Could not save user record:", storageError);
             }
-        },
+
+            console.log("✅ Real user data setup complete");
+            console.log("House ID:", realUserRecord.house_id);
+            
+            return realUserRecord;
+          } else {
+            console.warn("⚠️ No user record found in VMS response");
+          }
+        } else {
+          console.warn("⚠️ Failed to fetch user data from VMS:", userResponse.status);
+        }
+      } catch (fetchError) {
+        console.error("❌ Error fetching user data:", fetchError);
+      }
+
+      return null;
+    }
+
+  } catch (error) {
+    console.error("❌ Error in onSuccess handler:", error);
+    // ล้างข้อมูลทั้งหมดเมื่อ error
+    this.onError(error as Error);
+    throw error;
+  }
+},
         onError: (error) => {
             console.error("❌ External login error:", error);
 

@@ -1,4 +1,3 @@
-// src/api/vehicle/vehicle.ts - แก้ไขให้รองรับทั้ง VMS และ PocketBase
 import { VEHICLE_TIERS } from "@/utils/vehicleUtils";
 import Pb from "../pocketbase";
 
@@ -10,7 +9,7 @@ export interface newVehicleRequest {
   license_plate: string;
   area_code: string;
   tier: string;
-  issuer: string;
+  issuer?: string;
   start_time?: string;
   expire_time?: string;
   invitation?: string;
@@ -21,16 +20,15 @@ export interface newVehicleRequest {
   note?: string;
 }
 
-// เพิ่ม interface สำหรับ VMS
+// ✅ Interface สำหรับ VMS ที่ส่งเฉพาะข้อมูลที่จำเป็น (ไม่มี note, invitation, stamper, etc.)
 export interface VMSVehicleRequest {
   license_plate: string;
   area_code: string;
   tier: string;
   house_id: string;
   authorized_area?: string[];
-  start_time?: string;
-  expire_time?: string;
-  note?: string;
+  start_time?: string; // format: YYYY-MM-DD HH:mm:ss.sssZ
+  expire_time?: string; // format: YYYY-MM-DD HH:mm:ss.sssZ
 }
 
 export interface vehicleItem {
@@ -117,6 +115,34 @@ const formatDateTimeField = (dateString?: string): string => {
   }
 };
 
+// ✅ ฟังก์ชันแปลง Date เป็น format ที่ VMS ต้องการ: YYYY-MM-DD HH:mm:ss.sssZ
+const formatDateForVMS = (dateString: string): string => {
+  if (!dateString || dateString.trim() === "") {
+    return "";
+  }
+
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) {
+      return "";
+    }
+
+    // ✅ แปลงเป็น format: YYYY-MM-DD HH:mm:ss.sssZ
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+    const seconds = String(date.getSeconds()).padStart(2, "0");
+    const milliseconds = String(date.getMilliseconds()).padStart(3, "0");
+
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}Z`;
+  } catch (error) {
+    console.error("Error formatting date for VMS:", error);
+    return "";
+  }
+};
+
 const prepareVehicleData = (data: newVehicleRequest): Record<string, any> => {
   validateVehicleData(data);
 
@@ -178,7 +204,7 @@ const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<vehicleI
   }
 };
 
-// ✅ ฟังก์ชันสร้างยานพาหนะผ่าน VMS
+// ✅ ฟังก์ชันสร้างยานพาหนะผ่าน VMS - แก้ไขให้ส่งข้อมูลในรูปแบบที่ถูกต้อง
 const createVehicleVMS = async (
   data: newVehicleRequest,
   currentUser: any
@@ -189,19 +215,57 @@ const createVehicleVMS = async (
       throw new Error("VMS configuration not found");
     }
 
-    // เตรียมข้อมูลสำหรับ VMS
+    // ✅ ใช้ house_id ที่ส่งมาจาก data โดยตรง
+    const houseId = data.house_id;
+
+    if (!houseId || houseId.trim() === "") {
+      throw new Error("house_id is required for VMS vehicle creation");
+    }
+
+    // ✅ ตรวจสอบรูปแบบ house_id ให้เป็น PocketBase format
+    if (houseId.includes("-") && houseId.length > 20) {
+      throw new Error("Invalid house_id format (UUID detected, expected PocketBase ID)");
+    }
+
+    console.log("✅ Using house_id for VMS:", houseId);
+
+    // ✅ เตรียมข้อมูลสำหรับ VMS ตาม API spec เท่านั้น (ไม่มี note, invitation, stamper, etc.)
     const vmsData: VMSVehicleRequest = {
       license_plate: data.license_plate.trim().toUpperCase(),
       area_code: data.area_code,
-      tier: data.tier || "guest",
-      house_id: data.house_id || currentUser.house_id || "",
+      tier: data.tier || "staff",
+      house_id: houseId,
       authorized_area: data.authorized_area || [],
-      start_time: data.start_time || undefined,
-      expire_time: data.expire_time || undefined,
-      note: data.note?.trim() || "",
     };
 
-    console.log("VMS request data:", vmsData);
+    // ✅ เพิ่ม datetime fields เฉพาะที่มีค่า และใช้ format ที่ถูกต้อง
+    if (data.start_time && data.start_time.trim() !== "") {
+      const formattedStartTime = formatDateForVMS(data.start_time);
+      if (formattedStartTime) {
+        vmsData.start_time = formattedStartTime;
+      }
+    }
+
+    if (data.expire_time && data.expire_time.trim() !== "") {
+      const formattedExpireTime = formatDateForVMS(data.expire_time);
+      if (formattedExpireTime) {
+        vmsData.expire_time = formattedExpireTime;
+      }
+    }
+
+    console.log("VMS request data (cleaned):", vmsData);
+    console.log("VMS endpoint:", `${vmsConfig.vmsUrl}/api/collections/vehicle/records`);
+
+    // ✅ ตรวจสอบข้อมูลที่จำเป็นก่อนส่ง
+    if (!vmsData.license_plate) {
+      throw new Error("License plate is required");
+    }
+    if (!vmsData.area_code) {
+      throw new Error("Area code is required");
+    }
+    if (!vmsData.house_id) {
+      throw new Error("House ID is required");
+    }
 
     // เรียก VMS API
     const response = await fetch(`${vmsConfig.vmsUrl}/api/collections/vehicle/records`, {
@@ -213,35 +277,75 @@ const createVehicleVMS = async (
       body: JSON.stringify(vmsData),
     });
 
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => null);
-      console.error("VMS API Error:", errorData);
+    console.log("VMS API Response status:", response.status);
 
-      if (response.status === 400 && errorData?.message) {
-        throw new Error(errorData.message);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("VMS API Error Response (raw):", errorText);
+
+      // ลองแปลง JSON ถ้าเป็นไปได้
+      let errorData = null;
+      try {
+        errorData = JSON.parse(errorText);
+      } catch (parseError) {
+        console.warn("Could not parse error response as JSON");
+      }
+
+      console.error("VMS API Error Status:", response.status);
+
+      // ✅ จัดการ error messages เฉพาะสำหรับ VMS
+      if (response.status === 400) {
+        if (errorData?.message?.includes("house_id")) {
+          throw new Error(`ข้อมูล house_id (${houseId}) ไม่ถูกต้องหรือไม่มีในระบบ VMS`);
+        } else if (errorData?.message?.includes("quota")) {
+          throw new Error("ปริมาณการใช้งาน VMS เกินกำหนด กรุณาติดต่อผู้ดูแลระบบ");
+        } else if (errorData?.message) {
+          throw new Error(`VMS API Error: ${errorData.message}`);
+        } else if (errorText.includes("validation")) {
+          throw new Error(`ข้อมูลไม่ผ่านการตรวจสอบ VMS: ${errorText}`);
+        } else {
+          throw new Error(`ข้อมูลที่ส่งไป VMS ไม่ถูกต้อง: ${errorText}`);
+        }
       } else if (response.status === 401) {
-        throw new Error("ไม่ได้รับอนุญาตให้เข้าถึง กรุณาเข้าสู่ระบบใหม่");
+        throw new Error("VMS Token หมดอายุ กรุณาเข้าสู่ระบบใหม่");
       } else if (response.status === 403) {
-        throw new Error("ไม่มีสิทธิ์ในการสร้างยานพาหนะ");
+        throw new Error("ไม่มีสิทธิ์ในการสร้างยานพาหนะใน VMS");
+      } else if (response.status === 429) {
+        throw new Error("มีการใช้งาน VMS มากเกินไป กรุณารอสักครู่แล้วลองใหม่");
+      } else if (response.status === 500) {
+        throw new Error("เกิดข้อผิดพลาดใน VMS Server กรุณาลองใหม่อีกครั้ง");
       } else {
-        throw new Error(`VMS API Error: ${response.status} ${response.statusText}`);
+        throw new Error(`VMS API Error: ${response.status} ${response.statusText} - ${errorText}`);
       }
     }
 
     const result = await response.json();
     console.log("VMS vehicle created successfully:", result);
 
-    // แปลง response เป็นรูปแบบที่ frontend ต้องการ
-    return {
+    // ✅ แปลง response เป็นรูปแบบที่ frontend ต้องการ
+    const vehicleItem: vehicleItem = {
       ...result,
+      // ✅ เพิ่มข้อมูลที่จำเป็นสำหรับ frontend
       collectionId: result.collectionId || "vms_collection",
       collectionName: result.collectionName || "vehicle",
-      issuer: currentUser.id,
-      stamper: currentUser.id,
-      stamped_time: new Date().toISOString(),
+      issuer: result.issuer || currentUser.id,
+      stamper: result.stamper || currentUser.id,
+      stamped_time: result.stamped_time || new Date().toISOString(),
+      invitation: result.invitation || "",
+      note: result.note || "",
+      created: result.created || new Date().toISOString(),
+      updated: result.updated || new Date().toISOString(),
     };
+
+    return vehicleItem;
   } catch (error) {
     console.error("VMS vehicle creation error:", error);
+
+    // ✅ ถ้าเป็น network error ให้แสดงข้อความที่เข้าใจง่าย
+    if (error instanceof TypeError && error.message.includes("fetch")) {
+      throw new Error("ไม่สามารถเชื่อมต่อกับ VMS Server ได้ กรุณาตรวจสอบการเชื่อมต่อ");
+    }
+
     throw error;
   }
 };
@@ -254,7 +358,7 @@ const createVehiclePocketBase = async (
   try {
     const preparedData = {
       license_plate: data.license_plate.trim().toUpperCase(),
-      tier: data.tier || "guest",
+      tier: data.tier || "staff",
       area_code: data.area_code,
       house_id: data.house_id || currentUser.house_id || "",
       authorized_area: data.authorized_area || [],
