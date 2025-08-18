@@ -66,8 +66,18 @@ export const useExternalLoginMutation = () => {
             }
         },
         onSuccess: (data) => {
-            console.log("✅ External login successful:", data);
-
+            console.log("=== External Login Success ===");
+            console.log("Full response:", data);
+            console.log("Project info:", data.projectInfo);
+            console.log("Role name:", data.projectInfo.roleName);
+            // ตรวจสอบ role ที่ได้จาก API
+            if (!data.projectInfo.roleName) {
+                console.error("No role received from external API!");
+                // Set default role หรือ throw error
+                localStorage.setItem("role", "guest");
+            } else {
+                localStorage.setItem("role", data.projectInfo.roleName);
+            }
             localStorage.setItem("isLogged", "true");
             localStorage.setItem("loginMethod", "external");
             localStorage.setItem("role", data.projectInfo.roleName);

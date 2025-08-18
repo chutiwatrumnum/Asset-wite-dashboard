@@ -28,20 +28,16 @@ class EnhancedPocketBase extends PocketBase {
   }
 
   // สลับไป VMS mode
+  // ลบ beforeSend ออกหมด และใช้แค่ authStore.save
   public switchToVMS(vmsUrl: string, vmsToken: string, projectInfo: any) {
-    // เปลี่ยน base URL ไป VMS
     this.baseUrl = vmsUrl;
-
-    // เก็บ VMS config
     this.vmsConfig = { vmsUrl, vmsToken, projectInfo };
     this.isExternalMode = true;
 
-    // Override token ใน authStore
+    // ✅ ใช้แค่ authStore.save (ไม่ต้อง beforeSend)
     this.authStore.save(vmsToken, null);
 
-    // เก็บใน storage
     encryptStorage.setItem("vmsConfig", { vmsUrl, vmsToken, projectInfo });
-
     console.log("✅ Switched to VMS mode:", vmsUrl);
   }
 
@@ -56,19 +52,6 @@ class EnhancedPocketBase extends PocketBase {
   }
 
   // Override beforeSend เพื่อใส่ VMS token
-  protected async beforeSend(url: string, options: any) {
-    // เรียก parent beforeSend ก่อน
-    const result = await super.beforeSend(url, options);
-
-    // ถ้าใช้ VMS mode ให้ใส่ VMS token
-    if (this.isExternalMode && this.vmsConfig?.vmsToken) {
-      result.options.headers = result.options.headers || {};
-      result.options.headers["Authorization"] =
-        `Bearer ${this.vmsConfig.vmsToken}`;
-    }
-
-    return result;
-  }
 
   // Helper methods
   public isUsingVMS(): boolean {
@@ -110,19 +93,46 @@ class EnhancedPocketBase extends PocketBase {
   // Helper สำหรับตรวจสอบ role
   public getCurrentRole(): string {
     if (this.isExternalMode) {
-      return localStorage.getItem("role") || "guest";
+      // ลำดับการตรวจสอบ role สำหรับ VMS
+      const role =
+        localStorage.getItem("role") ||
+        this.vmsConfig?.projectInfo?.roleName ||
+        "guest";
+      console.log("VMS Role:", role);
+      return role;
     } else {
-      return this.authStore.record?.role || "guest";
+      // PocketBase ปกติ
+      const role = this.authStore.record?.role || "guest";
+      console.log("PocketBase Role:", role);
+      return role;
     }
   }
-
   // Helper สำหรับตรวจสอบการ login
   public isLoggedIn(): boolean {
     if (this.isExternalMode) {
-      return localStorage.getItem("isLogged") === "true";
+      const isLogged = localStorage.getItem("isLogged") === "true";
+      console.log("VMS Login Status:", isLogged);
+      return isLogged;
     } else {
-      return this.authStore.isValid;
+      const isValid = this.authStore.isValid;
+      console.log("PocketBase Login Status:", isValid);
+      return isValid;
     }
+  }
+
+  // เพิ่ม method สำหรับ debug
+  public debugAuth() {
+    console.log("=== Auth Debug Info ===");
+    console.log("Is External Mode:", this.isExternalMode);
+    console.log("Current User:", this.getCurrentUser());
+    console.log("Current Role:", this.getCurrentRole());
+    console.log("Is Logged In:", this.isLoggedIn());
+    console.log("VMS Config:", this.vmsConfig);
+    console.log("AuthStore Valid:", this.authStore.isValid);
+    console.log("AuthStore Record:", this.authStore.record);
+    console.log("LocalStorage isLogged:", localStorage.getItem("isLogged"));
+    console.log("LocalStorage role:", localStorage.getItem("role"));
+    console.log("======================");
   }
 }
 
