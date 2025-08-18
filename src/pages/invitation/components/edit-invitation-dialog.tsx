@@ -1,8 +1,8 @@
-// src/pages/invitation/components/edit-invitation-dialog.tsx - ใช้ FormDialog component
+// src/pages/invitation/components/edit-invitation-dialog.tsx - แก้ไขให้ดึงพื้นที่ตามบ้านที่เลือก
 "use client";
 
 import type React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -25,7 +25,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useHouseListQuery } from "@/react-query/manage/house";
-import { useUserAuthorizedAreasQuery } from "@/react-query/manage/area";
+import { useAreaAllListQuery } from "@/react-query/manage/area"; // เปลี่ยนจาก useUserAuthorizedAreasQuery
 import type { HouseItem } from "@/api/house/house";
 import type { AreaItem } from "@/api/area/area";
 import type {
@@ -87,7 +87,7 @@ export function EditInvitationDialog({
   onInvitationUpdated,
 }: EditInvitationDialogProps) {
   const { data: houseList } = useHouseListQuery({});
-  const { data: userAuthorizedAreas } = useUserAuthorizedAreasQuery();
+  const { data: allAreas } = useAreaAllListQuery(); // เปลี่ยนเป็นดึงพื้นที่ทั้งหมด
   const [isLoading, setIsLoading] = useState(false);
 
   const { mutateAsync: updateInvitation } = useEditInvitationMutation();
@@ -104,6 +104,28 @@ export function EditInvitationDialog({
       active: true,
     },
   });
+
+  // ดึงค่า house_id ที่เลือกจาก form
+  const selectedHouseId = form.watch("house_id");
+
+  // Filter areas based on selected house
+  const availableAreas = useMemo(() => {
+    if (!allAreas || !selectedHouseId) {
+      return [];
+    }
+
+    // หาบ้านที่เลือก
+    const selectedHouse = houseList?.items.find(
+      (house) => house.id === selectedHouseId
+    );
+
+    if (!selectedHouse || !selectedHouse.area) {
+      return [];
+    }
+
+    // กรองพื้นที่ตามพื้นที่ของบ้านที่เลือก
+    return allAreas.filter((area) => area.id === selectedHouse.area);
+  }, [allAreas, selectedHouseId, houseList]);
 
   // Format datetime for input
   const formatDateTimeForInput = (dateString: string) => {
@@ -145,10 +167,19 @@ export function EditInvitationDialog({
   const watchedValues = form.watch();
   const isDirty = form.formState.isDirty;
 
+  // Reset authorized_area when house changes (but not on initial load)
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  useEffect(() => {
+    if (!isInitialLoad && selectedHouseId) {
+      form.setValue("authorized_area", []);
+    }
+  }, [selectedHouseId, form, isInitialLoad]);
+
   // Populate form when invitationData changes and dialog opens
   useEffect(() => {
     if (invitationData && open) {
       console.log("Original invitationData:", invitationData);
+      setIsInitialLoad(true);
 
       try {
         const authorizedArea = safeParseArray(invitationData.authorized_area);
@@ -167,6 +198,11 @@ export function EditInvitationDialog({
 
         console.log("Setting form data:", formData);
         form.reset(formData);
+
+        // Set initial load to false after a short delay
+        setTimeout(() => {
+          setIsInitialLoad(false);
+        }, 100);
       } catch (error) {
         console.error("Error setting form data:", error);
         toast.error("เกิดข้อผิดพลาดในการโหลดข้อมูล");
@@ -367,9 +403,16 @@ export function EditInvitationDialog({
               render={() => (
                 <FormItem>
                   <FormLabel>เลือกพื้นที่ที่อนุญาต *</FormLabel>
+                  <FormDescription>
+                    พื้นที่ที่จะแสดงตามบ้านที่เลือก
+                  </FormDescription>
                   <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto border rounded-md p-3">
-                    {userAuthorizedAreas && userAuthorizedAreas.length > 0 ? (
-                      userAuthorizedAreas.map((area: AreaItem) => (
+                    {!selectedHouseId ? (
+                      <div className="text-sm text-gray-500 p-2">
+                        กรุณาเลือกบ้านก่อนเพื่อแสดงพื้นที่ที่เกี่ยวข้อง
+                      </div>
+                    ) : availableAreas && availableAreas.length > 0 ? (
+                      availableAreas.map((area: AreaItem) => (
                         <FormField
                           key={area.id}
                           control={form.control}
@@ -416,7 +459,7 @@ export function EditInvitationDialog({
                       ))
                     ) : (
                       <div className="text-sm text-gray-500 p-2">
-                        คุณไม่มีสิทธิ์ในการกำหนดพื้นที่ใดๆ
+                        ไม่มีพื้นที่ที่เกี่ยวข้องกับบ้านที่เลือก
                       </div>
                     )}
                   </div>

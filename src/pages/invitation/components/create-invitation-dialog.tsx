@@ -1,8 +1,8 @@
-// src/pages/invitation/components/create-invitation-dialog.tsx - แก้ไขให้รับ props แทน ref
+// src/pages/invitation/components/create-invitation-dialog.tsx - แก้ไขให้ดึงพื้นที่ตามบ้านที่เลือก
 "use client";
 
 import type React from "react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -33,7 +33,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useHouseListQuery } from "@/react-query/manage/house";
-import { useUserAuthorizedAreasQuery } from "@/react-query/manage/area";
+import { useAreaAllListQuery } from "@/react-query/manage/area"; // เปลี่ยนจาก useUserAuthorizedAreasQuery
 import { useCreateInvitationMutation } from "@/react-query/manage/invitation";
 import type { HouseItem } from "@/api/house/house";
 import type { AreaItem } from "@/api/area/area";
@@ -97,7 +97,7 @@ export function CreateInvitationDrawer({
   showTriggerButton = true,
 }: CreateInvitationDrawerProps) {
   const { data: houseList } = useHouseListQuery({});
-  const { data: userAuthorizedAreas } = useUserAuthorizedAreasQuery();
+  const { data: allAreas } = useAreaAllListQuery(); // เปลี่ยนเป็นดึงพื้นที่ทั้งหมด
 
   // ใช้ state internal หรือ external
   const [internalOpen, setInternalOpen] = useState(false);
@@ -120,6 +120,35 @@ export function CreateInvitationDrawer({
       active: true,
     },
   });
+
+  // ดึงค่า house_id ที่เลือกจาก form
+  const selectedHouseId = form.watch("house_id");
+
+  // Filter areas based on selected house
+  const availableAreas = useMemo(() => {
+    if (!allAreas || !selectedHouseId) {
+      return [];
+    }
+
+    // หาบ้านที่เลือก
+    const selectedHouse = houseList?.items.find(
+      (house) => house.id === selectedHouseId
+    );
+
+    if (!selectedHouse || !selectedHouse.area) {
+      return [];
+    }
+
+    // กรองพื้นที่ตามพื้นที่ของบ้านที่เลือก
+    return allAreas.filter((area) => area.id === selectedHouse.area);
+  }, [allAreas, selectedHouseId, houseList]);
+
+  // Reset authorized_area when house changes
+  useEffect(() => {
+    if (selectedHouseId) {
+      form.setValue("authorized_area", []);
+    }
+  }, [selectedHouseId, form]);
 
   // Set default times when form opens
   useEffect(() => {
@@ -380,11 +409,15 @@ export function CreateInvitationDrawer({
                   <FormItem>
                     <FormLabel>เลือกพื้นที่ที่อนุญาต *</FormLabel>
                     <FormDescription>
-                      เลือกพื้นที่ที่ผู้เยี่ยมสามารถเข้าถึงได้ (ตามสิทธิ์ของคุณ)
+                      พื้นที่ที่จะแสดงตามบ้านที่เลือก
                     </FormDescription>
                     <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto border rounded-md p-3">
-                      {userAuthorizedAreas && userAuthorizedAreas.length > 0 ? (
-                        userAuthorizedAreas.map((area: AreaItem) => (
+                      {!selectedHouseId ? (
+                        <div className="text-sm text-gray-500 p-2">
+                          กรุณาเลือกบ้านก่อนเพื่อแสดงพื้นที่ที่เกี่ยวข้อง
+                        </div>
+                      ) : availableAreas && availableAreas.length > 0 ? (
+                        availableAreas.map((area: AreaItem) => (
                           <FormField
                             key={area.id}
                             control={form.control}
@@ -430,8 +463,7 @@ export function CreateInvitationDrawer({
                         ))
                       ) : (
                         <div className="text-sm text-gray-500 p-2">
-                          คุณไม่มีสิทธิ์ในการกำหนดพื้นที่ใดๆ
-                          กรุณาติดต่อผู้ดูแลระบบ
+                          ไม่มีพื้นที่ที่เกี่ยวข้องกับบ้านที่เลือก
                         </div>
                       )}
                     </div>

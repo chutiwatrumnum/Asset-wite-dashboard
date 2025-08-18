@@ -1,7 +1,7 @@
-// src/pages/vehicle/components/edit-vehicle-dialog.tsx - ใช้ shared components
+// src/pages/vehicle/components/edit-vehicle-dialog.tsx - ลบส่วน UI ที่ไม่จำเป็น
 "use client";
 import type React from "react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
@@ -26,22 +26,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useHouseListQuery } from "@/react-query/manage/house";
-import { useUserAuthorizedAreasQuery } from "@/react-query/manage/area";
-import type { HouseItem } from "@/api/house/house";
+import { useAreaAllListQuery } from "@/react-query/manage/area";
 import type { AreaItem } from "@/api/area/area";
 import type { vehicleItem, newVehicleRequest } from "@/api/vehicle/vehicle";
 import { useEditVehicleMutation } from "@/react-query/manage/vehicle";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import Pb from "@/api/pocketbase";
-import {
-  VEHICLE_TIERS,
-  THAI_PROVINCES,
-  validateLicensePlate,
-} from "@/utils/vehicleUtils";
+import { THAI_PROVINCES, validateLicensePlate } from "@/utils/vehicleUtils";
 
-// Form schema
+// Form schema ที่ลดความซับซ้อน
 const editFormSchema = z
   .object({
     license_plate: z
@@ -51,19 +45,9 @@ const editFormSchema = z
         message: "รูปแบบป้ายทะเบียนไม่ถูกต้อง (เช่น กข 1234 หรือ 1กค234)",
       }),
     area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-    tier: z
-      .string()
-      .min(1, { message: "กรุณาเลือกระดับ" })
-      .refine((value) => Object.keys(VEHICLE_TIERS).includes(value), {
-        message: "ระดับยานพาหนะไม่ถูกต้อง",
-      }),
     authorized_area: z.array(z.string()),
     start_time: z.string().optional(),
     expire_time: z.string().optional(),
-    house_id: z.string().optional(),
-    invitation: z.string().optional(),
-    stamper: z.string().optional(),
-    stamped_time: z.string().optional(),
     note: z.string().optional(),
   })
   .refine(
@@ -123,8 +107,7 @@ export function EditVehicleDialog({
   onOpenChange,
   onVehicleUpdated,
 }: EditVehicleDialogProps) {
-  const { data: houseList } = useHouseListQuery({});
-  const { data: userAuthorizedAreas } = useUserAuthorizedAreasQuery();
+  const { data: allAreas } = useAreaAllListQuery();
   const [isLoading, setIsLoading] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
 
@@ -135,14 +118,9 @@ export function EditVehicleDialog({
     defaultValues: {
       license_plate: "",
       area_code: "",
-      tier: "",
       authorized_area: [],
       start_time: "",
       expire_time: "",
-      house_id: "",
-      invitation: "",
-      stamper: "",
-      stamped_time: "",
       note: "",
     },
   });
@@ -183,24 +161,6 @@ export function EditVehicleDialog({
     return [];
   };
 
-  // Safe function to validate tier
-  const getValidTier = (tier: string): string => {
-    if (Object.keys(VEHICLE_TIERS).includes(tier)) {
-      return tier;
-    }
-
-    const tierMappings: { [key: string]: string } = {
-      validation_required: "unknown visitor",
-      "": "unknown visitor",
-      null: "unknown visitor",
-      undefined: "unknown visitor",
-    };
-
-    const mappedTier = tierMappings[tier] || "unknown visitor";
-    console.warn(`Invalid tier "${tier}" mapped to "${mappedTier}"`);
-    return mappedTier;
-  };
-
   // Reset form when vehicleData changes
   useEffect(() => {
     if (vehicleData && open) {
@@ -208,25 +168,13 @@ export function EditVehicleDialog({
 
       try {
         const authorizedArea = safeParseArray(vehicleData.authorized_area);
-        const validTier = getValidTier(vehicleData.tier);
-
-        if (vehicleData.tier !== validTier) {
-          toast.warning(
-            `ระดับยานพาหนะไม่ถูกต้อง "${vehicleData.tier}" จะถูกเปลี่ยนเป็น "${validTier}"`
-          );
-        }
 
         const formData = {
           license_plate: vehicleData.license_plate || "",
           area_code: vehicleData.area_code || "",
-          tier: validTier,
           authorized_area: authorizedArea,
           start_time: formatDateTimeForInput(vehicleData.start_time),
           expire_time: formatDateTimeForInput(vehicleData.expire_time),
-          house_id: vehicleData.house_id || "",
-          invitation: vehicleData.invitation || "",
-          stamper: vehicleData.stamper || "",
-          stamped_time: formatDateTimeForInput(vehicleData.stamped_time),
           note: vehicleData.note || "",
         };
 
@@ -287,38 +235,22 @@ export function EditVehicleDialog({
         throw new Error("กรุณาเลือกจังหวัด");
       }
 
-      if (!values.tier || !Object.keys(VEHICLE_TIERS).includes(values.tier)) {
-        throw new Error("กรุณาเลือกระดับยานพาหนะที่ถูกต้อง");
-      }
-
       const reqData: newVehicleRequest = {
         id: vehicleData?.id,
         license_plate: values.license_plate.trim(),
         area_code: values.area_code,
-        tier: values.tier,
+        tier: vehicleData?.tier || "guest", // คงค่าเดิมไว้หรือใช้ guest เป็นค่าเริ่มต้น
         issuer: vehicleData?.issuer || Pb.authStore.record?.id || "",
         authorized_area: values.authorized_area,
+        // ข้อมูลที่ระบบจัดการเอง
+        house_id: vehicleData?.house_id, // คงค่าเดิมไว้
+        invitation: vehicleData?.invitation, // คงค่าเดิมไว้
+        stamper: vehicleData?.stamper || Pb.authStore.record?.id || "", // ใช้ค่าเดิมหรือ user ปัจจุบัน
+        stamped_time: vehicleData?.stamped_time || new Date().toISOString(), // ใช้ค่าเดิมหรือเวลาปัจจุบัน
       };
-
-      // Optional fields
-      if (
-        values.house_id &&
-        values.house_id.trim() !== "" &&
-        values.house_id !== "none"
-      ) {
-        reqData.house_id = values.house_id;
-      }
 
       if (values.note && values.note.trim() !== "") {
         reqData.note = values.note;
-      }
-
-      if (values.invitation && values.invitation.trim() !== "") {
-        reqData.invitation = values.invitation;
-      }
-
-      if (values.stamper && values.stamper.trim() !== "") {
-        reqData.stamper = values.stamper;
       }
 
       // DateTime fields
@@ -333,13 +265,6 @@ export function EditVehicleDialog({
         const formattedExpireTime = formatDateTimeForAPI(values.expire_time);
         if (formattedExpireTime) {
           reqData.expire_time = formattedExpireTime;
-        }
-      }
-
-      if (values.stamped_time && values.stamped_time.trim() !== "") {
-        const formattedStampedTime = formatDateTimeForAPI(values.stamped_time);
-        if (formattedStampedTime) {
-          reqData.stamped_time = formattedStampedTime;
         }
       }
 
@@ -398,14 +323,12 @@ export function EditVehicleDialog({
       submitLabel="อัปเดต"
       cancelLabel="ยกเลิก"
       submitDisabled={!form.formState.isValid}
-      size="lg">
+      size="md">
       <Form {...form}>
         <div className="space-y-4">
-          {/* ข้อมูลหลัก (Required) */}
+          {/* ข้อมูลหลัก */}
           <div className="space-y-4 border-b pb-4">
-            <h3 className="text-sm font-medium text-gray-900">
-              ข้อมูลหลัก (จำเป็น)
-            </h3>
+            <h3 className="text-sm font-medium text-gray-900">ข้อมูลหลัก</h3>
 
             <FormField
               control={form.control}
@@ -461,79 +384,16 @@ export function EditVehicleDialog({
 
             <FormField
               control={form.control}
-              name="tier"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ระดับยานพาหนะ *</FormLabel>
-                  <Select
-                    onValueChange={field.onChange}
-                    value={field.value}
-                    disabled={isLoading}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="เลือกระดับ" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      {Object.entries(VEHICLE_TIERS).map(([value, info]) => (
-                        <SelectItem key={value} value={value}>
-                          {info.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>ระดับของยานพาหนะ</FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="house_id"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>บ้าน</FormLabel>
-                  <Select
-                    onValueChange={(value) => {
-                      field.onChange(value === "none" ? "" : value);
-                    }}
-                    value={field.value || "none"}
-                    disabled={isLoading}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="เลือกบ้าน" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="none">ไม่ระบุ</SelectItem>
-                      {houseList?.items.map((house: HouseItem) => (
-                        <SelectItem key={house.id} value={house.id}>
-                          {house.address}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormDescription>
-                    บ้านที่ยานพาหนะนี้เกี่ยวข้อง
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
               name="authorized_area"
               render={() => (
                 <FormItem>
                   <FormLabel>พื้นที่ที่ได้รับอนุญาต</FormLabel>
                   <FormDescription>
-                    เลือกพื้นที่ที่ยานพาหนะนี้สามารถเข้าถึงได้ (ตามสิทธิ์ของคุณ)
+                    เลือกพื้นที่ที่ยานพาหนะนี้สามารถเข้าถึงได้
                   </FormDescription>
                   <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto border rounded-md p-3">
-                    {userAuthorizedAreas && userAuthorizedAreas.length > 0 ? (
-                      userAuthorizedAreas.map((area: AreaItem) => (
+                    {allAreas && allAreas.length > 0 ? (
+                      allAreas.map((area: AreaItem) => (
                         <FormField
                           key={area.id}
                           control={form.control}
@@ -580,8 +440,7 @@ export function EditVehicleDialog({
                       ))
                     ) : (
                       <div className="text-sm text-gray-500 p-2">
-                        คุณไม่มีสิทธิ์ในการกำหนดพื้นที่ใดๆ
-                        กรุณาติดต่อผู้ดูแลระบบ
+                        ไม่มีข้อมูลพื้นที่ในระบบ
                       </div>
                     )}
                   </div>
@@ -594,7 +453,7 @@ export function EditVehicleDialog({
           {/* DateTime Fields */}
           <div className="space-y-4 border-b pb-4">
             <h3 className="text-sm font-medium text-gray-900">
-              ช่วงเวลาที่ใช้งาน (ไม่จำเป็น)
+              ช่วงเวลาที่ใช้งาน
             </h3>
 
             <FormField
@@ -641,96 +500,29 @@ export function EditVehicleDialog({
             />
           </div>
 
-          {/* Optional fields */}
-          <div className="space-y-4 border-b pb-4">
-            <h3 className="text-sm font-medium text-gray-900">
-              ข้อมูลเพิ่มเติม (ไม่จำเป็น)
-            </h3>
+          {/* Note Field */}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-gray-900">หมายเหตุ</h3>
 
             <FormField
               control={form.control}
-              name="invitation"
+              name="note"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>รหัสคำเชิญ</FormLabel>
+                  <FormLabel>หมายเหตุ</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="Relation record ID สำหรับการนัดหมาย"
+                    <Textarea
+                      placeholder="หมายเหตุเพิ่มเติม..."
+                      className="resize-none"
                       {...field}
                       disabled={isLoading}
                     />
                   </FormControl>
-                  <FormDescription>
-                    รหัสการนัดหมายที่เกี่ยวข้อง (ถ้ามี)
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* Approval Fields */}
-            <FormField
-              control={form.control}
-              name="stamper"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>ผู้อนุมัติ</FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="รหัสผู้อนุมัติ"
-                      {...field}
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    รหัสของผู้ที่อนุมัติการเข้า-ออก
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="stamped_time"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>เวลาอนุมัติ</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="datetime-local"
-                      {...field}
-                      disabled={isLoading}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    วันที่และเวลาที่ทำการอนุมัติ
-                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
           </div>
-
-          {/* Note Field */}
-          <FormField
-            control={form.control}
-            name="note"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>หมายเหตุ</FormLabel>
-                <FormControl>
-                  <Textarea
-                    placeholder="หมายเหตุเพิ่มเติม..."
-                    className="resize-none"
-                    {...field}
-                    disabled={isLoading}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
         </div>
       </Form>
     </FormDialog>

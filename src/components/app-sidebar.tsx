@@ -49,17 +49,17 @@ const data = {
       icon: LucideHome,
       isActive: true,
     },
-    {
-      title: "เจ้าหน้าที่",
-      url: "/saff",
-      icon: GlassesIcon,
-      isActive: true,
-    },
-    {
-      title: "ลูกบ้าน",
-      url: "/residents",
-      icon: LucideUserRound,
-    },
+    // {
+    //   title: "เจ้าหน้าที่",
+    //   url: "/saff",
+    //   icon: GlassesIcon,
+    //   isActive: true,
+    // },
+    // {
+    //   title: "ลูกบ้าน",
+    //   url: "/residents",
+    //   icon: LucideUserRound,
+    // },
     {
       title: "บัตรเชิญ (E-invitation)",
       url: "/invitations",

@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx - ใช้ shared components
+// src/pages/vehicle/components/create-vehicle-dialog.tsx - ลบส่วน UI ที่ไม่จำเป็น
 "use client";
 
 import type React from "react";
@@ -22,6 +22,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useAreaAllListQuery } from "@/react-query/manage/area";
+import { useCreateVehicleMutation } from "@/react-query/manage/vehicle";
+import type { AreaItem } from "@/api/area/area";
+import type { newVehicleRequest } from "@/api/vehicle/vehicle";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import Pb from "@/api/pocketbase";
+import { THAI_PROVINCES } from "@/utils/vehicleUtils";
 import {
   Select,
   SelectContent,
@@ -29,32 +37,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useHouseListQuery } from "@/react-query/manage/house";
-import { useUserAuthorizedAreasQuery } from "@/react-query/manage/area";
-import { useCreateVehicleMutation } from "@/react-query/manage/vehicle";
-import type { HouseItem } from "@/api/house/house";
-import type { AreaItem } from "@/api/area/area";
-import type { newVehicleRequest } from "@/api/vehicle/vehicle";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import Pb from "@/api/pocketbase";
-import { VEHICLE_TIERS, THAI_PROVINCES } from "@/utils/vehicleUtils";
 
-// Form schema with validation - เพิ่มฟิลด์ที่หายไป
+// Form schema ที่ลดความซับซ้อน - เหลือแค่ข้อมูลที่จำเป็น
 const formSchema = z.object({
   license_plate: z
     .string()
     .min(1, { message: "กรุณากรอกป้ายทะเบียน" })
     .max(20, { message: "ป้ายทะเบียนต้องไม่เกิน 20 ตัวอักษร" }),
-  tier: z.string().min(1, { message: "กรุณาเลือกระดับยานพาหนะ" }),
   area_code: z.string().min(1, { message: "กรุณาเลือกจังหวัด" }),
-  house_id: z.string().optional(),
   authorized_area: z.array(z.string()).optional(),
-  start_time: z.string().optional(), // เพิ่มฟิลด์ที่หายไป
+  start_time: z.string().optional(),
   expire_time: z.string().optional(),
-  invitation: z.string().optional(), // เพิ่มฟิลด์ที่หายไป
-  stamper: z.string().optional(), // เพิ่มฟิลด์ที่หายไป
-  stamped_time: z.string().optional(), // เพิ่มฟิลด์ที่หายไป
   note: z.string().optional(),
 });
 
@@ -73,8 +66,7 @@ export function CreateVehicleDrawer({
   onOpenChange: externalOnOpenChange,
   showTriggerButton = true,
 }: CreateVehicleDrawerProps) {
-  const { data: houseList } = useHouseListQuery({});
-  const { data: userAuthorizedAreas } = useUserAuthorizedAreasQuery();
+  const { data: allAreas } = useAreaAllListQuery();
 
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -89,15 +81,10 @@ export function CreateVehicleDrawer({
     resolver: zodResolver(formSchema),
     defaultValues: {
       license_plate: "",
-      tier: "",
       area_code: "",
-      house_id: "",
       authorized_area: [],
-      start_time: "", // เพิ่มฟิลด์ที่หายไป
+      start_time: "",
       expire_time: "",
-      invitation: "", // เพิ่มฟิลด์ที่หายไป
-      stamper: "", // เพิ่มฟิลด์ที่หายไป
-      stamped_time: "", // เพิ่มฟิลด์ที่หายไป
       note: "",
     },
   });
@@ -139,15 +126,15 @@ export function CreateVehicleDrawer({
 
       const vehicleData: newVehicleRequest = {
         license_plate: values.license_plate.trim().toUpperCase(),
-        tier: values.tier,
+        tier: "guest", // ค่าเริ่มต้นเป็น guest
         area_code: values.area_code,
-        house_id: values.house_id || undefined,
+        house_id: undefined, // ไม่ส่งข้อมูลบ้าน
         authorized_area: values.authorized_area || [],
-        start_time: values.start_time || undefined, // เพิ่มฟิลด์ที่หายไป
+        start_time: values.start_time || undefined,
         expire_time: values.expire_time || undefined,
-        invitation: values.invitation || undefined, // เพิ่มฟิลด์ที่หายไป
-        stamper: values.stamper || undefined, // เพิ่มฟิลด์ที่หายไป
-        stamped_time: values.stamped_time || undefined, // เพิ่มฟิลด์ที่หายไป
+        invitation: undefined, // ไม่ส่งข้อมูลคำเชิญ
+        stamper: Pb.authStore.record?.id || "", // ใช้ user ที่ login เป็น stamper
+        stamped_time: new Date().toISOString(), // เวลาปัจจุบันเป็นเวลาอนุมัติ
         issuer: Pb.authStore.record?.id || "",
         note: values.note?.trim() || "",
       };
@@ -212,7 +199,7 @@ export function CreateVehicleDrawer({
         submitLabel="เพิ่มยานพาหนะ"
         cancelLabel="ยกเลิก"
         submitDisabled={!form.formState.isValid}
-        size="lg">
+        size="md">
         <Form {...form}>
           <div className="space-y-4">
             {/* Basic Information */}
@@ -237,36 +224,6 @@ export function CreateVehicleDrawer({
                         }
                       />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <FormField
-                control={form.control}
-                name="tier"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ระดับยานพาหนะ *</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={isLoading}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="เลือกระดับยานพาหนะ" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {Object.entries(VEHICLE_TIERS || {}).map(
-                          ([value, info]) => (
-                            <SelectItem key={value} value={value}>
-                              {info?.label || value}
-                            </SelectItem>
-                          )
-                        )}
-                      </SelectContent>
-                    </Select>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -303,41 +260,12 @@ export function CreateVehicleDrawer({
               />
             </div>
 
-            {/* Optional Information */}
+            {/* Time Settings */}
             <div className="space-y-4 border-b pb-4">
               <h3 className="text-sm font-medium text-gray-900">
-                ข้อมูลเพิ่มเติม
+                ช่วงเวลาใช้งาน (ไม่จำเป็น)
               </h3>
 
-              <FormField
-                control={form.control}
-                name="house_id"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>บ้าน (ถ้ามี)</FormLabel>
-                    <Select
-                      onValueChange={field.onChange}
-                      value={field.value}
-                      disabled={isLoading}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="เลือกบ้าน" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {houseList?.items.map((house: HouseItem) => (
-                          <SelectItem key={house.id} value={house.id}>
-                            {house.address}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* เพิ่ม start_time ที่หายไป */}
               <FormField
                 control={form.control}
                 name="start_time"
@@ -380,76 +308,10 @@ export function CreateVehicleDrawer({
                   </FormItem>
                 )}
               />
-
-              {/* เพิ่ม invitation field ที่หายไป */}
-              <FormField
-                control={form.control}
-                name="invitation"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>รหัสคำเชิญ (ถ้ามี)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Relation record ID สำหรับการนัดหมาย"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      รหัสการนัดหมายที่เกี่ยวข้อง (ถ้ามี)
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* เพิ่ม stamper field ที่หายไป */}
-              <FormField
-                control={form.control}
-                name="stamper"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>ผู้อนุมัติ (ถ้ามี)</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="รหัสผู้อนุมัติ"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      รหัสของผู้ที่อนุมัติการเข้า-ออก
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* เพิ่ม stamped_time field ที่หายไป */}
-              <FormField
-                control={form.control}
-                name="stamped_time"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>เวลาอนุมัติ (ถ้ามี)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="datetime-local"
-                        {...field}
-                        disabled={isLoading}
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      วันที่และเวลาที่ทำการอนุมัติ
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
             </div>
 
             {/* Area Authorization */}
-            {userAuthorizedAreas && userAuthorizedAreas.length > 0 && (
+            {allAreas && allAreas.length > 0 && (
               <div className="space-y-4 border-b pb-4">
                 <h3 className="text-sm font-medium text-gray-900">
                   พื้นที่ที่อนุญาต
@@ -463,10 +325,9 @@ export function CreateVehicleDrawer({
                       <FormLabel>เลือกพื้นที่ที่อนุญาต</FormLabel>
                       <FormDescription>
                         เลือกพื้นที่ที่ยานพาหนะนี้สามารถเข้าถึงได้
-                        (ตามสิทธิ์ของคุณ)
                       </FormDescription>
                       <div className="grid grid-cols-1 gap-3 max-h-40 overflow-y-auto border rounded-md p-3">
-                        {userAuthorizedAreas.map((area: AreaItem) => (
+                        {allAreas.map((area: AreaItem) => (
                           <FormField
                             key={area.id}
                             control={form.control}
@@ -519,7 +380,7 @@ export function CreateVehicleDrawer({
               </div>
             )}
 
-            {/* Additional Settings */}
+            {/* Note */}
             <div className="space-y-4">
               <h3 className="text-sm font-medium text-gray-900">หมายเหตุ</h3>
 

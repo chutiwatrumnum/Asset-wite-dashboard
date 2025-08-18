@@ -1,3 +1,4 @@
+// src/components/ui/vehicle-search.tsx - Component สำหรับค้นหายานพาหนะ (ลบ tier ออก)
 import { useState } from "react";
 import { Search, Filter, X } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -15,12 +16,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Badge } from "@/components/ui/badge";
-import { VEHICLE_TIERS, THAI_PROVINCES } from "@/utils/vehicleUtils";
+import { THAI_PROVINCES } from "@/utils/vehicleUtils";
 
 interface VehicleSearchProps {
   onSearch: (filters: {
     licensePlate?: string;
-    tier?: string;
     areaCode?: string;
     status?: string;
   }) => void;
@@ -29,14 +29,11 @@ interface VehicleSearchProps {
 const statusOptions = [
   { value: "active", label: "ใช้งานได้" },
   { value: "expired", label: "หมดอายุ" },
-  { value: "pending", label: "รอเริ่มใช้" },
   { value: "expiring", label: "ใกล้หมดอายุ" },
-  { value: "blocked", label: "ถูกระงับ" },
 ];
 
 export function VehicleSearch({ onSearch }: VehicleSearchProps) {
   const [licensePlate, setLicensePlate] = useState("");
-  const [tier, setTier] = useState("");
   const [areaCode, setAreaCode] = useState("");
   const [status, setStatus] = useState("");
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
@@ -44,7 +41,6 @@ export function VehicleSearch({ onSearch }: VehicleSearchProps) {
   const handleSearch = () => {
     onSearch({
       licensePlate: licensePlate || undefined,
-      tier: tier || undefined,
       areaCode: areaCode || undefined,
       status: status || undefined,
     });
@@ -52,14 +48,13 @@ export function VehicleSearch({ onSearch }: VehicleSearchProps) {
 
   const handleReset = () => {
     setLicensePlate("");
-    setTier("");
     setAreaCode("");
     setStatus("");
     onSearch({});
   };
 
-  const hasActiveFilters = licensePlate || tier || areaCode || status;
-  const activeFilterCount = [licensePlate, tier, areaCode, status].filter(
+  const hasActiveFilters = licensePlate || areaCode || status;
+  const activeFilterCount = [licensePlate, areaCode, status].filter(
     Boolean
   ).length;
 
@@ -70,9 +65,9 @@ export function VehicleSearch({ onSearch }: VehicleSearchProps) {
         <div className="flex-1 relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
           <Input
-            placeholder="ค้นหาป้ายทะเบียน... (เช่น กข 1234, 1กค234)"
+            placeholder="ค้นหาป้ายทะเบียน..."
             value={licensePlate}
-            onChange={(e) => setLicensePlate(e.target.value)}
+            onChange={(e) => setLicensePlate(e.target.value.toUpperCase())}
             className="pl-10"
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           />
@@ -110,24 +105,7 @@ export function VehicleSearch({ onSearch }: VehicleSearchProps) {
                 )}
               </div>
 
-              {/* Tier Filter */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium">ระดับยานพาหนะ</label>
-                <Select value={tier} onValueChange={setTier}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="เลือกระดับ" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(VEHICLE_TIERS).map(([value, info]) => (
-                      <SelectItem key={value} value={value}>
-                        {info.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Province Filter */}
+              {/* Area Code Filter */}
               <div className="space-y-2">
                 <label className="text-sm font-medium">จังหวัด</label>
                 <Select value={areaCode} onValueChange={setAreaCode}>
@@ -202,22 +180,9 @@ export function VehicleSearch({ onSearch }: VehicleSearchProps) {
             </Badge>
           )}
 
-          {tier && (
-            <Badge variant="secondary" className="gap-1">
-              ระดับ: {VEHICLE_TIERS[tier as keyof typeof VEHICLE_TIERS]?.label}
-              <X
-                className="h-3 w-3 cursor-pointer hover:text-red-500"
-                onClick={() => {
-                  setTier("");
-                  handleSearch();
-                }}
-              />
-            </Badge>
-          )}
-
           {areaCode && (
             <Badge variant="secondary" className="gap-1">
-              จังหวัด: {THAI_PROVINCES[areaCode as keyof typeof THAI_PROVINCES]}
+              จังหวัด: {THAI_PROVINCES[areaCode] || areaCode}
               <X
                 className="h-3 w-3 cursor-pointer hover:text-red-500"
                 onClick={() => {
