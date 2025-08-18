@@ -8,219 +8,86 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-// Import Routes
+import { Route as rootRouteImport } from './routes/__root'
+import { Route as LoginRouteImport } from './routes/login'
+import { Route as LineAppRouteImport } from './routes/line-app'
+import { Route as AuthenticatedRouteImport } from './routes/_authenticated'
+import { Route as ForbiddenRouteImport } from './routes/Forbidden'
+import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedVehiclesRouteImport } from './routes/_authenticated/vehicles'
+import { Route as AuthenticatedVehicleAccessRouteImport } from './routes/_authenticated/vehicle-access'
+import { Route as AuthenticatedSaffRouteImport } from './routes/_authenticated/saff'
+import { Route as AuthenticatedResidentsRouteImport } from './routes/_authenticated/residents'
+import { Route as AuthenticatedInvitationsRouteImport } from './routes/_authenticated/invitations'
+import { Route as AuthenticatedExternalVehiclesRouteImport } from './routes/_authenticated/external-vehicles'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 
-import { Route as rootRoute } from './routes/__root'
-import { Route as LoginImport } from './routes/login'
-import { Route as LineAppImport } from './routes/line-app'
-import { Route as AuthenticatedImport } from './routes/_authenticated'
-import { Route as ForbiddenImport } from './routes/Forbidden'
-import { Route as IndexImport } from './routes/index'
-import { Route as AuthenticatedVehiclesImport } from './routes/_authenticated/vehicles'
-import { Route as AuthenticatedVehicleAccessImport } from './routes/_authenticated/vehicle-access'
-import { Route as AuthenticatedSaffImport } from './routes/_authenticated/saff'
-import { Route as AuthenticatedResidentsImport } from './routes/_authenticated/residents'
-import { Route as AuthenticatedInvitationsImport } from './routes/_authenticated/invitations'
-import { Route as AuthenticatedExternalVehiclesImport } from './routes/_authenticated/external-vehicles'
-import { Route as AuthenticatedDashboardImport } from './routes/_authenticated/dashboard'
-
-// Create/Update Routes
-
-const LoginRoute = LoginImport.update({
+const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const LineAppRoute = LineAppImport.update({
+const LineAppRoute = LineAppRouteImport.update({
   id: '/line-app',
   path: '/line-app',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const AuthenticatedRoute = AuthenticatedImport.update({
+const AuthenticatedRoute = AuthenticatedRouteImport.update({
   id: '/_authenticated',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const ForbiddenRoute = ForbiddenImport.update({
+const ForbiddenRoute = ForbiddenRouteImport.update({
   id: '/Forbidden',
   path: '/Forbidden',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const IndexRoute = IndexImport.update({
+const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRoute,
+  getParentRoute: () => rootRouteImport,
 } as any)
-
-const AuthenticatedVehiclesRoute = AuthenticatedVehiclesImport.update({
+const AuthenticatedVehiclesRoute = AuthenticatedVehiclesRouteImport.update({
   id: '/vehicles',
   path: '/vehicles',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-
-const AuthenticatedVehicleAccessRoute = AuthenticatedVehicleAccessImport.update(
-  {
+const AuthenticatedVehicleAccessRoute =
+  AuthenticatedVehicleAccessRouteImport.update({
     id: '/vehicle-access',
     path: '/vehicle-access',
     getParentRoute: () => AuthenticatedRoute,
-  } as any,
-)
-
-const AuthenticatedSaffRoute = AuthenticatedSaffImport.update({
+  } as any)
+const AuthenticatedSaffRoute = AuthenticatedSaffRouteImport.update({
   id: '/saff',
   path: '/saff',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-
-const AuthenticatedResidentsRoute = AuthenticatedResidentsImport.update({
+const AuthenticatedResidentsRoute = AuthenticatedResidentsRouteImport.update({
   id: '/residents',
   path: '/residents',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
-
-const AuthenticatedInvitationsRoute = AuthenticatedInvitationsImport.update({
-  id: '/invitations',
-  path: '/invitations',
-  getParentRoute: () => AuthenticatedRoute,
-} as any)
-
+const AuthenticatedInvitationsRoute =
+  AuthenticatedInvitationsRouteImport.update({
+    id: '/invitations',
+    path: '/invitations',
+    getParentRoute: () => AuthenticatedRoute,
+  } as any)
 const AuthenticatedExternalVehiclesRoute =
-  AuthenticatedExternalVehiclesImport.update({
+  AuthenticatedExternalVehiclesRouteImport.update({
     id: '/external-vehicles',
     path: '/external-vehicles',
     getParentRoute: () => AuthenticatedRoute,
   } as any)
-
-const AuthenticatedDashboardRoute = AuthenticatedDashboardImport.update({
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRoute,
 } as any)
 
-// Populate the FileRoutesByPath interface
-
-declare module '@tanstack/react-router' {
-  interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexImport
-      parentRoute: typeof rootRoute
-    }
-    '/Forbidden': {
-      id: '/Forbidden'
-      path: '/Forbidden'
-      fullPath: '/Forbidden'
-      preLoaderRoute: typeof ForbiddenImport
-      parentRoute: typeof rootRoute
-    }
-    '/_authenticated': {
-      id: '/_authenticated'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof AuthenticatedImport
-      parentRoute: typeof rootRoute
-    }
-    '/line-app': {
-      id: '/line-app'
-      path: '/line-app'
-      fullPath: '/line-app'
-      preLoaderRoute: typeof LineAppImport
-      parentRoute: typeof rootRoute
-    }
-    '/login': {
-      id: '/login'
-      path: '/login'
-      fullPath: '/login'
-      preLoaderRoute: typeof LoginImport
-      parentRoute: typeof rootRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardImport
-      parentRoute: typeof AuthenticatedImport
-    }
-    '/_authenticated/external-vehicles': {
-      id: '/_authenticated/external-vehicles'
-      path: '/external-vehicles'
-      fullPath: '/external-vehicles'
-      preLoaderRoute: typeof AuthenticatedExternalVehiclesImport
-      parentRoute: typeof AuthenticatedImport
-    }
-    '/_authenticated/invitations': {
-      id: '/_authenticated/invitations'
-      path: '/invitations'
-      fullPath: '/invitations'
-      preLoaderRoute: typeof AuthenticatedInvitationsImport
-      parentRoute: typeof AuthenticatedImport
-    }
-    '/_authenticated/residents': {
-      id: '/_authenticated/residents'
-      path: '/residents'
-      fullPath: '/residents'
-      preLoaderRoute: typeof AuthenticatedResidentsImport
-      parentRoute: typeof AuthenticatedImport
-    }
-    '/_authenticated/saff': {
-      id: '/_authenticated/saff'
-      path: '/saff'
-      fullPath: '/saff'
-      preLoaderRoute: typeof AuthenticatedSaffImport
-      parentRoute: typeof AuthenticatedImport
-    }
-    '/_authenticated/vehicle-access': {
-      id: '/_authenticated/vehicle-access'
-      path: '/vehicle-access'
-      fullPath: '/vehicle-access'
-      preLoaderRoute: typeof AuthenticatedVehicleAccessImport
-      parentRoute: typeof AuthenticatedImport
-    }
-    '/_authenticated/vehicles': {
-      id: '/_authenticated/vehicles'
-      path: '/vehicles'
-      fullPath: '/vehicles'
-      preLoaderRoute: typeof AuthenticatedVehiclesImport
-      parentRoute: typeof AuthenticatedImport
-    }
-  }
-}
-
-// Create and export the route tree
-
-interface AuthenticatedRouteChildren {
-  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedExternalVehiclesRoute: typeof AuthenticatedExternalVehiclesRoute
-  AuthenticatedInvitationsRoute: typeof AuthenticatedInvitationsRoute
-  AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
-  AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
-  AuthenticatedVehicleAccessRoute: typeof AuthenticatedVehicleAccessRoute
-  AuthenticatedVehiclesRoute: typeof AuthenticatedVehiclesRoute
-}
-
-const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
-  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedExternalVehiclesRoute: AuthenticatedExternalVehiclesRoute,
-  AuthenticatedInvitationsRoute: AuthenticatedInvitationsRoute,
-  AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
-  AuthenticatedSaffRoute: AuthenticatedSaffRoute,
-  AuthenticatedVehicleAccessRoute: AuthenticatedVehicleAccessRoute,
-  AuthenticatedVehiclesRoute: AuthenticatedVehiclesRoute,
-}
-
-const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
-  AuthenticatedRouteChildren,
-)
-
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/Forbidden': typeof ForbiddenRoute
-  '': typeof AuthenticatedRouteWithChildren
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -231,11 +98,9 @@ export interface FileRoutesByFullPath {
   '/vehicle-access': typeof AuthenticatedVehicleAccessRoute
   '/vehicles': typeof AuthenticatedVehiclesRoute
 }
-
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/Forbidden': typeof ForbiddenRoute
-  '': typeof AuthenticatedRouteWithChildren
   '/line-app': typeof LineAppRoute
   '/login': typeof LoginRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -246,9 +111,8 @@ export interface FileRoutesByTo {
   '/vehicle-access': typeof AuthenticatedVehicleAccessRoute
   '/vehicles': typeof AuthenticatedVehiclesRoute
 }
-
 export interface FileRoutesById {
-  __root__: typeof rootRoute
+  __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/Forbidden': typeof ForbiddenRoute
   '/_authenticated': typeof AuthenticatedRouteWithChildren
@@ -262,13 +126,11 @@ export interface FileRoutesById {
   '/_authenticated/vehicle-access': typeof AuthenticatedVehicleAccessRoute
   '/_authenticated/vehicles': typeof AuthenticatedVehiclesRoute
 }
-
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/Forbidden'
-    | ''
     | '/line-app'
     | '/login'
     | '/dashboard'
@@ -282,7 +144,6 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/Forbidden'
-    | ''
     | '/line-app'
     | '/login'
     | '/dashboard'
@@ -308,7 +169,6 @@ export interface FileRouteTypes {
     | '/_authenticated/vehicles'
   fileRoutesById: FileRoutesById
 }
-
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ForbiddenRoute: typeof ForbiddenRoute
@@ -317,6 +177,119 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
 }
 
+declare module '@tanstack/react-router' {
+  interface FileRoutesByPath {
+    '/login': {
+      id: '/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/line-app': {
+      id: '/line-app'
+      path: '/line-app'
+      fullPath: '/line-app'
+      preLoaderRoute: typeof LineAppRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof AuthenticatedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/Forbidden': {
+      id: '/Forbidden'
+      path: '/Forbidden'
+      fullPath: '/Forbidden'
+      preLoaderRoute: typeof ForbiddenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/vehicles': {
+      id: '/_authenticated/vehicles'
+      path: '/vehicles'
+      fullPath: '/vehicles'
+      preLoaderRoute: typeof AuthenticatedVehiclesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/vehicle-access': {
+      id: '/_authenticated/vehicle-access'
+      path: '/vehicle-access'
+      fullPath: '/vehicle-access'
+      preLoaderRoute: typeof AuthenticatedVehicleAccessRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/saff': {
+      id: '/_authenticated/saff'
+      path: '/saff'
+      fullPath: '/saff'
+      preLoaderRoute: typeof AuthenticatedSaffRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/residents': {
+      id: '/_authenticated/residents'
+      path: '/residents'
+      fullPath: '/residents'
+      preLoaderRoute: typeof AuthenticatedResidentsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/invitations': {
+      id: '/_authenticated/invitations'
+      path: '/invitations'
+      fullPath: '/invitations'
+      preLoaderRoute: typeof AuthenticatedInvitationsRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/external-vehicles': {
+      id: '/_authenticated/external-vehicles'
+      path: '/external-vehicles'
+      fullPath: '/external-vehicles'
+      preLoaderRoute: typeof AuthenticatedExternalVehiclesRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRoute
+    }
+  }
+}
+
+interface AuthenticatedRouteChildren {
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedExternalVehiclesRoute: typeof AuthenticatedExternalVehiclesRoute
+  AuthenticatedInvitationsRoute: typeof AuthenticatedInvitationsRoute
+  AuthenticatedResidentsRoute: typeof AuthenticatedResidentsRoute
+  AuthenticatedSaffRoute: typeof AuthenticatedSaffRoute
+  AuthenticatedVehicleAccessRoute: typeof AuthenticatedVehicleAccessRoute
+  AuthenticatedVehiclesRoute: typeof AuthenticatedVehiclesRoute
+}
+
+const AuthenticatedRouteChildren: AuthenticatedRouteChildren = {
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedExternalVehiclesRoute: AuthenticatedExternalVehiclesRoute,
+  AuthenticatedInvitationsRoute: AuthenticatedInvitationsRoute,
+  AuthenticatedResidentsRoute: AuthenticatedResidentsRoute,
+  AuthenticatedSaffRoute: AuthenticatedSaffRoute,
+  AuthenticatedVehicleAccessRoute: AuthenticatedVehicleAccessRoute,
+  AuthenticatedVehiclesRoute: AuthenticatedVehiclesRoute,
+}
+
+const AuthenticatedRouteWithChildren = AuthenticatedRoute._addFileChildren(
+  AuthenticatedRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ForbiddenRoute: ForbiddenRoute,
@@ -324,76 +297,6 @@ const rootRouteChildren: RootRouteChildren = {
   LineAppRoute: LineAppRoute,
   LoginRoute: LoginRoute,
 }
-
-export const routeTree = rootRoute
+export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-/* ROUTE_MANIFEST_START
-{
-  "routes": {
-    "__root__": {
-      "filePath": "__root.tsx",
-      "children": [
-        "/",
-        "/Forbidden",
-        "/_authenticated",
-        "/line-app",
-        "/login"
-      ]
-    },
-    "/": {
-      "filePath": "index.tsx"
-    },
-    "/Forbidden": {
-      "filePath": "Forbidden.tsx"
-    },
-    "/_authenticated": {
-      "filePath": "_authenticated.ts",
-      "children": [
-        "/_authenticated/dashboard",
-        "/_authenticated/external-vehicles",
-        "/_authenticated/invitations",
-        "/_authenticated/residents",
-        "/_authenticated/saff",
-        "/_authenticated/vehicle-access",
-        "/_authenticated/vehicles"
-      ]
-    },
-    "/line-app": {
-      "filePath": "line-app.tsx"
-    },
-    "/login": {
-      "filePath": "login.tsx"
-    },
-    "/_authenticated/dashboard": {
-      "filePath": "_authenticated/dashboard.tsx",
-      "parent": "/_authenticated"
-    },
-    "/_authenticated/external-vehicles": {
-      "filePath": "_authenticated/external-vehicles.tsx",
-      "parent": "/_authenticated"
-    },
-    "/_authenticated/invitations": {
-      "filePath": "_authenticated/invitations.tsx",
-      "parent": "/_authenticated"
-    },
-    "/_authenticated/residents": {
-      "filePath": "_authenticated/residents.tsx",
-      "parent": "/_authenticated"
-    },
-    "/_authenticated/saff": {
-      "filePath": "_authenticated/saff.tsx",
-      "parent": "/_authenticated"
-    },
-    "/_authenticated/vehicle-access": {
-      "filePath": "_authenticated/vehicle-access.tsx",
-      "parent": "/_authenticated"
-    },
-    "/_authenticated/vehicles": {
-      "filePath": "_authenticated/vehicles.tsx",
-      "parent": "/_authenticated"
-    }
-  }
-}
-ROUTE_MANIFEST_END */
