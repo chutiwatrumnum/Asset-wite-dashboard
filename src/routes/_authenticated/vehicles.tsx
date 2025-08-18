@@ -2,7 +2,7 @@ import Pb from "@/api/pocketbase";
 import Vehicles from "@/pages/vehicle";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-const accessRoleLst = ["Project Super Admin"];
+const accessRoleLst = ["master", "staff","Project Super Admin"];
 
 export const Route = createFileRoute("/_authenticated/vehicles")({
   beforeLoad: async () => {

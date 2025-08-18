@@ -1,24 +1,24 @@
-// src/api/vehicle/vehicle.ts
+// src/api/vehicle/vehicle.ts - แก้ไขปัญหา export functions ให้ครบ
 import { VEHICLE_TIERS } from "@/utils/vehicleUtils";
 import Pb from "../pocketbase";
 
 const collectionName = "vehicle";
 
-// Types
+// Types (เหมือนเดิม)
 export interface newVehicleRequest {
   id?: string;
-  license_plate: string; // Required
-  area_code: string; // Required - ISO3166-2:TH (e.g., th-BT, th-10, th-11)
-  tier: string; // Required - resident, staff, invited visitor, unknown visitor, blacklisted
-  issuer: string; // Required - ID of who created this record
-  start_time?: string; // Optional - DateTime string
-  expire_time?: string; // Optional - DateTime string
-  invitation?: string; // Optional - RELATION_RECORD_ID สำหรับเชื่อมโยงกับการนัดหมาย
-  house_id?: string; // Optional - RELATION_RECORD_ID
-  authorized_area?: string[]; // Required - Array of RELATION_RECORD_ID (ต้องเป็น array เสมอ)
-  stamper?: string; // Optional - ID of who stamped/approved this record
-  stamped_time?: string; // Optional - DateTime string เวลาที่ stamped
-  note?: string; // Optional
+  license_plate: string;
+  area_code: string;
+  tier: string;
+  issuer: string;
+  start_time?: string;
+  expire_time?: string;
+  invitation?: string;
+  house_id?: string;
+  authorized_area?: string[];
+  stamper?: string;
+  stamped_time?: string;
+  note?: string;
 }
 
 export interface vehicleItem {
@@ -27,19 +27,18 @@ export interface vehicleItem {
   id: string;
   license_plate: string;
   area_code: string;
-  tier: string; // resident, staff, invited visitor, unknown visitor, blacklisted
+  tier: string;
   issuer: string;
   start_time: string;
   expire_time: string;
-  invitation: string; // RELATION_RECORD_ID
-  house_id: string; // RELATION_RECORD_ID
-  authorized_area: string[]; // Array of RELATION_RECORD_ID
+  invitation: string;
+  house_id: string;
+  authorized_area: string[];
   stamper: string;
   stamped_time: string;
   note: string;
   created: string;
   updated: string;
-  // Expanded relation fields
   expand?: {
     house_id?: any;
     invitation?: any;
@@ -64,7 +63,7 @@ export interface vehicleResponse {
   totalPages: number;
 }
 
-// Utility functions for data validation and processing
+// Utility functions
 const validateVehicleData = (data: newVehicleRequest): void => {
   if (!data.license_plate?.trim()) {
     throw new Error("ป้ายทะเบียนเป็นข้อมูลที่จำเป็น");
@@ -78,13 +77,11 @@ const validateVehicleData = (data: newVehicleRequest): void => {
     throw new Error("ระดับยานพาหนะเป็นข้อมูลที่จำเป็น");
   }
 
-  // Validate tier value
   const validTiers = Object.keys(VEHICLE_TIERS);
   if (!validTiers.includes(data.tier)) {
     throw new Error(`ระดับยานพาหนะไม่ถูกต้อง: ${data.tier}. ค่าที่ใช้ได้: ${validTiers.join(", ")}`);
   }
 
-  // Validate authorized_area is array
   if (data.authorized_area && !Array.isArray(data.authorized_area)) {
     throw new Error("authorized_area ต้องเป็น array");
   }
@@ -111,35 +108,38 @@ const formatDateTimeField = (dateString?: string): string => {
 const prepareVehicleData = (data: newVehicleRequest): Record<string, any> => {
   validateVehicleData(data);
 
+  const currentUser = Pb.getCurrentUser();
+  const currentUserId = currentUser?.id || "";
+
+  console.log("Current User for Vehicle Creation:", currentUser);
+  console.log("Current User ID:", currentUserId);
+
+  if (!currentUserId) {
+    throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
+  }
+
   const preparedData: Record<string, any> = {
-    // Required fields
-    license_plate: data.license_plate.trim(),
+    license_plate: data.license_plate.trim().toUpperCase(),
     area_code: data.area_code,
     tier: data.tier,
-    issuer: data.issuer || Pb.authStore.record?.id || "",
-
-    // authorized_area เป็น array เสมอ
+    issuer: data.issuer || currentUserId,
     authorized_area: Array.isArray(data.authorized_area) ? data.authorized_area : [],
-
-    // Optional relation fields - ส่งเป็น empty string ถ้าไม่มีค่า
     invitation: data.invitation || "",
     house_id: data.house_id || "",
-    stamper: data.stamper || "",
+    stamper: data.stamper || currentUserId,
     note: data.note || "",
   };
 
-  // DateTime fields - format เป็น ISO string ถ้ามีค่า
   preparedData.start_time = formatDateTimeField(data.start_time);
   preparedData.expire_time = formatDateTimeField(data.expire_time);
-  preparedData.stamped_time = formatDateTimeField(data.stamped_time);
+  preparedData.stamped_time = formatDateTimeField(data.stamped_time) || new Date().toISOString();
 
+  console.log("Prepared Vehicle Data:", preparedData);
   return preparedData;
 };
 
 // API Functions
-const getVehicle = async (
-  request: vehicleRequest
-): Promise<vehicleResponse> => {
+const getVehicle = async (request: vehicleRequest): Promise<vehicleResponse> => {
   try {
     const vehicleList = await Pb.collection(collectionName).getList<vehicleItem>(
       request.page || 1,
@@ -147,7 +147,7 @@ const getVehicle = async (
       {
         filter: request.filter || "",
         sort: request.sort || "-created",
-        expand: "house_id,invitation,authorized_area,issuer,stamper", // Expand related records
+        expand: "house_id,invitation,authorized_area,issuer,stamper",
       }
     );
     return vehicleList;
@@ -159,20 +159,17 @@ const getVehicle = async (
 
 const getAllVehicle = async (): Promise<vehicleItem[]> => {
   try {
-    // เพิ่ม requestKey เพื่อป้องกัน auto-cancellation
     const vehicleList = await Pb.collection(collectionName).getFullList<vehicleItem>({
       sort: "-created",
-      expand: "house_id,invitation,authorized_area,issuer,stamper", // Expand related records
-      requestKey: `getAllVehicle_${Date.now()}`, // เพิ่ม unique key
+      expand: "house_id,invitation,authorized_area,issuer,stamper",
+      requestKey: `getAllVehicle_${Date.now()}`,
     });
     return vehicleList;
   } catch (error) {
     console.error("Error fetching all vehicles:", error);
-    // ตรวจสอบว่าเป็น auto-cancellation หรือไม่
     if (error && typeof error === 'object' && 'message' in error) {
       const errorMessage = (error as Error).message;
       if (errorMessage.includes('autocancelled') || errorMessage.includes('aborted')) {
-        // ลองใหม่หลังจาก delay สั้นๆ
         await new Promise(resolve => setTimeout(resolve, 100));
         return await Pb.collection(collectionName).getFullList<vehicleItem>({
           sort: "-created",
@@ -188,7 +185,7 @@ const getAllVehicle = async (): Promise<vehicleItem[]> => {
 const getVehicleById = async (id: string): Promise<vehicleItem> => {
   try {
     const vehicle = await Pb.collection(collectionName).getOne<vehicleItem>(id, {
-      expand: "house_id,invitation,authorized_area,issuer,stamper", // Expand related records
+      expand: "house_id,invitation,authorized_area,issuer,stamper",
     });
     return vehicle;
   } catch (error) {
@@ -197,7 +194,6 @@ const getVehicleById = async (id: string): Promise<vehicleItem> => {
   }
 };
 
-// Get vehicles by license plate
 const getVehicleByLicensePlate = async (licensePlate: string): Promise<vehicleItem[]> => {
   try {
     if (!licensePlate?.trim()) {
@@ -216,14 +212,12 @@ const getVehicleByLicensePlate = async (licensePlate: string): Promise<vehicleIt
   }
 };
 
-// Get vehicles by tier
 const getVehiclesByTier = async (tier: string): Promise<vehicleItem[]> => {
   try {
     if (!tier) {
       throw new Error("Tier is required");
     }
 
-    // Validate tier
     const validTiers = Object.keys(VEHICLE_TIERS);
     if (!validTiers.includes(tier)) {
       throw new Error(`Invalid tier: ${tier}`);
@@ -241,49 +235,12 @@ const getVehiclesByTier = async (tier: string): Promise<vehicleItem[]> => {
   }
 };
 
-// Get vehicles by house
-const getVehiclesByHouse = async (houseId: string): Promise<vehicleItem[]> => {
-  try {
-    if (!houseId) {
-      throw new Error("House ID is required");
-    }
-
-    const vehicles = await Pb.collection(collectionName).getFullList<vehicleItem>({
-      filter: `house_id = "${houseId}"`,
-      expand: "house_id,invitation,authorized_area,issuer,stamper",
-      sort: "-created",
-    });
-    return vehicles;
-  } catch (error) {
-    console.error(`Error fetching vehicles for house ${houseId}:`, error);
-    throw error;
-  }
-};
-
-// Get active vehicles (not expired)
-const getActiveVehicles = async (): Promise<vehicleItem[]> => {
-  try {
-    const currentTime = new Date().toISOString();
-    const vehicles = await Pb.collection(collectionName).getFullList<vehicleItem>({
-      filter: `(expire_time > "${currentTime}" || expire_time = "") && tier != "blacklisted"`,
-      expand: "house_id,invitation,authorized_area,issuer,stamper",
-      sort: "-created",
-    });
-    return vehicles;
-  } catch (error) {
-    console.error("Error fetching active vehicles:", error);
-    throw error;
-  }
-};
-
-// Get vehicles by multiple tiers
 const getVehiclesByTiers = async (tiers: string[]): Promise<vehicleItem[]> => {
   try {
     if (!tiers || tiers.length === 0) {
       throw new Error("At least one tier is required");
     }
 
-    // Validate all tiers
     const validTiers = Object.keys(VEHICLE_TIERS);
     const invalidTiers = tiers.filter(tier => !validTiers.includes(tier));
     if (invalidTiers.length > 0) {
@@ -304,7 +261,24 @@ const getVehiclesByTiers = async (tiers: string[]): Promise<vehicleItem[]> => {
   }
 };
 
-// Get vehicles by area
+const getVehiclesByHouse = async (houseId: string): Promise<vehicleItem[]> => {
+  try {
+    if (!houseId) {
+      throw new Error("House ID is required");
+    }
+
+    const vehicles = await Pb.collection(collectionName).getFullList<vehicleItem>({
+      filter: `house_id = "${houseId}"`,
+      expand: "house_id,invitation,authorized_area,issuer,stamper",
+      sort: "-created",
+    });
+    return vehicles;
+  } catch (error) {
+    console.error(`Error fetching vehicles for house ${houseId}:`, error);
+    throw error;
+  }
+};
+
 const getVehiclesByArea = async (areaId: string): Promise<vehicleItem[]> => {
   try {
     if (!areaId) {
@@ -323,7 +297,21 @@ const getVehiclesByArea = async (areaId: string): Promise<vehicleItem[]> => {
   }
 };
 
-// Get expiring vehicles (within specified days)
+const getActiveVehicles = async (): Promise<vehicleItem[]> => {
+  try {
+    const currentTime = new Date().toISOString();
+    const vehicles = await Pb.collection(collectionName).getFullList<vehicleItem>({
+      filter: `(expire_time > "${currentTime}" || expire_time = "") && tier != "blacklisted"`,
+      expand: "house_id,invitation,authorized_area,issuer,stamper",
+      sort: "-created",
+    });
+    return vehicles;
+  } catch (error) {
+    console.error("Error fetching active vehicles:", error);
+    throw error;
+  }
+};
+
 const getExpiringVehicles = async (withinDays: number = 7): Promise<vehicleItem[]> => {
   try {
     const now = new Date();
@@ -334,16 +322,14 @@ const getExpiringVehicles = async (withinDays: number = 7): Promise<vehicleItem[
       filter: `expire_time >= "${now.toISOString()}" && expire_time <= "${futureDate.toISOString()}"`,
       expand: "house_id,invitation,authorized_area,issuer,stamper",
       sort: "expire_time",
-      requestKey: `getExpiringVehicles_${withinDays}_${Date.now()}`, // เพิ่ม unique key
+      requestKey: `getExpiringVehicles_${withinDays}_${Date.now()}`,
     });
     return vehicles;
   } catch (error) {
     console.error(`Error fetching expiring vehicles:`, error);
-    // ตรวจสอบ auto-cancellation
     if (error && typeof error === 'object' && 'message' in error) {
       const errorMessage = (error as Error).message;
       if (errorMessage.includes('autocancelled') || errorMessage.includes('aborted')) {
-        // ลองใหม่
         await new Promise(resolve => setTimeout(resolve, 100));
         const now = new Date();
         const futureDate = new Date();
@@ -361,39 +347,57 @@ const getExpiringVehicles = async (withinDays: number = 7): Promise<vehicleItem[
   }
 };
 
-const deleteVehicle = async (id: string): Promise<null> => {
-  try {
-    if (!id) {
-      throw new Error("Vehicle ID is required");
-    }
-
-    await Pb.collection(collectionName).delete(id);
-    return null;
-  } catch (error) {
-    console.error(`Error deleting vehicle with id ${id}:`, error);
-    throw error;
-  }
-};
-
 const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<vehicleItem> => {
   try {
     console.log("Creating vehicle with request:", newVehicleReq);
 
-    // Check authentication
-    if (!Pb.authStore.record?.id) {
-      throw new Error("User not authenticated");
+    const currentUser = Pb.getCurrentUser();
+    if (!currentUser?.id) {
+      throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
     }
 
-    // Prepare and validate data
+    console.log("Current User for Vehicle Creation:", currentUser);
+    console.log("Auth Status:", Pb.isLoggedIn());
+
     const data = prepareVehicleData(newVehicleReq);
 
     console.log("Final data to be sent:", data);
 
-    // Call API
-    const result = await Pb.collection(collectionName).create<vehicleItem>(data);
-    console.log("Vehicle created successfully:", result);
+    if (Pb.isUsingVMS()) {
+      console.log("Using VMS mode for vehicle creation");
+      console.log("VMS Config:", Pb.getVMSConfig());
+    }
 
-    return result;
+    try {
+      const result = await Pb.collection(collectionName).create<vehicleItem>(data);
+      console.log("Vehicle created successfully:", result);
+      return result;
+    } catch (apiError: any) {
+      console.error("API Error details:", apiError);
+
+      if (apiError.response?.data) {
+        const errorData = apiError.response.data;
+        console.log("PocketBase Error Response:", errorData);
+
+        if (errorData.message) {
+          throw new Error(errorData.message);
+        }
+
+        if (errorData.data) {
+          const fieldErrors = Object.entries(errorData.data).map(([field, error]) => {
+            return `${field}: ${error}`;
+          }).join(", ");
+          throw new Error(`ข้อมูลไม่ถูกต้อง - ${fieldErrors}`);
+        }
+      }
+
+      if (apiError.message) {
+        throw new Error(`เกิดข้อผิดพลาดในการสร้างยานพาหนะ: ${apiError.message}`);
+      }
+
+      throw new Error("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
+    }
+
   } catch (error) {
     console.error("Error creating vehicle:", error);
     throw error;
@@ -406,12 +410,8 @@ const editVehicle = async (vehicleReq: newVehicleRequest): Promise<vehicleItem> 
   }
 
   try {
-    // Prepare and validate data
     const data = prepareVehicleData(vehicleReq);
-
     console.log("Updating vehicle with data:", data);
-
-    // Use PocketBase's update function
     const result = await Pb.collection(collectionName).update<vehicleItem>(vehicleReq.id, data);
     return result;
   } catch (error) {
@@ -420,7 +420,6 @@ const editVehicle = async (vehicleReq: newVehicleRequest): Promise<vehicleItem> 
   }
 };
 
-// Additional function for partial updates (PATCH-like behavior)
 const patchVehicle = async (
   id: string,
   patchData: Partial<Omit<newVehicleRequest, 'id'>>
@@ -432,7 +431,6 @@ const patchVehicle = async (
 
     const updateData: Record<string, any> = {};
 
-    // Only include fields that are explicitly provided
     Object.keys(patchData).forEach(key => {
       const value = patchData[key as keyof typeof patchData];
       if (value !== undefined) {
@@ -454,7 +452,6 @@ const patchVehicle = async (
   }
 };
 
-// Function to stamp a vehicle (approve/validate)
 const stampVehicle = async (
   id: string,
   stamperId?: string,
@@ -466,7 +463,7 @@ const stampVehicle = async (
     }
 
     const updateData = {
-      stamper: stamperId || Pb.authStore.record?.id || "",
+      stamper: stamperId || Pb.getCurrentUser()?.id || "",
       stamped_time: formatDateTimeField(stampedTime) || new Date().toISOString()
     };
 
@@ -478,7 +475,20 @@ const stampVehicle = async (
   }
 };
 
-// Bulk operations
+const deleteVehicle = async (id: string): Promise<null> => {
+  try {
+    if (!id) {
+      throw new Error("Vehicle ID is required");
+    }
+
+    await Pb.collection(collectionName).delete(id);
+    return null;
+  } catch (error) {
+    console.error(`Error deleting vehicle with id ${id}:`, error);
+    throw error;
+  }
+};
+
 const bulkDeleteVehicles = async (ids: string[]): Promise<{ successful: string[], failed: string[] }> => {
   const results = { successful: [] as string[], failed: [] as string[] };
 
@@ -495,7 +505,6 @@ const bulkDeleteVehicles = async (ids: string[]): Promise<{ successful: string[]
   return results;
 };
 
-// Advanced search function
 const searchVehicles = async (searchParams: {
   licensePlate?: string;
   tier?: string;
@@ -577,6 +586,7 @@ const searchVehicles = async (searchParams: {
   }
 };
 
+// ✅ Export ฟังก์ชันทั้งหมดที่จำเป็น
 export {
   getVehicle,
   getAllVehicle,
@@ -588,11 +598,11 @@ export {
   getVehiclesByArea,
   getActiveVehicles,
   getExpiringVehicles,
-  deleteVehicle,
   createVehicle,
   editVehicle,
   patchVehicle,
   stampVehicle,
+  deleteVehicle,
   bulkDeleteVehicles,
   searchVehicles,
 };

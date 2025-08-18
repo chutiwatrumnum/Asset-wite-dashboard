@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx - ลบส่วน UI ที่ไม่จำเป็น
+// src/pages/vehicle/components/create-vehicle-dialog.tsx - ลบ tier selection UI
 "use client";
 
 import type React from "react";
@@ -9,7 +9,6 @@ import * as z from "zod";
 import { toast } from "sonner";
 import { Plus } from "lucide-react";
 
-// ใช้ FormDialog แทน Sheet โดยตรง
 import { FormDialog } from "@/components/ui/form-dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -38,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// Form schema ที่ลดความซับซ้อน - เหลือแค่ข้อมูลที่จำเป็น
+// ✅ ลบ tier ออกจาก form schema
 const formSchema = z.object({
   license_plate: z
     .string()
@@ -89,7 +88,7 @@ export function CreateVehicleDrawer({
     },
   });
 
-  // Set default expire time when form opens (1 year from now)
+  // Set default expire time when form opens
   useEffect(() => {
     if (open) {
       const oneYearLater = new Date();
@@ -109,7 +108,7 @@ export function CreateVehicleDrawer({
     }
   }, [open, form]);
 
-  // Watch for form changes to set dirty state
+  // Watch for form changes
   useEffect(() => {
     if (open) {
       const subscription = form.watch(() => {
@@ -122,24 +121,41 @@ export function CreateVehicleDrawer({
   const handleSubmit = async (values: FormSchema) => {
     try {
       setIsLoading(true);
-      console.log("Form submission values:", values);
+      console.log("=== Create Vehicle ===");
+
+      const currentUser = Pb.getCurrentUser();
+      const isLoggedIn = Pb.isLoggedIn();
+
+      console.log("Current User:", currentUser?.email);
+      console.log("Is Logged In:", isLoggedIn);
+
+      if (!currentUser || !currentUser.id) {
+        throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
+      }
+
+      if (!isLoggedIn) {
+        throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
+      }
 
       const vehicleData: newVehicleRequest = {
         license_plate: values.license_plate.trim().toUpperCase(),
-        tier: "guest", // ค่าเริ่มต้นเป็น guest
+        tier: "guest", // ✅ ใช้ guest เป็น default (ไม่ต้องเลือกจาก UI)
         area_code: values.area_code,
-        house_id: undefined, // ไม่ส่งข้อมูลบ้าน
+        house_id: currentUser.house_id || "",
         authorized_area: values.authorized_area || [],
         start_time: values.start_time || undefined,
         expire_time: values.expire_time || undefined,
-        invitation: undefined, // ไม่ส่งข้อมูลคำเชิญ
-        stamper: Pb.authStore.record?.id || "", // ใช้ user ที่ login เป็น stamper
-        stamped_time: new Date().toISOString(), // เวลาปัจจุบันเป็นเวลาอนุมัติ
-        issuer: Pb.authStore.record?.id || "",
+        invitation: "",
+        stamper: currentUser.id,
+        stamped_time: new Date().toISOString(),
+        issuer: currentUser.id,
         note: values.note?.trim() || "",
       };
 
-      await createVehicle(vehicleData);
+      console.log("Creating vehicle:", vehicleData);
+
+      const result = await createVehicle(vehicleData);
+      console.log("Vehicle created:", result);
 
       toast.success("เพิ่มยานพาหนะสำเร็จแล้ว", {
         description: `เพิ่มยานพาหนะ ${values.license_plate} เรียบร้อยแล้ว`,
@@ -152,14 +168,15 @@ export function CreateVehicleDrawer({
       onVehicleCreated();
     } catch (error) {
       console.error("Create vehicle failed:", error);
-      let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มยานพาหนะ";
 
+      let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มยานพาหนะ";
       if (error instanceof Error) {
         errorMessage = error.message;
       }
 
       toast.error("ไม่สามารถเพิ่มยานพาหนะได้", {
         description: errorMessage,
+        duration: 8000,
       });
     } finally {
       setIsLoading(false);
@@ -185,7 +202,7 @@ export function CreateVehicleDrawer({
         </Button>
       )}
 
-      {/* FormDialog แทน Sheet */}
+      {/* FormDialog */}
       <FormDialog
         open={open}
         onOpenChange={setOpen}
@@ -202,7 +219,7 @@ export function CreateVehicleDrawer({
         size="md">
         <Form {...form}>
           <div className="space-y-4">
-            {/* Basic Information */}
+            {/* Basic Information - ✅ ลบ tier selection ออก */}
             <div className="space-y-4 border-b pb-4">
               <h3 className="text-sm font-medium text-gray-900">
                 ข้อมูลยานพาหนะ

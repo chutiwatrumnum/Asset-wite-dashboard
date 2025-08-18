@@ -3,14 +3,15 @@ import Pb from "@/api/pocketbase";
 import ExternalVehicles from "@/pages/external_vehicle";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
-// กำหนดสิทธิ์การเข้าถึง - เฉพาะ admin และ guardsman เท่านั้น
-const accessRoleLst = ["master", "admin", "guardsman"];
 
+const accessRoleLst = ["master", "staff", "Project Super Admin"];
 export const Route = createFileRoute("/_authenticated/external-vehicles")({
   beforeLoad: async () => {
-    if (!accessRoleLst.find((item) => item === Pb.authStore.record?.role)) {
-      throw redirect({ to: "/Forbidden", replace: true });
-    }
+     const currentRole = Pb.getCurrentRole();
+     if (!accessRoleLst.includes(currentRole)) {
+       console.log("Access denied - redirecting to Forbidden");
+       throw redirect({ to: "/Forbidden", replace: true });
+     }
   },
   component: ExternalVehicles,
 });

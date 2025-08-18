@@ -1,4 +1,4 @@
-// src/utils/vehicleUtils.tsx
+// src/utils/vehicleUtils.tsx - แก้ไข VEHICLE_TIERS ให้รองรับ guest
 export const VEHICLE_TIERS = {
   resident: {
     label: "ลูกบ้าน",
@@ -11,6 +11,11 @@ export const VEHICLE_TIERS = {
     priority: 2,
   },
   "invited visitor": {
+    label: "แขก",
+    color: "bg-yellow-100 text-yellow-800",
+    priority: 3,
+  },
+  guest: {
     label: "แขก",
     color: "bg-yellow-100 text-yellow-800",
     priority: 3,

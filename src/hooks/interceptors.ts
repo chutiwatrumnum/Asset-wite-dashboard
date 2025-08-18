@@ -1,8 +1,8 @@
-// src/hooks/useAxiosInterceptors.ts
+// src/hooks/interceptors.ts - แก้ไขการใช้ encryptStorage
 import { useEffect, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import axios, { AxiosError, InternalAxiosRequestConfig, AxiosResponse } from "axios";
-import { encryptStorage } from "@/utils/encryptStorage";
+import { encryptStorage } from "@/utils/encryptStorage"; // ✅ เพิ่ม import
 
 // Define error response shape (adjust based on your API)
 interface ApiErrorResponse {
@@ -17,9 +17,13 @@ export const useAxiosInterceptors = () => {
     useEffect(() => {
         // Request Interceptor
         const requestInterceptor = async (config: InternalAxiosRequestConfig) => {
-            const accessToken = await encryptStorage.getItem("accessToken");
-            if (accessToken) {
-                config.headers.Authorization = `Bearer ${accessToken}`;
+            try {
+                const accessToken = await encryptStorage.getItem("accessToken");
+                if (accessToken) {
+                    config.headers.Authorization = `Bearer ${accessToken}`;
+                }
+            } catch (error) {
+                console.warn("Warning: Could not get access token from storage:", error);
             }
             return config;
         };
@@ -33,8 +37,12 @@ export const useAxiosInterceptors = () => {
 
         const responseErrorHandler = (error: AxiosError<ApiErrorResponse>) => {
             if (error.response?.status === 401) {
-                // Clear auth data
-                encryptStorage.clear();
+                // Clear auth data safely
+                try {
+                    encryptStorage.clear();
+                } catch (clearError) {
+                    console.warn("Warning: Could not clear storage:", clearError);
+                }
 
                 // Redirect to login, replacing history
                 navigate({ to: "/login", replace: true });
