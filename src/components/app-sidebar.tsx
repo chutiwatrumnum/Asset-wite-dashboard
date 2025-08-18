@@ -1,4 +1,3 @@
-// src/components/app-sidebar.tsx (อัปเดต - เพิ่มเมนู external-vehicles)
 import * as React from "react";
 import Pb from "@/api/pocketbase.tsx";
 import { NavMain } from "@/components/nav-main";
@@ -27,7 +26,6 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar";
-import { encryptStorage } from "@/utils/encryptStorage";
 
 const data = {
   teams: [
@@ -49,17 +47,6 @@ const data = {
       icon: LucideHome,
       isActive: true,
     },
-    // {
-    //   title: "เจ้าหน้าที่",
-    //   url: "/saff",
-    //   icon: GlassesIcon,
-    //   isActive: true,
-    // },
-    // {
-    //   title: "ลูกบ้าน",
-    //   url: "/residents",
-    //   icon: LucideUserRound,
-    // },
     {
       title: "บัตรเชิญ (E-invitation)",
       url: "/invitations",
@@ -80,11 +67,6 @@ const data = {
       url: "/vehicle-access",
       icon: Camera,
     },
-    // {
-    //   title: "ประวัติการเข้าออก",
-    //   url: "/history-in-out",
-    //   icon: LucideFileClock,
-    // },
   ],
   projects: [
     {
@@ -106,15 +88,18 @@ const data = {
 };
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
-  const authRecord = encryptStorage.getItem("user");
+  const authRecord = Pb.getCurrentUser();
   if (!authRecord) {
-    return;
+    return null;
   }
+
   const { first_name, last_name, email } = authRecord;
   const user = {
     name: first_name + " " + last_name,
     email: email,
-    avatar: Pb.files.getURL(authRecord, authRecord.avatar),
+    avatar: authRecord.avatar
+      ? Pb.files.getURL(authRecord, authRecord.avatar)
+      : "",
   };
 
   return (

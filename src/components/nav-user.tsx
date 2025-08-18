@@ -1,4 +1,3 @@
-// src/components/nav-user.tsx (External Only)
 import {
   BadgeCheck,
   Bell,
@@ -25,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { useNavigate } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
-import DynamicPocketBase from "@/api/dynamic-pocketbase";
+import Pb from "@/api/pocketbase";
 import { encryptStorage } from "@/utils/encryptStorage";
 
 export function NavUser({
@@ -39,17 +38,19 @@ export function NavUser({
 }) {
   const { isMobile } = useSidebar();
   const navigate = useNavigate();
-  const vmsConfig = DynamicPocketBase.getVMSConfig();
 
   const handleLogout = async () => {
     try {
-      // ล้างข้อมูล External login
-      DynamicPocketBase.clearVMSConfig();
-      encryptStorage.removeItem("externalAuth");
-      localStorage.removeItem("loginMethod");
-      localStorage.removeItem("isLogged");
-      localStorage.removeItem("role");
-      encryptStorage.removeItem("user");
+      if (Pb.isUsingVMS()) {
+        Pb.switchToDefault();
+        localStorage.removeItem("loginMethod");
+        localStorage.removeItem("isLogged");
+        localStorage.removeItem("role");
+        encryptStorage.removeItem("externalAuth");
+        encryptStorage.removeItem("user");
+      } else {
+        Pb.authStore.clear();
+      }
 
       await navigate({ to: "/login", replace: true });
     } catch (error) {
@@ -110,27 +111,6 @@ export function NavUser({
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-
-            {/* แสดงข้อมูล VMS */}
-            {vmsConfig && (
-              <>
-                <DropdownMenuGroup>
-                  <DropdownMenuItem disabled>
-                    <Globe className="h-4 w-4" />
-                    <div className="flex flex-col">
-                      <span className="text-xs font-medium">
-                        Project:{" "}
-                        {vmsConfig.projectInfo?.projectName || "Unknown"}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        Role: {vmsConfig.projectInfo?.roleName || "Unknown"}
-                      </span>
-                    </div>
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-                <DropdownMenuSeparator />
-              </>
-            )}
 
             <DropdownMenuGroup>
               <DropdownMenuItem>

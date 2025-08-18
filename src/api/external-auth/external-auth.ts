@@ -1,4 +1,3 @@
-// src/api/external-auth/external-auth.ts
 export interface ExternalLoginRequest {
     username: string;
     password: string;
@@ -27,7 +26,6 @@ export interface ProjectConfigResponse {
     };
 }
 
-// External API functions
 export const externalLogin = async (authReq: ExternalLoginRequest): Promise<ExternalLoginResponse> => {
     const response = await fetch('https://reslink-dev-gcf3p.ondigitalocean.app/api/v1.0/auth/dashboard/login', {
         method: 'POST',

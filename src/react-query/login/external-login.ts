@@ -1,8 +1,7 @@
-// src/react-query/login/external-login.ts
 import { useMutation } from "@tanstack/react-query";
 import { encryptStorage } from "@/utils/encryptStorage";
 import { externalLogin, getProjectConfig, ExternalLoginRequest } from "@/api/external-auth/external-auth";
-import DynamicPocketBase from "@/api/dynamic-pocketbase";
+import Pb from "@/api/pocketbase";
 
 export interface ExternalAuthResponse {
     accessToken: string;
@@ -19,7 +18,6 @@ export const useExternalLoginMutation = () => {
     const mutation = useMutation<ExternalAuthResponse, Error, ExternalLoginRequest>({
         mutationFn: async (authReq: ExternalLoginRequest) => {
             try {
-                // Step 1: Login ที่ระบบแรก
                 console.log('🔐 Logging into external system...');
                 const loginResponse = await externalLogin(authReq);
 
@@ -27,7 +25,6 @@ export const useExternalLoginMutation = () => {
                     throw new Error('No access token received from external system');
                 }
 
-                // Step 2: ดึง project config
                 console.log('📁 Getting project configuration...');
                 const projectResponse = await getProjectConfig(loginResponse.access_token);
 
@@ -35,22 +32,18 @@ export const useExternalLoginMutation = () => {
                     throw new Error('Invalid project configuration received');
                 }
 
-                const { vmsUrl, vmsToken, ...projectInfo } = projectResponse.data;
+                const { vmsUrl, vmsToken, myProjectId, projectName, roleName } = projectResponse.data;
 
-                // Step 3: สลับ PocketBase ไปใช้ VMS
                 console.log('🔄 Switching to VMS PocketBase...');
-                DynamicPocketBase.switchToVMS(vmsUrl, vmsToken, {
-                    projectInfo,
-                    externalToken: loginResponse.access_token
+                Pb.switchToVMS(vmsUrl, vmsToken, {
+                    myProjectId,
+                    projectName,
+                    roleName
                 });
 
-                // Step 4: Test VMS connection
                 try {
                     console.log('🧪 Testing VMS connection...');
-                    const pb = DynamicPocketBase.getPb();
-
-                    // ทดสอบเรียก API ด้วย VMS token
-                    await pb.collection('_').getList(1, 1);
+                    await Pb.collection('_').getList(1, 1);
                     console.log('✅ VMS connection successful');
                 } catch (testError) {
                     console.warn('⚠️ VMS connection test failed, but continuing...', testError);
@@ -60,7 +53,11 @@ export const useExternalLoginMutation = () => {
                     accessToken: loginResponse.access_token,
                     vmsUrl,
                     vmsToken,
-                    projectInfo
+                    projectInfo: {
+                        myProjectId,
+                        projectName,
+                        roleName
+                    }
                 };
 
             } catch (error) {
@@ -71,9 +68,9 @@ export const useExternalLoginMutation = () => {
         onSuccess: (data) => {
             console.log("✅ External login successful:", data);
 
-            // เก็บข้อมูลการ login
             localStorage.setItem("isLogged", "true");
             localStorage.setItem("loginMethod", "external");
+            localStorage.setItem("role", data.projectInfo.roleName);
 
             encryptStorage.setItem("externalAuth", {
                 accessToken: data.accessToken,
@@ -83,27 +80,30 @@ export const useExternalLoginMutation = () => {
                 loginTime: new Date().toISOString()
             });
 
-            // สร้าง mock user object สำหรับ UI
-            const mockUser = {
-                id: 'external-user',
-                email: data.projectInfo.roleName || 'external@user.com',
-                first_name: 'External',
-                last_name: 'User',
-                role: data.projectInfo.roleName || 'external',
+            const userRecord = {
+                id: "external-user",
+                email: data.projectInfo.roleName + "@external.vms",
+                first_name: data.projectInfo.projectName || "External",
+                last_name: "User",
+                role: data.projectInfo.roleName,
                 house_id: data.projectInfo.myProjectId,
-                avatar: '',
-                collectionName: 'external_users'
+                isExternal: true,
+                collectionName: "external_users",
+                created: new Date().toISOString(),
+                updated: new Date().toISOString(),
+                verified: true,
+                emailVisibility: false
             };
 
-            encryptStorage.setItem("user", mockUser);
+            encryptStorage.setItem("user", userRecord);
         },
         onError: (error) => {
             console.error("❌ External login error:", error);
 
-            // ล้างข้อมูลที่อาจเหลือค้าง
-            DynamicPocketBase.clearVMSConfig();
+            Pb.switchToDefault();
             localStorage.removeItem("isLogged");
             localStorage.removeItem("loginMethod");
+            localStorage.removeItem("role");
             encryptStorage.removeItem("externalAuth");
             encryptStorage.removeItem("user");
         }

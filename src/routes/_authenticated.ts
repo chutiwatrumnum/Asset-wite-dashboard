@@ -1,30 +1,24 @@
-// src/routes/_authenticated.ts (External Only)
-import DynamicPocketBase from "@/api/dynamic-pocketbase";
+import Pb from "@/api/pocketbase";
 import { encryptStorage } from "@/utils/encryptStorage";
 import Main from "@/pages/main";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_authenticated")({
     beforeLoad: async () => {
-        // ตรวจสอบ External Auth เท่านั้น
-        const externalAuth = encryptStorage.getItem("externalAuth");
-        const isLogged = localStorage.getItem("isLogged");
-
-        if (!isLogged || !externalAuth?.vmsToken) {
+        if (!Pb.isLoggedIn()) {
             throw redirect({ to: "/login", replace: true });
         }
 
-        // Restore VMS configuration
-        try {
-            DynamicPocketBase.switchToVMS(
-                externalAuth.vmsUrl,
-                externalAuth.vmsToken,
-                externalAuth.projectInfo
-            );
-            console.log('🔄 VMS configuration restored');
-        } catch (error) {
-            console.error('❌ Failed to restore VMS configuration:', error);
-            throw redirect({ to: "/login", replace: true });
+        // Restore VMS config ถ้าจำเป็น
+        if (localStorage.getItem("loginMethod") === "external") {
+            const externalAuth = encryptStorage.getItem("externalAuth");
+            if (externalAuth) {
+                Pb.switchToVMS(
+                    externalAuth.vmsUrl,
+                    externalAuth.vmsToken,
+                    externalAuth.projectInfo
+                );
+            }
         }
     },
     component: Main,

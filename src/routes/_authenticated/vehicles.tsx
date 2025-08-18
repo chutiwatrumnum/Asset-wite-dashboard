@@ -6,7 +6,9 @@ const accessRoleLst = ["master", "staff"];
 
 export const Route = createFileRoute("/_authenticated/vehicles")({
   beforeLoad: async () => {
-    if (!accessRoleLst.find((item) => item === Pb.authStore.record?.role)) {
+    const currentRole = Pb.getCurrentRole();
+
+    if (!accessRoleLst.includes(currentRole)) {
       throw redirect({ to: "/Forbidden", replace: true });
     }
   },

@@ -1,3 +1,3 @@
-import { useLoginMutation } from "./login";
+import { useExternalLoginMutation } from "./external-login";
 
-exports ={useLoginMutation}
+export { useExternalLoginMutation };
