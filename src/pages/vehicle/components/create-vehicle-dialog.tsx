@@ -1,4 +1,4 @@
-// src/pages/vehicle/components/create-vehicle-dialog.tsx - ลบ tier selection UI
+// src/pages/vehicle/components/create-vehicle-dialog.tsx - แก้ไขปัญหา vehicleData undefined
 "use client";
 
 import type React from "react";
@@ -37,7 +37,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-// ✅ ลบ tier ออกจาก form schema
+// Form schema
 const formSchema = z.object({
   license_plate: z
     .string()
@@ -119,15 +119,26 @@ export function CreateVehicleDrawer({
   }, [form, open]);
 
   const handleSubmit = async (values: FormSchema) => {
+    // ✅ ประกาศ vehicleData ที่นี่เพื่อให้ accessible ใน catch block
+    let vehicleData: newVehicleRequest | null = null;
+
     try {
       setIsLoading(true);
-      console.log("=== Create Vehicle ===");
+      console.log("=== Create Vehicle Form Submit ===");
+      console.log("Form values:", values);
 
+      // ตรวจสอบสถานะการล็อกอิน
       const currentUser = Pb.getCurrentUser();
       const isLoggedIn = Pb.isLoggedIn();
+      const isUsingVMS = Pb.isUsingVMS();
 
-      console.log("Current User:", currentUser?.email);
-      console.log("Is Logged In:", isLoggedIn);
+      console.log("Auth Status:", {
+        currentUser: currentUser?.email,
+        isLoggedIn,
+        isUsingVMS,
+        userRole: currentUser?.role,
+        houseId: currentUser?.house_id,
+      });
 
       if (!currentUser || !currentUser.id) {
         throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
@@ -137,9 +148,16 @@ export function CreateVehicleDrawer({
         throw new Error("เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่");
       }
 
-      const vehicleData: newVehicleRequest = {
+      // ตรวจสอบสิทธิ์ในการสร้างยานพาหนะ
+      const allowedRoles = ["master", "staff", "Project Super Admin"];
+      if (!allowedRoles.includes(currentUser.role)) {
+        throw new Error("คุณไม่มีสิทธิ์ในการสร้างยานพาหนะ");
+      }
+
+      // ✅ เตรียมข้อมูลสำหรับส่งไป API ภายใน try block
+      vehicleData = {
         license_plate: values.license_plate.trim().toUpperCase(),
-        tier: "guest", // ✅ ใช้ guest เป็น default (ไม่ต้องเลือกจาก UI)
+        tier: "guest", // ใช้ guest เป็น default
         area_code: values.area_code,
         house_id: currentUser.house_id || "",
         authorized_area: values.authorized_area || [],
@@ -152,10 +170,22 @@ export function CreateVehicleDrawer({
         note: values.note?.trim() || "",
       };
 
-      console.log("Creating vehicle:", vehicleData);
+      console.log("Vehicle data to create:", vehicleData);
+      console.log("API Mode:", isUsingVMS ? "VMS" : "PocketBase");
 
+      if (isUsingVMS) {
+        console.log("VMS Config:", Pb.getVMSConfig());
+
+        // ✅ เช็คว่า VMS config มีครบหรือไม่
+        const vmsConfig = Pb.getVMSConfig();
+        if (!vmsConfig?.vmsUrl || !vmsConfig?.vmsToken) {
+          throw new Error("VMS configuration is missing. Please login again.");
+        }
+      }
+
+      // เรียก API
       const result = await createVehicle(vehicleData);
-      console.log("Vehicle created:", result);
+      console.log("Vehicle created successfully:", result);
 
       toast.success("เพิ่มยานพาหนะสำเร็จแล้ว", {
         description: `เพิ่มยานพาหนะ ${values.license_plate} เรียบร้อยแล้ว`,
@@ -169,15 +199,109 @@ export function CreateVehicleDrawer({
     } catch (error) {
       console.error("Create vehicle failed:", error);
 
+      // ✅ ปรับปรุง error handling ให้ดีขึ้น
       let errorMessage = "เกิดข้อผิดพลาดในการเพิ่มยานพาหนะ";
+
       if (error instanceof Error) {
         errorMessage = error.message;
+
+        // ✅ จัดการ error messages เฉพาะ
+        if (error.message.includes("quota exceeded")) {
+          errorMessage = "ปริมาณการใช้งานเกินกำหนด กรุณาติดต่อผู้ดูแลระบบ";
+        } else if (
+          error.message.includes("401") ||
+          error.message.includes("unauthorized")
+        ) {
+          errorMessage = "ไม่ได้รับอนุญาตให้เข้าถึง กรุณาเข้าสู่ระบบใหม่";
+        } else if (
+          error.message.includes("403") ||
+          error.message.includes("forbidden")
+        ) {
+          errorMessage = "ไม่มีสิทธิ์ในการสร้างยานพาหนะ";
+        } else if (error.message.includes("500")) {
+          errorMessage = "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง";
+        }
+      } else if (error && typeof error === "object") {
+        // จัดการ error จาก API
+        if ("response" in error) {
+          const apiError = error as any;
+
+          if (apiError.response?.data?.message) {
+            errorMessage = apiError.response.data.message;
+          } else if (apiError.response?.data?.data) {
+            // จัดการ validation errors
+            const validationErrors = apiError.response.data.data;
+            const errorMessages = Object.entries(validationErrors)
+              .map(([field, error]: [string, any]) => {
+                const message = error.message || error.toString();
+                return `${field}: ${message}`;
+              })
+              .join(", ");
+            errorMessage = errorMessages;
+          } else if (apiError.response?.status) {
+            // จัดการ HTTP status codes
+            switch (apiError.response.status) {
+              case 400:
+                errorMessage =
+                  "ข้อมูลที่ส่งไม่ถูกต้อง กรุณาตรวจสอบข้อมูลอีกครั้ง";
+                break;
+              case 401:
+                errorMessage = "ไม่ได้รับอนุญาตให้เข้าถึง กรุณาเข้าสู่ระบบใหม่";
+                break;
+              case 403:
+                errorMessage = "ไม่มีสิทธิ์ในการสร้างยานพาหนะ";
+                break;
+              case 404:
+                errorMessage = "ไม่พบ API endpoint กรุณาติดต่อผู้ดูแลระบบ";
+                break;
+              case 429:
+                errorMessage = "มีการใช้งานมากเกินไป กรุณารอสักครู่แล้วลองใหม่";
+                break;
+              case 500:
+                errorMessage =
+                  "เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง";
+                break;
+              default:
+                errorMessage = `เกิดข้อผิดพลาด HTTP ${apiError.response.status}`;
+            }
+          }
+        } else if ("message" in error) {
+          errorMessage = (error as any).message;
+        }
       }
 
+      // แสดง toast error พร้อมรายละเอียดเพิ่มเติม
       toast.error("ไม่สามารถเพิ่มยานพาหนะได้", {
         description: errorMessage,
         duration: 8000,
       });
+
+      // ✅ เพิ่ม debug information สำหรับการแก้ไขปัญหา
+      console.group("🔍 Debug Information");
+      console.log("Error details:", error);
+      console.log("Current user:", Pb.getCurrentUser());
+      console.log("Auth status:", Pb.isLoggedIn());
+      console.log("VMS mode:", Pb.isUsingVMS());
+      console.log("Form values:", values);
+      console.log("Vehicle data:", vehicleData); // ✅ ตอนนี้ vehicleData จะไม่ undefined แล้ว
+
+      if (Pb.isUsingVMS()) {
+        console.log("VMS Config:", Pb.getVMSConfig());
+        console.log("VMS Token exists:", !!Pb.getVMSConfig()?.vmsToken);
+      }
+
+      console.groupEnd();
+
+      // ถ้าเป็น auth error ให้เปลี่ยนเส้นทางไปหน้า login
+      if (
+        errorMessage.includes("เข้าสู่ระบบ") ||
+        errorMessage.includes("401") ||
+        errorMessage.includes("unauthorized")
+      ) {
+        setTimeout(() => {
+          window.location.href = "/login";
+        }, 2000);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -213,13 +337,31 @@ export function CreateVehicleDrawer({
         showConfirmClose={true}
         onSubmit={form.handleSubmit(handleSubmit)}
         onCancel={handleCancel}
-        submitLabel="เพิ่มยานพาหนะ"
+        submitLabel={isLoading ? "กำลังเพิ่ม..." : "เพิ่มยานพาหนะ"}
         cancelLabel="ยกเลิก"
-        submitDisabled={!form.formState.isValid}
+        submitDisabled={isLoading || !form.formState.isValid}
         size="md">
         <Form {...form}>
           <div className="space-y-4">
-            {/* Basic Information - ✅ ลบ tier selection ออก */}
+            {/* ✅ แสดงข้อมูล debug ถ้าอยู่ใน development mode */}
+            {process.env.NODE_ENV === "development" && (
+              <div className="text-xs text-gray-500 p-2 bg-gray-50 rounded">
+                <div>Mode: {Pb.isUsingVMS() ? "VMS" : "PocketBase"}</div>
+                <div>User: {Pb.getCurrentUser()?.email}</div>
+                <div>Role: {Pb.getCurrentUser()?.role}</div>
+                <div>House ID: {Pb.getCurrentUser()?.house_id}</div>
+                {Pb.isUsingVMS() && (
+                  <>
+                    <div>VMS URL: {Pb.getVMSConfig()?.vmsUrl}</div>
+                    <div>
+                      VMS Token: {Pb.getVMSConfig()?.vmsToken ? "✅" : "❌"}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Basic Information */}
             <div className="space-y-4 border-b pb-4">
               <h3 className="text-sm font-medium text-gray-900">
                 ข้อมูลยานพาหนะ
@@ -241,6 +383,9 @@ export function CreateVehicleDrawer({
                         }
                       />
                     </FormControl>
+                    <FormDescription>
+                      ป้ายทะเบียนยานพาหนะ (จะถูกแปลงเป็นตัวพิมพ์ใหญ่อัตโนมัติ)
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -271,6 +416,7 @@ export function CreateVehicleDrawer({
                         )}
                       </SelectContent>
                     </Select>
+                    <FormDescription>จังหวัดที่ออกป้ายทะเบียน</FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -415,6 +561,9 @@ export function CreateVehicleDrawer({
                         disabled={isLoading}
                       />
                     </FormControl>
+                    <FormDescription>
+                      ข้อมูลเพิ่มเติมเกี่ยวกับยานพาหนะ
+                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}

@@ -1,4 +1,4 @@
-// src/api/enhanced-pocketbase.tsx - แก้ไขปัญหา encryptStorage import
+// src/api/enhanced-pocketbase.tsx - แก้ไขปัญหา export
 import PocketBase from "pocketbase";
 import { encryptStorage } from "@/utils/encryptStorage";
 
@@ -11,7 +11,6 @@ class EnhancedPocketBase extends PocketBase {
     this.checkAndRestoreVMSConfig();
   }
 
-  // ✅ แก้ไข checkAndRestoreVMSConfig ให้ใช้ encryptStorage อย่างปลอดภัย
   private checkAndRestoreVMSConfig() {
     try {
       const vmsConfig = encryptStorage.getItem("vmsConfig");
@@ -31,19 +30,16 @@ class EnhancedPocketBase extends PocketBase {
       }
     } catch (error) {
       console.error("Error restoring VMS config:", error);
-      // ถ้า error ให้ใช้ default mode
       this.switchToDefault();
     }
   }
 
-  // switchToVMS ให้ใช้ encryptStorage อย่างปลอดภัย
   public switchToVMS(vmsUrl: string, vmsToken: string, projectInfo: any) {
     try {
       this.baseUrl = vmsUrl;
       this.vmsConfig = { vmsUrl, vmsToken, projectInfo };
       this.isExternalMode = true;
 
-      // สร้าง mock user record สำหรับ authStore
       const mockUser = {
         id: `external-${projectInfo.myProjectId}`,
         email: `${projectInfo.roleName}@${projectInfo.projectName}.vms`,
@@ -62,10 +58,8 @@ class EnhancedPocketBase extends PocketBase {
         authorized_area: [],
       };
 
-      // ใช้ save() แทนการตั้งค่าโดยตรง
       this.authStore.save(vmsToken, mockUser);
 
-      // ตั้งค่า beforeSend สำหรับ VMS
       this.beforeSend = (url, options) => {
         if (this.isExternalMode && vmsToken) {
           options.headers = options.headers || {};
@@ -74,7 +68,6 @@ class EnhancedPocketBase extends PocketBase {
         return { url, options };
       };
 
-      // ✅ ใช้ encryptStorage อย่างปลอดภัย
       try {
         encryptStorage.setItem("vmsConfig", { vmsUrl, vmsToken, projectInfo });
       } catch (storageError) {
@@ -85,27 +78,20 @@ class EnhancedPocketBase extends PocketBase {
       }
 
       console.log("✅ Switched to VMS mode:", vmsUrl);
-      console.log("✅ Mock user saved to authStore:", mockUser);
-      console.log("✅ AuthStore isValid:", this.authStore.isValid);
     } catch (error) {
       console.error("Error switching to VMS:", error);
       throw error;
     }
   }
 
-  // กลับ default mode
   public switchToDefault() {
     try {
       this.baseUrl = import.meta.env.VITE_POCKETBASE_URL;
       this.vmsConfig = null;
       this.isExternalMode = false;
-
-      // ล้าง beforeSend callback
       this.beforeSend = undefined;
-
       this.authStore.clear();
 
-      // ✅ ใช้ encryptStorage อย่างปลอดภัย
       try {
         encryptStorage.removeItem("vmsConfig");
       } catch (storageError) {
@@ -121,7 +107,6 @@ class EnhancedPocketBase extends PocketBase {
     }
   }
 
-  // Helper methods
   public isUsingVMS(): boolean {
     return this.isExternalMode;
   }
@@ -134,15 +119,12 @@ class EnhancedPocketBase extends PocketBase {
     return this.vmsConfig?.projectInfo || null;
   }
 
-  // ✅ ปรับปรุง getCurrentUser ให้ใช้ fallback ที่ปลอดภัย
   public getCurrentUser() {
     if (this.isExternalMode) {
-      // ใช้ข้อมูลจาก authStore ที่เราสร้างไว้
       if (this.authStore.record) {
         return this.authStore.record;
       }
 
-      // Fallback: ดึงจาก storage อย่างปลอดภัย
       try {
         const externalAuth = encryptStorage.getItem("externalAuth");
         const userRecord = encryptStorage.getItem("user");
@@ -167,7 +149,6 @@ class EnhancedPocketBase extends PocketBase {
           storageError
         );
 
-        // Ultimate fallback
         return {
           id: `external-${this.vmsConfig?.projectInfo?.myProjectId || "unknown"}`,
           email: this.vmsConfig?.projectInfo?.roleName + "@external.vms" || "",
@@ -179,12 +160,10 @@ class EnhancedPocketBase extends PocketBase {
         };
       }
     } else {
-      // PocketBase user ปกติ
       return this.authStore.record;
     }
   }
 
-  // getCurrentRole
   public getCurrentRole(): string {
     if (this.isExternalMode) {
       const role =
@@ -201,7 +180,6 @@ class EnhancedPocketBase extends PocketBase {
     }
   }
 
-  // isLoggedIn
   public isLoggedIn(): boolean {
     if (this.isExternalMode) {
       const isLogged = localStorage.getItem("isLogged") === "true";
@@ -224,11 +202,12 @@ class EnhancedPocketBase extends PocketBase {
     }
   }
 
-  // ✅ Override request method แทนการ override collection
   protected async request(url: string, options: any = {}) {
     if (this.isExternalMode && this.vmsConfig?.vmsToken) {
       options.headers = options.headers || {};
       options.headers["Authorization"] = this.vmsConfig.vmsToken;
+      options.headers["Content-Type"] =
+        options.headers["Content-Type"] || "application/json";
 
       console.log("🔗 VMS Request:", {
         url: `${this.baseUrl}${url}`,
@@ -236,19 +215,55 @@ class EnhancedPocketBase extends PocketBase {
         hasAuth: !!options.headers["Authorization"],
         headers: options.headers,
       });
-    }
 
-    try {
-      const result = await super.request(url, options);
-      console.log("✅ Request successful");
-      return result;
-    } catch (error) {
-      console.error("❌ Request failed:", error);
-      throw error;
+      try {
+        const fullUrl = url.startsWith("http") ? url : `${this.baseUrl}${url}`;
+        const response = await fetch(fullUrl, {
+          method: options.method || "GET",
+          headers: options.headers,
+          body: options.body
+            ? typeof options.body === "string"
+              ? options.body
+              : JSON.stringify(options.body)
+            : undefined,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData.message ||
+              `HTTP ${response.status}: ${response.statusText}`
+          );
+        }
+
+        const result = await response.json();
+        console.log("✅ VMS Request successful");
+        return result;
+      } catch (error) {
+        console.error("❌ VMS Request failed:", error);
+        throw error;
+      }
+    } else {
+      try {
+        const result = await super.request(url, options);
+        console.log("✅ PocketBase Request successful");
+        return result;
+      } catch (error) {
+        console.error("❌ PocketBase Request failed:", error);
+        throw error;
+      }
     }
   }
 
-  // เพิ่ม method สำหรับ debug
+  public collection(idOrName: string) {
+    if (this.isExternalMode) {
+      console.log("Creating VMS collection wrapper for:", idOrName);
+      return new VMSCollectionWrapper(this, idOrName);
+    } else {
+      return super.collection(idOrName);
+    }
+  }
+
   public debugAuth() {
     console.log("=== Enhanced Auth Debug Info ===");
     console.log("Is External Mode:", this.isExternalMode);
@@ -273,7 +288,111 @@ class EnhancedPocketBase extends PocketBase {
   }
 }
 
-// Export instance เดียวให้ทั้งระบบใช้
+class VMSCollectionWrapper {
+  private pb: EnhancedPocketBase;
+  private collectionName: string;
+
+  constructor(pb: EnhancedPocketBase, collectionName: string) {
+    this.pb = pb;
+    this.collectionName = collectionName;
+  }
+
+  async create(data: any) {
+    console.log(
+      `Creating record in VMS collection: ${this.collectionName}`,
+      data
+    );
+
+    const url = `/api/collections/${this.collectionName}/records`;
+    return await this.pb.request(url, {
+      method: "POST",
+      body: data,
+    });
+  }
+
+  async getList(page = 1, perPage = 30, options: any = {}) {
+    console.log(`Getting list from VMS collection: ${this.collectionName}`, {
+      page,
+      perPage,
+      options,
+    });
+
+    const params = new URLSearchParams({
+      page: page.toString(),
+      perPage: perPage.toString(),
+    });
+
+    if (options.sort) params.append("sort", options.sort);
+    if (options.filter) params.append("filter", options.filter);
+    if (options.expand) params.append("expand", options.expand);
+    if (options.requestKey) params.append("requestKey", options.requestKey);
+
+    const url = `/api/collections/${this.collectionName}/records?${params}`;
+    return await this.pb.request(url);
+  }
+
+  async getFullList(options: any = {}) {
+    console.log(
+      `Getting full list from VMS collection: ${this.collectionName}`,
+      options
+    );
+
+    const params = new URLSearchParams({
+      perPage: "500",
+    });
+
+    if (options.sort) params.append("sort", options.sort);
+    if (options.filter) params.append("filter", options.filter);
+    if (options.expand) params.append("expand", options.expand);
+    if (options.requestKey) params.append("requestKey", options.requestKey);
+
+    const url = `/api/collections/${this.collectionName}/records?${params}`;
+    const result = await this.pb.request(url);
+
+    return result.items || [];
+  }
+
+  async getOne(id: string, options: any = {}) {
+    console.log(
+      `Getting one record from VMS collection: ${this.collectionName}`,
+      { id, options }
+    );
+
+    const params = new URLSearchParams();
+    if (options.expand) params.append("expand", options.expand);
+
+    const url = `/api/collections/${this.collectionName}/records/${id}${params.toString() ? `?${params}` : ""}`;
+    return await this.pb.request(url);
+  }
+
+  async update(id: string, data: any) {
+    console.log(`Updating record in VMS collection: ${this.collectionName}`, {
+      id,
+      data,
+    });
+
+    const url = `/api/collections/${this.collectionName}/records/${id}`;
+    return await this.pb.request(url, {
+      method: "PATCH",
+      body: data,
+    });
+  }
+
+  async delete(id: string) {
+    console.log(`Deleting record from VMS collection: ${this.collectionName}`, {
+      id,
+    });
+
+    const url = `/api/collections/${this.collectionName}/records/${id}`;
+    return await this.pb.request(url, {
+      method: "DELETE",
+    });
+  }
+}
+
+// สร้าง instance และ export
 const Pb = new EnhancedPocketBase(import.meta.env.VITE_POCKETBASE_URL);
 
+// Export both named and default
+export { EnhancedPocketBase, VMSCollectionWrapper };
 export default Pb;

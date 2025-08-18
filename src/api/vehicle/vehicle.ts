@@ -1,10 +1,10 @@
-// src/api/vehicle/vehicle.ts - แก้ไขปัญหา export functions ให้ครบ
+// src/api/vehicle/vehicle.ts - แก้ไขให้รองรับทั้ง VMS และ PocketBase
 import { VEHICLE_TIERS } from "@/utils/vehicleUtils";
 import Pb from "../pocketbase";
 
 const collectionName = "vehicle";
 
-// Types (เหมือนเดิม)
+// Types
 export interface newVehicleRequest {
   id?: string;
   license_plate: string;
@@ -18,6 +18,18 @@ export interface newVehicleRequest {
   authorized_area?: string[];
   stamper?: string;
   stamped_time?: string;
+  note?: string;
+}
+
+// เพิ่ม interface สำหรับ VMS
+export interface VMSVehicleRequest {
+  license_plate: string;
+  area_code: string;
+  tier: string;
+  house_id: string;
+  authorized_area?: string[];
+  start_time?: string;
+  expire_time?: string;
   note?: string;
 }
 
@@ -63,7 +75,7 @@ export interface vehicleResponse {
   totalPages: number;
 }
 
-// Utility functions
+// ✅ Utility functions
 const validateVehicleData = (data: newVehicleRequest): void => {
   if (!data.license_plate?.trim()) {
     throw new Error("ป้ายทะเบียนเป็นข้อมูลที่จำเป็น");
@@ -138,26 +150,183 @@ const prepareVehicleData = (data: newVehicleRequest): Record<string, any> => {
   return preparedData;
 };
 
-// API Functions
-const getVehicle = async (request: vehicleRequest): Promise<vehicleResponse> => {
+// ✅ แก้ไข createVehicle เพื่อรองรับทั้ง VMS และ PocketBase
+const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<vehicleItem> => {
   try {
-    const vehicleList = await Pb.collection(collectionName).getList<vehicleItem>(
-      request.page || 1,
-      request.perPage || 10,
-      {
-        filter: request.filter || "",
-        sort: request.sort || "-created",
-        expand: "house_id,invitation,authorized_area,issuer,stamper",
-      }
-    );
-    return vehicleList;
+    console.log("=== Creating Vehicle ===");
+    console.log("Input data:", newVehicleReq);
+    console.log("Is using VMS:", Pb.isUsingVMS());
+
+    const currentUser = Pb.getCurrentUser();
+    console.log("Current user:", currentUser);
+
+    if (!currentUser?.id) {
+      throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
+    }
+
+    // ตรวจสอบว่าใช้ VMS หรือ PocketBase
+    if (Pb.isUsingVMS()) {
+      console.log("Using VMS API for vehicle creation");
+      return await createVehicleVMS(newVehicleReq, currentUser);
+    } else {
+      console.log("Using PocketBase API for vehicle creation");
+      return await createVehiclePocketBase(newVehicleReq, currentUser);
+    }
   } catch (error) {
-    console.error("Error fetching vehicle list:", error);
+    console.error("Create vehicle error:", error);
     throw error;
   }
 };
 
+// ✅ ฟังก์ชันสร้างยานพาหนะผ่าน VMS
+const createVehicleVMS = async (
+  data: newVehicleRequest,
+  currentUser: any
+): Promise<vehicleItem> => {
+  try {
+    const vmsConfig = Pb.getVMSConfig();
+    if (!vmsConfig?.vmsUrl || !vmsConfig?.vmsToken) {
+      throw new Error("VMS configuration not found");
+    }
+
+    // เตรียมข้อมูลสำหรับ VMS
+    const vmsData: VMSVehicleRequest = {
+      license_plate: data.license_plate.trim().toUpperCase(),
+      area_code: data.area_code,
+      tier: data.tier || "guest",
+      house_id: data.house_id || currentUser.house_id || "",
+      authorized_area: data.authorized_area || [],
+      start_time: data.start_time || undefined,
+      expire_time: data.expire_time || undefined,
+      note: data.note?.trim() || "",
+    };
+
+    console.log("VMS request data:", vmsData);
+
+    // เรียก VMS API
+    const response = await fetch(`${vmsConfig.vmsUrl}/api/collections/vehicle/records`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': vmsConfig.vmsToken,
+      },
+      body: JSON.stringify(vmsData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      console.error("VMS API Error:", errorData);
+
+      if (response.status === 400 && errorData?.message) {
+        throw new Error(errorData.message);
+      } else if (response.status === 401) {
+        throw new Error("ไม่ได้รับอนุญาตให้เข้าถึง กรุณาเข้าสู่ระบบใหม่");
+      } else if (response.status === 403) {
+        throw new Error("ไม่มีสิทธิ์ในการสร้างยานพาหนะ");
+      } else {
+        throw new Error(`VMS API Error: ${response.status} ${response.statusText}`);
+      }
+    }
+
+    const result = await response.json();
+    console.log("VMS vehicle created successfully:", result);
+
+    // แปลง response เป็นรูปแบบที่ frontend ต้องการ
+    return {
+      ...result,
+      collectionId: result.collectionId || "vms_collection",
+      collectionName: result.collectionName || "vehicle",
+      issuer: currentUser.id,
+      stamper: currentUser.id,
+      stamped_time: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("VMS vehicle creation error:", error);
+    throw error;
+  }
+};
+
+// ✅ ฟังก์ชันสร้างยานพาหนะผ่าน PocketBase (เดิม)
+const createVehiclePocketBase = async (
+  data: newVehicleRequest,
+  currentUser: any
+): Promise<vehicleItem> => {
+  try {
+    const preparedData = {
+      license_plate: data.license_plate.trim().toUpperCase(),
+      tier: data.tier || "guest",
+      area_code: data.area_code,
+      house_id: data.house_id || currentUser.house_id || "",
+      authorized_area: data.authorized_area || [],
+      start_time: data.start_time || "",
+      expire_time: data.expire_time || "",
+      invitation: data.invitation || "",
+      stamper: currentUser.id,
+      stamped_time: data.stamped_time || new Date().toISOString(),
+      issuer: currentUser.id,
+      note: data.note?.trim() || "",
+    };
+
+    console.log("PocketBase prepared data:", preparedData);
+
+    const result = await Pb.collection(collectionName).create<vehicleItem>(preparedData);
+    console.log("PocketBase vehicle created successfully:", result);
+
+    return result;
+  } catch (error) {
+    console.error("PocketBase vehicle creation error:", error);
+    throw error;
+  }
+};
+
+// ✅ แก้ไข getAllVehicle เพื่อรองรับทั้ง VMS และ PocketBase
 const getAllVehicle = async (): Promise<vehicleItem[]> => {
+  try {
+    if (Pb.isUsingVMS()) {
+      console.log("Fetching vehicles from VMS");
+      return await getAllVehicleVMS();
+    } else {
+      console.log("Fetching vehicles from PocketBase");
+      return await getAllVehiclePocketBase();
+    }
+  } catch (error) {
+    console.error("Error fetching all vehicles:", error);
+    throw error;
+  }
+};
+
+// ✅ ฟังก์ชันดึงยานพาหนะจาก VMS
+const getAllVehicleVMS = async (): Promise<vehicleItem[]> => {
+  try {
+    const vmsConfig = Pb.getVMSConfig();
+    if (!vmsConfig?.vmsUrl || !vmsConfig?.vmsToken) {
+      throw new Error("VMS configuration not found");
+    }
+
+    const response = await fetch(`${vmsConfig.vmsUrl}/api/collections/vehicle/records?perPage=500&sort=-created&expand=house_id,authorized_area,issuer,stamper`, {
+      method: 'GET',
+      headers: {
+        'Authorization': vmsConfig.vmsToken,
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`VMS API Error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log("VMS vehicles fetched:", data);
+
+    return data.items || [];
+  } catch (error) {
+    console.error("VMS get vehicles error:", error);
+    throw error;
+  }
+};
+
+// ✅ ฟังก์ชันดึงยานพาหนะจาก PocketBase (เดิม)
+const getAllVehiclePocketBase = async (): Promise<vehicleItem[]> => {
   try {
     const vehicleList = await Pb.collection(collectionName).getFullList<vehicleItem>({
       sort: "-created",
@@ -166,7 +335,9 @@ const getAllVehicle = async (): Promise<vehicleItem[]> => {
     });
     return vehicleList;
   } catch (error) {
-    console.error("Error fetching all vehicles:", error);
+    console.error("Error fetching all vehicles from PocketBase:", error);
+
+    // ตรวจสอบว่าเป็น auto-cancellation หรือไม่
     if (error && typeof error === 'object' && 'message' in error) {
       const errorMessage = (error as Error).message;
       if (errorMessage.includes('autocancelled') || errorMessage.includes('aborted')) {
@@ -182,6 +353,66 @@ const getAllVehicle = async (): Promise<vehicleItem[]> => {
   }
 };
 
+// ✅ แก้ไขฟังก์ชันอื่นๆ ให้รองรับทั้ง VMS และ PocketBase
+const getVehicle = async (request: vehicleRequest): Promise<vehicleResponse> => {
+  try {
+    if (Pb.isUsingVMS()) {
+      return await getVehicleVMS(request);
+    } else {
+      return await getVehiclePocketBase(request);
+    }
+  } catch (error) {
+    console.error("Error fetching vehicle list:", error);
+    throw error;
+  }
+};
+
+const getVehicleVMS = async (request: vehicleRequest): Promise<vehicleResponse> => {
+  const vmsConfig = Pb.getVMSConfig();
+  if (!vmsConfig?.vmsUrl || !vmsConfig?.vmsToken) {
+    throw new Error("VMS configuration not found");
+  }
+
+  const params = new URLSearchParams({
+    page: (request.page || 1).toString(),
+    perPage: (request.perPage || 10).toString(),
+    sort: request.sort || "-created",
+    expand: "house_id,invitation,authorized_area,issuer,stamper",
+  });
+
+  if (request.filter) {
+    params.append('filter', request.filter);
+  }
+
+  const response = await fetch(`${vmsConfig.vmsUrl}/api/collections/vehicle/records?${params}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': vmsConfig.vmsToken,
+      'Accept': 'application/json',
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`VMS API Error: ${response.status} ${response.statusText}`);
+  }
+
+  return await response.json();
+};
+
+const getVehiclePocketBase = async (request: vehicleRequest): Promise<vehicleResponse> => {
+  const vehicleList = await Pb.collection(collectionName).getList<vehicleItem>(
+    request.page || 1,
+    request.perPage || 10,
+    {
+      filter: request.filter || "",
+      sort: request.sort || "-created",
+      expand: "house_id,invitation,authorized_area,issuer,stamper",
+    }
+  );
+  return vehicleList;
+};
+
+// ✅ ฟังก์ชันอื่นๆ (ส่วนใหญ่ยังใช้ PocketBase ได้)
 const getVehicleById = async (id: string): Promise<vehicleItem> => {
   try {
     const vehicle = await Pb.collection(collectionName).getOne<vehicleItem>(id, {
@@ -343,63 +574,6 @@ const getExpiringVehicles = async (withinDays: number = 7): Promise<vehicleItem[
         });
       }
     }
-    throw error;
-  }
-};
-
-const createVehicle = async (newVehicleReq: newVehicleRequest): Promise<vehicleItem> => {
-  try {
-    console.log("Creating vehicle with request:", newVehicleReq);
-
-    const currentUser = Pb.getCurrentUser();
-    if (!currentUser?.id) {
-      throw new Error("ไม่สามารถระบุผู้ใช้ปัจจุบันได้ กรุณาเข้าสู่ระบบใหม่");
-    }
-
-    console.log("Current User for Vehicle Creation:", currentUser);
-    console.log("Auth Status:", Pb.isLoggedIn());
-
-    const data = prepareVehicleData(newVehicleReq);
-
-    console.log("Final data to be sent:", data);
-
-    if (Pb.isUsingVMS()) {
-      console.log("Using VMS mode for vehicle creation");
-      console.log("VMS Config:", Pb.getVMSConfig());
-    }
-
-    try {
-      const result = await Pb.collection(collectionName).create<vehicleItem>(data);
-      console.log("Vehicle created successfully:", result);
-      return result;
-    } catch (apiError: any) {
-      console.error("API Error details:", apiError);
-
-      if (apiError.response?.data) {
-        const errorData = apiError.response.data;
-        console.log("PocketBase Error Response:", errorData);
-
-        if (errorData.message) {
-          throw new Error(errorData.message);
-        }
-
-        if (errorData.data) {
-          const fieldErrors = Object.entries(errorData.data).map(([field, error]) => {
-            return `${field}: ${error}`;
-          }).join(", ");
-          throw new Error(`ข้อมูลไม่ถูกต้อง - ${fieldErrors}`);
-        }
-      }
-
-      if (apiError.message) {
-        throw new Error(`เกิดข้อผิดพลาดในการสร้างยานพาหนะ: ${apiError.message}`);
-      }
-
-      throw new Error("เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ");
-    }
-
-  } catch (error) {
-    console.error("Error creating vehicle:", error);
     throw error;
   }
 };
